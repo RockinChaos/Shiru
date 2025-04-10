@@ -105,7 +105,7 @@
         <div class='px-20 py-10 d-flex align-items-center'>
           {#if Helper.getUser()}
             <span class='rounded mr-10'>
-              <img src={Helper.getUserAvatar()} class='h-30 rounded' alt='logo' />
+              <img src={Helper.getUserAvatar()} class='h-30 w-30 rounded' alt='logo' />
             </span>
             <div class='font-size-16 login-image-text'>Profiles</div>
           {:else}

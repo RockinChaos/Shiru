@@ -24,7 +24,7 @@
   <span class='text-nowrap d-flex align-items-center w-full h-full'>
     {#if image}
       <span class='rounded d-flex'>
-        <img src={image} class='h-30 rounded' style='height: {btnSize} !important; width: {btnSize} !important' alt='logo' />
+        <img src={image} class='h-30 w-30 rounded' style='height: {btnSize} !important; width: {btnSize} !important' alt='logo' />
       </span>
       <span class='text ml-20' class:font-weight-bolder={overlay === 'profile'} class:font-size-16={overlay === 'profile'}>{text}</span>
     {:else}

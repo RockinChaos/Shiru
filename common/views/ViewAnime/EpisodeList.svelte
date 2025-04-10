@@ -2,8 +2,12 @@
   import { animeSchedule } from '@/modules/animeschedule.js'
   import { malDubs } from '@/modules/animedubs.js'
   import { past } from '@/modules/util.js'
+  import { settings } from '@/modules/settings.js'
+  import { Mic, Captions } from 'lucide-svelte'
 
   async function dubbedEpisode(i, media) {
+    if (!settings.value.cardAudio) return
+
     const episode = i + 1
     const entry = (await animeSchedule.dubAiringLists.value)?.find(entry => entry.media?.media?.id === media.id)
     const episodeEntry = (await animeSchedule.dubAiredLists.value)?.find(entry => entry?.id === media.id && entry?.episode?.aired === episode)
@@ -265,7 +269,7 @@
                 </div>
               {/if}
               <div class='h-full w-full px-20 pt-15 d-flex flex-column'>
-                <div class='w-full d-flex flex-row mb-15'>
+                <div class='w-full d-flex flex-row mb-5'>
                   <div class='text-white font-weight-bold font-size-16 overflow-hidden title'>
                     {#if resolvedTitle && !resolvedTitle.includes(episode)}{episode}. {/if}{resolvedTitle || 'Episode ' + episode}
                   </div>
@@ -276,26 +280,28 @@
                   {/if}
                 </div>
                 {#if completed}
-                  <div class='progress mb-15' style='height: 2px; min-height: 2px;'>
+                  <div class='progress mb-5' style='height: 2px; min-height: 2px;'>
                     <div class='progress-bar w-full'/>
                   </div>
                 {:else if progress}
-                  <div class='progress mb-15' style='height: 2px; min-height: 2px;'>
+                  <div class='progress mb-5' style='height: 2px; min-height: 2px;'>
                     <div class='progress-bar' style='width: {progress}%'/>
                   </div>
                 {/if}
                 <div class='font-size-12 overflow-hidden'>
                   {summary || ''}
                 </div>
-                <div class='font-size-12 mt-auto' class:pt-10={dubAiring} class:pt-15={!dubAiring} class:mb-5={dubAiring} class:mb-10={!dubAiring}>
+                <div class='font-size-12 mt-auto mb-5 pt-10'>
                   {#if dubAiring}
-                    <div class='d-flex flex-row date-row'>
-                      <div class='py-5 px-10 text-dark text-nowrap rounded-top rounded-left font-weight-bold' class:bg-danger={dubAiring.delayed} class:bg-dubbed={!dubAiring.delayed}>
-                        Dub: {dubAiring.text}
+                    <div class='d-flex flex-row flex-wrap justify-content-start gap-2'>
+                      <div class='py-1 px-5 h-20 text-dark text-nowrap rounded font-weight-bold align-items-center d-inline-flex align-self-center' class:bg-danger={dubAiring.delayed} class:bg-dubbed={!dubAiring.delayed}>
+                        <Mic size='1.8rem' strokeWidth='2' />
+                        <span class='ml-4'>{dubAiring.text}</span>
                       </div>
                       {#if airdate || dubAiring.delayed}
-                        <div class='ml-5 py-5 px-10 text-dark text-nowrap rounded-top rounded-left font-weight-bold' class:bg-danger={!airdate && dubAiring.delayed} class:bg-subbed={!(!airdate && dubAiring.delayed)}>
-                          Sub: {airdate ? since(new Date(airdate)) : dubAiring.text}
+                        <div class='py-1 px-5 h-20 text-dark text-nowrap rounded font-weight-bold align-items-center d-inline-flex align-self-center' class:bg-danger={!airdate && dubAiring.delayed} class:bg-subbed={!(!airdate && dubAiring.delayed)}>
+                          <Captions size='2rem' strokeWidth='1.5' />
+                          <span class='ml-2'>{airdate ? since(new Date(airdate)) : dubAiring.text}</span>
                         </div>
                       {/if}
                     </div>
@@ -343,9 +349,6 @@
     }
     .scale {
       height: auto !important;
-    }
-    .date-row {
-      justify-content: center !important;
     }
     img {
       width: 100%;
