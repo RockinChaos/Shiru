@@ -1,4 +1,4 @@
-import { cache, caches, mediaCache } from '@/modules/cache.js'
+import { cache, caches } from '@/modules/cache.js'
 import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
 import { writable } from 'simple-store-svelte'
 
@@ -100,7 +100,7 @@ export function getHash(mediaId, data, ignoreCached = false, ignoreExpiry = fals
   }
 
   const foundHashes = []
-  const cacheDuration = mediaCache.value?.[mediaId]?.status === 'FINISHED' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+  const cacheDuration = cache.getMedia(mediaId)?.status === 'FINISHED' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
   const filtered = ignoreCached ? hashes.value : hashes.value.filter(item => availableHashes.has(item.hash) || (item.files?.length && item.files.some(file => availableHashes.has(file.fileHash))))
   for (const item of filtered) {
     let matchFound = false
@@ -124,10 +124,10 @@ export function getHash(mediaId, data, ignoreCached = false, ignoreExpiry = fals
 export function getId(hash, data, ignoreExpiry = false) {
     const item = hashes.value.find(entry => entry.hash === hash || entry.files?.some(file => file.fileHash === hash))
     if (!item) return null
-    if (!data.fileHash && (ignoreExpiry || item.locked || (item.updatedAt >= Date.now() - (mediaCache.value?.[item.mediaId]?.status === 'FINISHED' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)))) return item // No fileHash: use top-level match
+    if (!data.fileHash && (ignoreExpiry || item.locked || (item.updatedAt >= Date.now() - (cache.getMedia(item.mediaId)?.status === 'FINISHED' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)))) return item // No fileHash: use top-level match
     else if (Array.isArray(item.files)) { // fileHash exists: try to find matching file
         const file = item.files.find(file => file.fileHash === data.fileHash)
-        if (file && (ignoreExpiry || file.locked || (file.updatedAt >= Date.now() - (mediaCache.value?.[file.mediaId]?.status === 'FINISHED' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)))) return file
+        if (file && (ignoreExpiry || file.locked || (file.updatedAt >= Date.now() - (cache.getMedia(file.mediaId)?.status === 'FINISHED' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)))) return file
     }
     return null
 }

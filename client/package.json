@@ -1,0 +1,11 @@
+{
+  "name": "client",
+  "private": true,
+  "dependencies": {
+    "bittorrent-tracker": "^11.2.2",
+    "matroska-metadata": "^1.0.8",
+    "parse-torrent": "^11.0.19",
+    "uint8-util": "^2.2.5",
+    "webtorrent": "^2.8.5"
+  }
+}

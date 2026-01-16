@@ -13,7 +13,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('ready', createWindow)
 
   app.on('activate', () => {
-    if (main === null) createWindow()
+    if (main == null) createWindow()
     else main.showAndFocus()
   })
 }

@@ -36,7 +36,7 @@ export default class Discord {
   constructor (window) {
     ipcMain.on('discord', (event, data) => {
       this.cachedPresence = data
-      this.debouncedDiscordRPC(this.enableRPC === 'full' ? this.cachedPresence : undefined)
+      this.debouncedDiscordRPC(this.enableRPC === 'full' ? this.cachedPresence : undefined, this.enableRPC === 'disabled')
     })
 
     ipcMain.on('discord-rpc', (event, data) => {
@@ -63,7 +63,7 @@ export default class Discord {
     this.discord.on('disconnected', () => { if (this.enableRPC !== 'disabled') this.loginRPC() })
 
     this.discord.on('ACTIVITY_JOIN', ({ secret }) => window.webContents.send('w2glink', secret))
-    this.debouncedDiscordRPC = debounce((status, clearActivity) => this.setDiscordRPC(status, clearActivity), 4500)
+    this.debouncedDiscordRPC = debounce((status, clearActivity) => this.setDiscordRPC(status, clearActivity), 4_500)
   }
 
   loginRPC () {

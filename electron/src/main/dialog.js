@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from 'electron'
-import { writeFile } from 'fs'
+import { writeFile } from 'fs/promises'
 
 export default class Dialog {
   constructor () {

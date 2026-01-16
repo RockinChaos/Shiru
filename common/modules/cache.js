@@ -71,19 +71,24 @@ function open(dbName) {
  * @returns {Promise<Array>} - A promise that resolves to an array of all stored values.
  */
 async function loadAll(userID, cache) {
-  const database = await open(userID)
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(cache.key, 'readonly')
-    const objectStore = transaction.objectStore(cache.key)
-    const request = objectStore.getAll()
-    request.onerror = (event) => reject(event.target.error)
-    request.onsuccess = (event) => {
-      resolve(event.target.result.reduce((acc, item) => {
-        acc[item.key] = item.value
-        return acc
-      }, {}))
-    }
-  })
+  try {
+    const database = await open(userID)
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(cache.key, 'readonly')
+      const objectStore = transaction.objectStore(cache.key)
+      const request = objectStore.getAll()
+      request.onerror = (event) => reject(event.target.error)
+      request.onsuccess = (event) => {
+        resolve(event.target.result.reduce((acc, item) => {
+          acc[item.key] = item.value
+          return acc
+        }, {}))
+      }
+    })
+  } catch (error) {
+    console.error(`Failed to load cache ${cache.key} for user ${userID}:`, error)
+    throw error
+  }
 }
 
 /**
@@ -190,6 +195,51 @@ async function putMany(userID, cache, entries) {
 }
 
 /**
+ * Attempts to recover individual entries from a corrupted cache store.
+ * Iterates through all keys and tries to read each one individually, collecting successful reads and logging failures.
+ *
+ * @param {string} userID - The unique ID of the user (database name).
+ * @param {keyof typeof caches} cache - The cache to recover from.
+ * @returns {Promise<Object>} An object containing successfully recovered key-value pairs.
+ */
+async function recoverCache(userID, cache) {
+  const recovered = {}
+  let corruptedKeys = []
+  try {
+    const database = await open(userID)
+    const transaction = database.transaction(cache.key, 'readonly')
+    const objectStore = transaction.objectStore(cache.key)
+    const keysRequest = objectStore.getAllKeys()
+    const keys = await new Promise((resolve, reject) => {
+      keysRequest.onsuccess = () => resolve(keysRequest.result)
+      keysRequest.onerror = () => reject(keysRequest.error)
+    })
+    console.error(`Found ${keys.length} keys in ${cache.key}, attempting individual recovery...`)
+    for (const key of keys) {
+      try {
+        recovered[key] = await new Promise((resolve, reject) => {
+          const getRequest = objectStore.get(key)
+          getRequest.onsuccess = () => {
+            if (getRequest.result && getRequest.result.value !== undefined) resolve(getRequest.result.value)
+            else reject(new Error('Empty or malformed entry'))
+          }
+          getRequest.onerror = () => reject(getRequest.error)
+        })
+        console.error(`Recovered ${cache.key}:${key}`)
+      } catch (error) {
+        corruptedKeys.push(key)
+        console.error(`Failed to recover ${cache.key}:${key}:`, error.message)
+      }
+    }
+    if (corruptedKeys.length > 0) console.error(`Recovered ${Object.keys(recovered).length}/${keys.length} entries from ${cache.key}. Corrupted keys:`, corruptedKeys)
+    else console.error(`Successfully recovered all ${Object.keys(recovered).length} entries from ${cache.key}`)
+  } catch (error) {
+    console.error(`Could not access ${cache.key} for recovery:`, error)
+  }
+  return recovered
+}
+
+/**
  * Retrieves (or creates) a batch writer for the given user.
  *
  * @param {string} userID - The unique ID of the user (database name).
@@ -254,18 +304,16 @@ function createBatchWriter(userID, firstFlushDelay = 10_000, subsequentFlushDela
     if (pending.size === 0) return
     const snapshot = Array.from(pending.entries())
     pending.clear()
-    try {
-      const database = await open(userID)
-      const transaction = database.transaction(snapshot.map(([cacheKey]) => cacheKey), 'readwrite')
-      for (const [cacheKey, kvMap] of snapshot) {
+    const database = await open(userID)
+    for (const [cacheKey, kvMap] of snapshot) {
+      try {
+        const transaction = database.transaction(cacheKey, 'readwrite')
         const store = transaction.objectStore(cacheKey)
         for (const [key, value] of kvMap.entries()) store.put({ key, value })
-      }
-      await waitForTransaction(transaction)
-      debug(`Batched ${snapshot.reduce((n, [, m]) => n + m.size, 0)} total write(s) across ${snapshot.length} cache(s) — ${snapshot.map(([cacheKey, m]) => `${cacheKey}: ${m.size} write(s)`).join(', ')}`)
-    } catch (error) {
-      debug(`Failed to write batch to cache, data will be enqueued again...`, error)
-      for (const [cacheKey, kvMap] of snapshot) {
+        await waitForTransaction(transaction)
+        debug(`Flushed ${kvMap.size} entries to ${cacheKey}`)
+      } catch (error) {
+        debug(`Failed to flush ${cacheKey}, will retry`, error)
         for (const [k, v] of kvMap) {
           const mapKey = `${cacheKey}:${k}`
           const attempts = retryMap.get(mapKey) || 0
@@ -340,6 +388,8 @@ class Cache {
   #pending = new Map()
   /** @type {import('svelte/store').Writable<string>} */
   status
+  /** @type {AnilistClient} */
+  anilistClient
 
   isReady
   subscribers = []
@@ -376,7 +426,33 @@ class Cache {
      *
      * @type {Map<string, Object>} - cacheKey -> { key: value }
      */
-    const cacheMap = new Map(await Promise.all(cacheTypes.map(async ({ key }) => [key.key, await loadAll(this.cacheID, key)])))
+    const cacheMap = new Map()
+    for (const { key } of cacheTypes) {
+      try {
+        let data
+        try {
+          data = await loadAll(this.cacheID, key)
+        } catch (error) {
+          console.error(`Normal load failed for ${key.key}, attempting recovery:`, error.message)
+          const recovered = await recoverCache(this.cacheID, key)
+          if (Object.keys(recovered).length > 0) {
+            try {
+              console.error(`Clearing corrupted ${key.key} and restoring ${Object.keys(recovered).length} recovered entries...`)
+              await reset(this.cacheID, key)
+              await putMany(this.cacheID, key, Object.entries(recovered))
+              console.error(`Successfully restored ${key.key} with recovered data`)
+            } catch (restoreError) {
+              console.error(`Failed to restore ${key.key}, will use recovered data in-memory only:`, restoreError)
+            }
+          } else console.error(`No data could be recovered from ${key.key}, returning empty cache`)
+          data = recovered
+        }
+        cacheMap.set(key.key, data)
+      } catch (error) {
+        console.error(`Critical error loading ${key.key}, using empty cache:`, error)
+        cacheMap.set(key.key, {})
+      }
+    }
     cacheTypes.forEach(({ key, writable }) => writable(cacheMap.get(key.key)))
 
     this.subscribers = cacheTypes.map(({ key }) => {
@@ -593,6 +669,34 @@ class Cache {
       }
       return current
     })
+  }
+
+  /**
+   * Returns media for the given ID, fetching it if missing.
+   *
+   * @param {number | string | null} id
+   * @returns {Promise<Object | null>}
+   */
+  async requestMedia(id) {
+    if (!id) return null
+    const media = mediaCache.value[id]
+    if (media) return media
+    if (!this.anilistClient) {
+      const { anilistClient } = await import('@/modules/anilist.js')
+      this.anilistClient = anilistClient
+    }
+    return this.anilistClient.requestMediaID(id)
+  }
+
+  /**
+   * Returns cached media for the given ID, no attempt is made to fetch the media if it's not found.
+   *
+   * @param {number | string | null} id
+   * @returns {Object | null}
+   */
+  getMedia(id) {
+    if (!id) return null
+    return mediaCache.value[id] ?? {}
   }
 
   /**

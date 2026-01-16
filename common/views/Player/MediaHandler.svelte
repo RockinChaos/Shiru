@@ -2,7 +2,7 @@
   import { writable } from 'simple-store-svelte'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
   import { setHash, getHash, getId } from '@/modules/anime/animehash.js'
-  import { videoRx, matchPhrase } from '@/modules/util.js'
+  import { videoRx, matchPhrase, isValidNumber } from '@/modules/util.js'
   import { tick } from 'svelte'
   import { toast } from 'svelte-sonner'
   import { anilistClient } from '@/modules/anilist.js'
@@ -75,7 +75,7 @@
   }
 
   const zeroEpisodes = new Map()
-  async function checkForZero(media) {
+  export async function checkForZero(media) {
     if (zeroEpisodes.has(`${media?.id}`)) {
         return zeroEpisodes.get(`${media?.id}`)
     }
@@ -453,9 +453,9 @@
           result.sort((a, b) => {
               const seasonA = a.media?.parseObject?.anime_season
               const seasonB = b.media?.parseObject?.anime_season
-              if (seasonA === undefined && seasonB === undefined) return 0
-              if (seasonA === undefined) return 1
-              if (seasonB === undefined) return -1
+              if (!isValidNumber(seasonA) && !isValidNumber(seasonB)) return 0
+              if (!isValidNumber(seasonA)) return 1
+              if (!isValidNumber(seasonB)) return -1
               return seasonA - seasonB
           })
       } else result.sort((a, b) => Number(a.media?.parseObject?.episode_number ?? 1) - Number(b.media?.parseObject?.episode_number ?? 1)).sort((a, b) => Number(b.media?.parseObject?.anime_season ?? 1) - Number(a.media?.parseObject?.anime_season ?? 1))
@@ -469,7 +469,7 @@
       const result = arr.reduce((acc, el) => {
           const mapped = mapfn(el)
           acc.sums[mapped] = (acc.sums[mapped] || 0) + 1
-          acc.max = (acc.max !== undefined ? acc.sums[mapfn(acc.max)] : -1) > acc.sums[mapped] ? acc.max : el
+          acc.max = (acc.max != null ? acc.sums[mapfn(acc.max)] : -1) > acc.sums[mapped] ? acc.max : el
           return acc
       }, { sums: {} })
       const occurrences = Object.values(result.sums)

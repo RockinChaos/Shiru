@@ -1,11 +1,9 @@
 <script>
-  import Debug from 'debug'
-  const debug = Debug('ui:extensions-view')
-
   import { click } from '@/modules/click.js'
   import SettingCard from '@/views/Settings/SettingCard.svelte'
   import { stringToHex, capitalize, toFlags } from '@/modules/util.js'
   import { extensionManager } from '@/modules/extensions/manager.js'
+  import { status } from '@/modules/networking.js'
   import { TriangleAlert, Github, Folder, FileQuestion, Trash2, CircleX, ChevronDown, ChevronUp, SquarePlus, Adult } from 'lucide-svelte'
   export let settings
   const npmIcon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcBAMAAACAI8KnAAAALVBMVEXLAADKAADMERHVSkrURkb////eeXnghITfgIDstrbFAADJAADhiorPJCTVSUliGH6+AAAAUklEQVR4AWMgETAKQoEAmKvsAgVGYEnTUCgIFmBgYmAQgOtiAHERACdXSNkBmevi/AGZyxrwAU3v4OJ+gLACGP7DA8dZgOGeixEi6ECUAIlhDgBoOA7wXH0RDQAAAABJRU5ErkJggg=='
@@ -17,8 +15,8 @@
   $: availableSources = settings.extensionSources
 
   let sourceUrl = ''
-  async function addSource(source, trusted = false) {
-    if (!source?.length && !sourceUrl?.length) return
+  async function addSource(source) {
+    if (!source?.length && !sourceUrl?.length || pendingSource) return
     pendingSource = true
     failedSource = await extensionManager.addSource(source || sourceUrl)
     sourceUrl = ''
@@ -26,6 +24,7 @@
   }
 
   async function removeSource(sourceUrl, extensionSource = false) {
+    if (pendingSource) return
     pendingSource = true
     if (!extensionSource) await extensionManager.removeSource(sourceUrl)
     else {
@@ -36,6 +35,12 @@
       settings.extensionSources = newSources
     }
     pendingSource = false
+  }
+
+  async function validateExtension(key) {
+    if (pendingSource) return
+    pendingSource = true
+    extensionManager.validateExtension(key).then(() => pendingSource = false)
   }
 </script>
 
@@ -138,10 +143,21 @@
           </div>
         </div>
         {:else}
-        {#each Object.values(settings.sourcesNew) as extension}
+        {#each Object.values(settings.sourcesNew).sort((a, b) => (settings.extensionsNew[(b?.locale || (b?.update + '/')) + b?.id]?.enabled ? 1 : 0) - (settings.extensionsNew[(a?.locale || (a?.update + '/')) + a?.id]?.enabled ? 1 : 0)) as extension}
           {#if !extension?.nsfw || (settings.adult !== 'none')}
             {@const key = (extension?.locale || (extension?.update + '/')) + extension?.id}
-            <div class='card m-0 p-15 mb-10 bg-dark-light border' style='border-color: {stringToHex(extension?.locale || extension?.update)} !important' class:extension-disabled={!settings.extensionsNew[key]?.enabled}>
+            {@const isActive = extensionManager.isActive(key)}
+            {@const isInactive = $status !== 'offline' && extensionManager.isInactive(key)}
+            <div class='card m-0 p-15 mb-10 bg-dark-light border position-relative' style='border-color: {stringToHex(extension?.locale || extension?.update)} !important' class:extension-disabled={!settings.extensionsNew[key]?.enabled} class:extension-error={isInactive}>
+              {#if isInactive}
+                <button class='btn position-absolute d-flex align-items-center justify-content-center border-0 p-0 z-10 bg-transparent icon-container' disabled={pendingSource} class:cursor-wait={pendingSource} data-toggle='tooltip' data-placement='right' data-title='Extension failed to validate. Click to retry.' use:click={() => validateExtension(key)}>
+                  <div class='d-flex align-items-center justify-content-center error-indicator' style='color: var(--danger-color)'><TriangleAlert size='3.6rem' fill='var(--dark-color-light)'/></div>
+                </button>
+              {:else if !isActive}
+                <div class='position-absolute d-flex align-items-center justify-content-center border-0 p-0 z-10 rounded-circle bg-transparent icon-container' class:cursor-wait={pendingSource} data-toggle='tooltip' data-placement='right' data-title='Extension is loading...'>
+                  <div class='d-flex align-items-center justify-content-center loadingIcon'/>
+                </div>
+              {/if}
               <div class='d-flex'>
                 {#if extension?.icon}
                   <img class='w-43 h-43' src={(!extension?.icon.startsWith('http') ? 'data:image/png;base64,' : '') + extension?.icon} alt={extension?.name} title={extension?.name}>
@@ -164,12 +180,8 @@
                 {#if extension?.type}<span class='badge border-0 bg-light pl-10 pr-10 ml-10 mt-10 font-scale-16'>{capitalize(extension?.type)}</span>{/if}
                 {#if extension?.speed}<span class='badge border-0 bg-light pl-10 pr-10 ml-10 mt-10 font-scale-16'>{capitalize(extension?.speed)}</span>{/if}
                 {#if extension?.accuracy}<span class='badge border-0 bg-light pl-10 pr-10 ml-10 mt-10 font-scale-16'>{capitalize(extension?.accuracy)}</span>{/if}
-                {#if extension?.nsfw}
-                  <div class='d-flex align-items-center' title='Query results include adult content'><Adult class='ml-10 mt-10' size='2.2rem' /></div>
-                {/if}
-                {#each extension?.regions || [] as region}
-                  <span class='ml-10 font-twemoji font-size-28 h-30' title='Location: {region}'>{toFlags(region)}</span>
-                {/each}
+                {#if extension?.nsfw} <div class='d-flex align-items-center' title='Query results include adult content'><Adult class='ml-10 mt-10' size='2.2rem' /></div>{/if}
+                {#each extension?.regions || [] as region}<span class='ml-10 font-twemoji font-size-28 h-31' title='Location: {region}'>{toFlags(region)}</span>{/each}
               </div>
             </div>
           {/if}
@@ -277,22 +289,74 @@
   .h-43 {
     height: 4.3rem;
   }
+  .h-31 {
+    height: 3.1rem;
+  }
   .mw-300 {
     max-width: 30rem;
+  }
+  .solid-border {
+    border: .1rem solid;
   }
   .sourceIcon {
     width: 2.2rem;
     height: 2.2rem;
   }
-  .extension-disabled {
-    opacity: .4;
+  .loadingIcon {
+    width: 25px;
+    height: 25px;
+    border: 3px solid transparent;
+    border-top-color: var(--white-color);
+    background: var(--dark-color-light) !important;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    transform-origin: 50% 50%;
   }
-  .solid-border {
-    border: .1rem solid;
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
   .alert {
     border: 0;
     border-left: .8rem solid;
     border-radius: .3rem;
+  }
+  .extension-disabled {
+    opacity: .4;
+  }
+  .extension-error {
+    opacity: .6;
+    background: var(--danger-color-very-dim) !important;
+  }
+  .icon-container {
+    top: -1.2rem;
+    left: -1.2rem;
+  }
+  .error-indicator {
+    animation: wiggle 4s ease-in-out infinite;
+    transition: filter 0.2s ease;
+  }
+  .error-indicator:hover {
+    animation: attention 0.8s ease-in-out infinite;
+  }
+  .error-indicator:active {
+    transform: scale(0.85) rotate(0deg);
+  }
+  @keyframes wiggle {
+    0% { transform: rotate(0deg); }
+    2% { transform: rotate(-15deg); }
+    4% { transform: rotate(15deg); }
+    6% { transform: rotate(-12deg); }
+    8% { transform: rotate(12deg); }
+    10% { transform: rotate(-8deg); }
+    12% { transform: rotate(8deg); }
+    14% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes attention {
+    0%, 100% { transform: rotate(-18deg) scale(1.1); }
+    25% { transform: rotate(18deg) scale(1.15); }
+    50% { transform: rotate(-18deg) scale(1.1); }
+    75% { transform: rotate(18deg) scale(1.15); }
   }
 </style>

@@ -8,6 +8,7 @@
   import Scoring from '@/views/ViewAnime/Scoring.svelte'
   import Helper from '@/modules/helper.js'
   import { Heart, Play, VolumeX, Volume2, ThumbsUp, ThumbsDown } from 'lucide-svelte'
+  import { ELECTRON } from '@/modules/bridge.js'
 
   /** @type {import('@/modules/al.d.ts').Media} */
   export let media
@@ -53,25 +54,29 @@
       <SmartImage class='img-cover w-full h-full' images={[media.bannerImage, ...(media.trailer?.id ? [`https://i.ytimg.com/vi/${media.trailer.id}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${media.trailer.id}/hqdefault.jpg`] : []), media.coverImage?.extraLarge ]}/>
       {#await (media.trailer?.id && media) || episodesList.getMedia(media.idMal) then trailer}
         {#if trailer?.trailer?.id || trailer?.data?.trailer?.youtube_id }
-          <div style='transition: opacity .3s' class:hidden={hide}>
-            <SmartImage class='position-absolute top-0 left-0 w-full h-full img-cover blur-6' images={[`https://i.ytimg.com/vi/${media.trailer.id}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${media.trailer.id}/hqdefault.jpg`]}/>
-            <button type='button' class='position-absolute z-10 top-0 right-0 m-15 btn-square bg-transparent shadow-none border-0 rounded pointer mute' style='filter: drop-shadow(0 0 .4rem hsla(var(--black-color-hsl), 1))' use:click={toggleMute}>
-              {#if muted}
-                <VolumeX size='2.2rem' fill='currentColor'/>
-              {:else}
-                <Volume2 size='2.2rem' fill='currentColor'/>
-              {/if}
-            </button>
-            <iframe
-                class='w-full border-0 position-absolute left-0 pv-trailer pointer-events-none'
-                tabindex='-1'
-                title={media.title.userPreferred}
-                loading='lazy'
-                allow='autoplay'
-                on:load={() => { hide = false }}
-                src={`https://www.youtube-nocookie.com/embed/${trailer?.trailer?.id || trailer?.data?.trailer?.youtube_id}?autoplay=1&controls=0&mute=${muted ? 1 : 0}&disablekb=1&loop=1&vq=medium&playlist=${trailer?.trailer?.id || trailer?.data?.trailer?.youtube_id}&cc_lang_pref=ja`}
-            />
-          </div>
+          {#await ELECTRON.getYouTube() then youtubeServer}
+            <div style='transition: opacity .3s' class:transparent={hide}>
+              <SmartImage class='position-absolute top-0 left-0 w-full h-full img-cover blur-6' images={[`https://i.ytimg.com/vi/${media.trailer.id}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${media.trailer.id}/hqdefault.jpg`]}/>
+              <button type='button' class='position-absolute z-10 top-0 right-0 m-15 btn-square bg-transparent shadow-none border-0 rounded pointer mute' style='filter: drop-shadow(0 0 .4rem hsla(var(--black-color-hsl), 1))' use:click={toggleMute}>
+                {#if muted}
+                  <VolumeX size='2.2rem' fill='currentColor'/>
+                {:else}
+                  <Volume2 size='2.2rem' fill='currentColor'/>
+                {/if}
+              </button>
+              <iframe
+                  class='w-full border-0 position-absolute left-0 pv-trailer pointer-events-none'
+                  tabindex='-1'
+                  title={media.title.userPreferred}
+                  loading='lazy'
+                  allow='autoplay'
+                  allowfullscreen
+                  on:load={() => { setTimeout(() => hide = false, 300).unref?.() }}
+                  referrerpolicy='strict-origin-when-cross-origin'
+                  src={`${youtubeServer}/embed/${trailer?.trailer?.id || trailer?.data?.trailer?.youtube_id}?autoplay=1&controls=0&mute=${muted ? 1 : 0}&disablekb=1&loop=1&vq=medium&playlist=${trailer?.trailer?.id || trailer?.data?.trailer?.youtube_id}&cc_lang_pref=ja`}
+              />
+            </div>
+          {/await}
         {/if}
       {/await}
     </div>

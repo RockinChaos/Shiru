@@ -100,7 +100,13 @@
   }
 }
 
-@media (max-height: 500px) {
+@media (min-width: 577px) {
+  .w-sm-265 {
+    width: 26.5rem !important;
+  }
+}
+
+@media (max-height: 530px) {
   .d-sm-h-none {
     display: none !important;
   }
@@ -154,5 +160,8 @@
   .px-lg-30 {
     padding-left: 3rem !important;
     padding-right: 3rem !important;
+  }
+  .pt-lg-28px {
+    padding-top: 28px !important;
   }
 }

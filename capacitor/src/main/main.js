@@ -3,20 +3,15 @@ import { StatusBar, Style } from '@capacitor/status-bar'
 import { SafeArea } from 'capacitor-plugin-safe-area'
 import { App } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
-import { IntentUri } from 'capacitor-intent-uri'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { Keyboard } from '@capacitor/keyboard'
 import { Device } from '@capacitor/device'
 import { FolderPicker } from 'capacitor-folder-picker'
 //import { Filesystem } from '@capacitor/filesystem'
 import { toast } from 'svelte-sonner'
-import IPC from './ipc.js'
+import { IPC } from '../preload/preload.js'
 
 IPC.on('open', url => Browser.open({ url }))
-IPC.on('intent', async url => {
-  await IntentUri.openUri({ url })
-  IPC.emit('intent-end')
-})
 
 let lastScrollY = null
 let scrollContainer = null
@@ -43,7 +38,7 @@ Keyboard.addListener('keyboardWillShow', info => {
 
 let hideTimeout = null
 Keyboard.addListener('keyboardWillHide', () => {
-  if (lastScrollY !== null && scrollContainer) {
+  if (lastScrollY != null && scrollContainer) {
     const scrollableContainer = getClosestScrollable(scrollContainer)
     if (scrollableContainer) scrollableContainer.scrollTo({ top: lastScrollY, behavior: 'smooth' })
     const _scrollContainer = scrollContainer
@@ -314,7 +309,7 @@ SafeArea.addListener('safeAreaChanged', updateInsets)
 screen.orientation.addEventListener('change', updateInsets)
 
 async function updateInsets () {
-  const { insets } = await SafeArea.getSafeAreaInsets()
+  const { insets } = await SafeArea.getDisplayCutoutInsets()
   for (const [key, value] of Object.entries(insets)) {
     document.documentElement.style.setProperty(`--safe-area-${key}`, `${value}px`)
   }

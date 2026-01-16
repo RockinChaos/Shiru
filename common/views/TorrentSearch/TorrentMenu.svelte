@@ -235,12 +235,12 @@
     try {
       promises = await getResultsFromExtensions({ ...request, batch, movie, resolution })
     } catch (error) {
-      if (search !== null && search.media?.id === request?.media?.id && search.episode === request?.episode) {
+      if (search != null && search.media?.id === request?.media?.id && search.episode === request?.episode) {
         errors = Promise.resolve({ errors: [error] })
         results.update(r => ({...r, resolved: true}))
       }
     }
-    if (search === null || search.media?.id !== request?.media?.id) return null
+    if (search == null || search.media?.id !== request?.media?.id) return null
     debug(`Query promises from extensions have been accepted for ${search?.media?.id}`)
     return promises
   }
@@ -254,7 +254,7 @@
         if (result.errors && result.errors.length > 0) result.errors.forEach((error) => uniqueErrors.add(error.message))
       })
     })()
-    if (search === null || search.media?.id !== request?.media?.id || search.episode !== request?.episode) return null
+    if (search == null || search.media?.id !== request?.media?.id || search.episode !== request?.episode) return null
     results.update(r => ({ ...r, resolved: true }))
     debug(`All query promises have successfully been resolved for ${search?.media?.id}:E${search?.episode}`, JSON.stringify(Array.from(uniqueErrors)))
     if ($status !== 'offline' && JSON.stringify(Array.from(uniqueErrors)).match(/found no results/i) && (search?.media?.status !== 'FINISHED' || !search?.media?.episodes) && (getMediaMaxEp(search?.media, true) < search?.episode)) return { errors: [ { message: `${anilistClient.title(search.media)} ${search.media?.format !== 'MOVIE' || (getMediaMaxEp(search?.media, false) > 1) ? `Episode ${search.media.nextAiringEpisode?.episode || search.episode}` : ``} hasn't released yet! ${search?.media?.nextAiringEpisode?.timeUntilAiring ? `\n${search.media?.format !== 'MOVIE' || (getMediaMaxEp(search?.media, false) > 1) ? `This episode` : `This movie`} will be released on ${new Date(Date.now() + search.media.nextAiringEpisode?.timeUntilAiring * 1000).toDateString()}` : ''}` }]}

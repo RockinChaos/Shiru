@@ -1,5 +1,5 @@
 <script context='module'>
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import { setContext } from 'svelte'
   import { writable } from 'simple-store-svelte'
   import { anilistClient } from '@/modules/anilist.js'
@@ -7,6 +7,7 @@
   import { settings } from '@/modules/settings.js'
   export const page = writable('home')
   export const overlay = writable([])
+  export const statusTransition = writable(false)
   export const playPage = writable(settings.value.disableMiniplayer || false)
   export const view = writable(null)
   export async function handleAnime (detail) {
@@ -45,13 +46,12 @@
   IPC.emit('main-ready')
 
   let currentStatus = status.value
-  $: statusTransition = false
   let transitionTimer
   const unsubscribeMonitor = status.subscribe(value => {
     if (value !== currentStatus) {
       clearTimeout(transitionTimer)
-      statusTransition = true
-      transitionTimer = setTimeout(() => (statusTransition = false), 2_500)
+      statusTransition.set(true)
+      transitionTimer = setTimeout(() => statusTransition.set(false), 2_500)
       transitionTimer.unref?.()
       currentStatus = value
     }
@@ -75,19 +75,19 @@
 </script>
 
 <UpdateModal bind:overlay={$overlay} />
-<div class='page-wrapper with-transitions bg-dark position-relative' data-sidebar-type='overlayed-all'>
+<div class='page-wrapper with-transitions bg-dark position-relative pl-safe-area' data-sidebar-type='overlayed-all'>
   <Status />
   <Menubar />
   <Sidebar bind:page={$page} bind:playPage={$playPage} />
   <Navbar bind:page={$page} bind:playPage={$playPage} />
-  <div class='overflow-hidden content-wrapper h-full' class:status-transition={statusTransition}>
+  <div class='overflow-hidden content-wrapper h-full' class:status-transition={$statusTransition}>
     <Toaster visibleToasts={2} position='top-right' theme='dark' richColors duration={10_000} closeButton toastOptions={{class: `${$page === 'settings' ? 'mt-70 mt-lg-0' : ''} ${isFullscreen && !$overlay?.length ? 'd-none' : ''}`}} />
     <ViewAnime bind:overlay={$overlay} />
     <TorrentModal bind:overlay={$overlay} />
     <Notifications bind:overlay={$overlay} />
     <Profiles bind:overlay={$overlay} />
     <MinimizeTray bind:overlay={$overlay} />
-    <Router bind:page={$page} bind:overlay={$overlay} bind:playPage={$playPage} />
+    <Router bind:page={$page} bind:overlay={$overlay} bind:playPage={$playPage} bind:statusTransition={$statusTransition} />
   </div>
 </div>
 

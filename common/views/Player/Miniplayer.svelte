@@ -23,6 +23,7 @@
   export let active = false
   export let padding = '1rem'
   export let page = 'home'
+  export let overlay = []
   const tmppadding = padding
   const fixedMobileWidth = 25
   let rootFontSize = 16
@@ -208,7 +209,7 @@
   onDestroy(() => window.removeEventListener('resize', calculateWidth))
 </script>
 
-<div class='miniplayer-container {active && (position.match(/top/i) || draggingPos.match(/top/i)) ? page === `settings` ? `mt-100 mt-lg-20` : `mt-20` : ``} {active && (position.match(/left/i) || draggingPos.match(/left/i)) && page === `settings` ? `ml-lg-280` : ``} {position} {$$restProps.class}' class:active class:animate={!dragging} class:custompos={!position}
+<div class='miniplayer-container {active && (position.match(/top/i) || draggingPos.match(/top/i)) ? page === `settings` && !overlay?.length ? `mt-100 mt-lg-20` : `mt-20` : ``} {active && (position.match(/left/i) || draggingPos.match(/left/i)) && page === `settings` && !overlay?.length ? `ml-lg-280` : ``} {position} {$$restProps.class}' class:active class:animate={!dragging} class:custompos={!position}
      style:--left={left} style:--top={top} style:--height={height} style:--width={width} style:--padding={padding} style:--maxwidth={maxWidth} style:--minwidth={minWidth}
      role='group' bind:this={container} on:dragstart|preventDefault|self>
   <div class='resize resize-{position ? (position.match(/top/i) ? `b` : `t`) + (position.match(/left/i) ? `r` : `l`) : `tl`}' class:d-none={!resize || !active} use:resizable />

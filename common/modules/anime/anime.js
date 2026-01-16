@@ -67,7 +67,7 @@ export async function traceAnime (image) { // WAIT lookup logic
   const { result } = await res.json()
 
   if (result?.length) {
-    const ids = result.map(({ anilist }) => anilist)
+    const ids = result.map(({ anilist }) => anilist).filter(Boolean)
     search.value = {
       clearNow: true,
       clearNext: true,
@@ -736,7 +736,7 @@ export async function playMedia (media) {
       if (status === 'COMPLETED') {
         await setStatus('REPEATING', { episode: 0 }, media)
       } else {
-        ep = Math.min(getMediaMaxEp(media, true) || (progress + 1), progress + 1) - (zeroEpisode ? 1 : 0)
+        ep = Math.min(getMediaMaxEp(media, true) || (progress + (zeroEpisode ? 0 : 1)), progress + (zeroEpisode ? 0 : 1)) - (zeroEpisode ? 1 : 0)
       }
     }
   }
@@ -854,14 +854,18 @@ export async function isSubbedProgress(media) {
   await Helper.getClient().userLists.value
   const progress = media.mediaListEntry?.progress ?? media.my_list_status?.num_episodes_watched ?? 0
   if (progress === 0) return false
-  const dubbedEpisodes = (await animeSchedule.dubAiringLists.value)?.find(entry => entry?.media?.media?.id === media.id || entry?.media?.media?.idMal === media.idMal)?.media?.media?.airingSchedule?.nodes
+  const dubbedEntry = (await animeSchedule.dubAiringLists.value)?.find(entry => entry?.media?.media?.id === media.id || entry?.media?.media?.idMal === media.idMal)
+  const dubbedEpisodes = dubbedEntry?.media?.media?.airingSchedule?.nodes
   if (!dubbedEpisodes?.length) {
     const airedEntries = (await animeSchedule.dubAiredLists.value)?.filter(entry => entry.id === media.id || entry.idMal === media.idMal)
     if (!airedEntries?.length) return true
-    return progress > Math.max(...airedEntries.map(entry => entry.episode?.aired ?? 0))
+    const airedNumbers = airedEntries.map(entry => entry.episode?.aired ?? 0)
+    const hasZeroEpisode = airedNumbers.includes(0)
+    const maxAired = Math.max(...airedNumbers)
+    return progress > (hasZeroEpisode ? maxAired + 1 : maxAired)
   }
   const last = dubbedEpisodes[dubbedEpisodes.length > 1 ? dubbedEpisodes.length - 1 : 0]
-  return progress > (last?.episode - ((new Date(last?.airingAt) <= new Date()) ? 0 : 1))
+  return (progress - (dubbedEntry?.media?.media?.zeroEpisode ? 1 : 0)) > (last?.episode - ((new Date(last?.airingAt) <= new Date()) ? 0 : 1))
 }
 
 const concurrentRequests = new Map()

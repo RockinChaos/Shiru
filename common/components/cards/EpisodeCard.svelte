@@ -7,7 +7,7 @@
   import { writable } from 'simple-store-svelte'
   import { getContext } from 'svelte'
   import { playActive } from '@/components/TorrentButton.svelte'
-  import { createListener, since } from '@/modules/util.js'
+  import { createListener, since, isValidNumber } from '@/modules/util.js'
   const { reactive, init } = createListener(['torrent-button', 'cont-button', 'episode-safe-area'])
   init(true)
 </script>
@@ -19,11 +19,13 @@
   import { anilistClient } from '@/modules/anilist.js'
   import { settings } from '@/modules/settings.js'
   import { mediaCache } from '@/modules/cache.js'
+  import { checkForZero } from '@/views/Player/MediaHandler.svelte'
   export let data
   export let section = false
 
   let preview = false
   let ignoreFocus = false
+  let zeroEpisode = false
   let prompt = writable(false)
   let clicked = writable(false)
 
@@ -33,12 +35,13 @@
     media = mediaCache.value[data.media.id]
   }
   mediaCache.subscribe((value) => { if (value && (JSON.stringify(value[media?.id]) !== JSON.stringify(media))) media = value[media?.id] })
+  $: checkForZero(media).then(_zeroEpisode => zeroEpisode = _zeroEpisode)
   $: episodeRange = episodesList.handleArray(data?.episode, data?.parseObject?.file_name)
-  $: lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || data?.episode || (media?.episodes === 1 && media?.episodes)
+  $: lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || (isValidNumber(data?.episode) && (data?.episode + (zeroEpisode ? 1 : 0))) || (media?.episodes === 1 && media?.episodes)
   $: episodeThumbnail = ((!media?.mediaListEntry?.status || !(['CURRENT', 'REPEATING', 'PAUSED', 'PLANNING'].includes(media.mediaListEntry.status) && media.mediaListEntry.progress < lastEpisode)) && data.episodeData?.image) || media?.bannerImage || media?.coverImage.extraLarge || ' '
-  $: progress = liveAnimeEpisodeProgress(media?.id, data?.episode)
   $: watched = media?.mediaListEntry?.status === 'COMPLETED'
   $: completed = !watched && media?.mediaListEntry?.progress >= lastEpisode
+  $: progress = liveAnimeEpisodeProgress(media?.id, data?.episode, completed)
   let hide = true
 
   const view = getContext('view')
@@ -46,17 +49,17 @@
     $view = media
   }
   function setClickState() {
-    const episode = data.episode || (media?.episodes === 1 && media?.episodes)
-    if (!$prompt && episode && !Array.isArray(episode) && (episode - 1) >= 1 && media?.mediaListEntry?.status !== 'COMPLETED' && (media?.mediaListEntry?.progress || -1) < (episode - 1)) prompt.set(true)
-    else episode ? (media ? playActive(data.hash, { media, episode }, data.link, !data.link) : data.onclick()) : viewMedia()
+    const episode = isValidNumber(data.episode) ? data.episode : (media?.episodes === 1 && media?.episodes)
+    if (!$prompt && isValidNumber(episode) && !Array.isArray(episode) && (episode - 1) >= 1 && media?.mediaListEntry?.status !== 'COMPLETED' && (media?.mediaListEntry?.progress || -1) < (episode - 1)) prompt.set(true)
+    else isValidNumber(episode) ? (media ? playActive(data.hash, { media, episode: episode }, data.link, !data.link) : data.onclick()) : viewMedia()
     clicked.set(true)
     setTimeout(() => clicked.set(false)).unref?.()
   }
   function setHoverState (state, tapped) {
     const focused = document.activeElement
-    if (container && focused?.offsetParent !== null && (container.contains(focused)) && (!previewCard || !previewCard.contains(focused))) ignoreFocus = true
-    const episode = data.episode || (media?.episodes === 1 && media?.episodes)
-    if (!$prompt && episode && !Array.isArray(episode) && (episode - 1) >= 1 && media?.mediaListEntry?.status !== 'COMPLETED' && (media?.mediaListEntry?.progress || -1) < (episode - 1)) prompt.set(!!tapped)
+    if (container && focused?.offsetParent != null && (container.contains(focused)) && (!previewCard || !previewCard.contains(focused))) ignoreFocus = true
+    const episode = isValidNumber(data.episode) ? data.episode : (media?.episodes === 1 && media?.episodes)
+    if (!$prompt && isValidNumber(episode) && !Array.isArray(episode) && (episode - 1) >= 1 && media?.mediaListEntry?.status !== 'COMPLETED' && (media?.mediaListEntry?.progress || -1) < (episode - 1)) prompt.set(!!tapped)
     if (!$prompt || !$clicked) {
       preview = state
       setTimeout(() => {
@@ -85,7 +88,7 @@
     clearTimeouts()
     blurTimeout = setTimeout(() => {
       const focused = document.activeElement
-      const lostFocus = container && focused?.offsetParent !== null && !container.contains(focused)
+      const lostFocus = container && focused?.offsetParent != null && !container.contains(focused)
       const lostPreviewFocus = previewCard && !previewCard.contains(focused)
       if (lostFocus && lostPreviewFocus) {
         preview = false
@@ -121,7 +124,7 @@
   })
   onDestroy(() => {
     document.removeEventListener('pointerup', handleOutsideClick)
-    container.removeEventListener('focusout', handleBlur)
+    container?.removeEventListener?.('focusout', handleBlur)
     clearTimeouts()
     clearInterval(sinceInterval)
   })
@@ -131,7 +134,7 @@
 
 <div bind:this={container} class='d-flex p-20 pb-10 position-relative episode-card' class:mb-150={section} class:not-reactive={!$reactive} use:hoverClick={[setClickState, setHoverState, viewMedia]} on:focus={handleFocus}>
   {#if preview}
-    <EpisodePreviewCard {data} bind:prompt={$prompt} bind:element={previewCard} />
+    <EpisodePreviewCard {data} {zeroEpisode} bind:prompt={$prompt} bind:element={previewCard} />
   {/if}
   <div class='item load-in d-flex flex-column h-full pointer content-visibility-auto' class:opacity-half={completed}>
     <div class='image h-200 w-full position-relative rounded overflow-hidden d-flex justify-content-between align-items-end text-white'>
@@ -155,7 +158,7 @@
         {#if media?.duration}
           {#if (data.episodeRange || data.parseObject?.episodeRange)}
             {media.duration * (((data.episodeRange || data.parseObject?.episodeRange).last - (data.episodeRange || data.parseObject?.episodeRange).first) + 1)}m
-          {:else if episodeRange && Number(episodeRange.first) && Number(episodeRange.last)}
+          {:else if episodeRange && isValidNumber(episodeRange.first) && isValidNumber(episodeRange.last)}
             {media.duration * ((episodeRange.first - episodeRange.last) + 1)}m
           {:else}
             {media.duration}m
@@ -168,7 +171,7 @@
         </div>
       {:else if $progress > 0}
         <div class='progress container-fluid position-absolute z-10' style='height: 2px; min-height: 2px;'>
-          <div class='progress-bar' style='width: {progress}%' />
+          <div class='progress-bar' style='width: {$progress}%' />
         </div>
       {/if}
     </div>
@@ -186,7 +189,7 @@
           {:else if data.episode}
             {@const episode = (data.episodeRange || data.parseObject?.episodeRange)?.first || episodeRange?.first || data.episode}
             {#await episodesList.getKitsuEpisodes(media?.id) then mappings}
-              {@const kitsuMappings = episode && mappings?.data?.find(ep => ep?.attributes?.number === Number(episode) || episode)?.attributes}
+              {@const kitsuMappings = episode != null && mappings?.data?.find(ep => ep?.attributes?.number === isValidNumber(episode) ? Number(episode) : episode)?.attributes}
               {kitsuMappings?.titles?.en_us || kitsuMappings?.titles?.en_jp || ''}
             {/await}
           {/if}
@@ -196,11 +199,11 @@
         <div class='text-white font-weight-bold'>
           {#if data.episodeRange || data.parseObject?.episodeRange}
             {`Episodes ${(data.episodeRange || data.parseObject.episodeRange).first} ~ ${(data.episodeRange || data.parseObject.episodeRange).last}`}
-          {:else if data.episode}
+          {:else if data.episode != null}
             {#if episodeRange}
               Episodes {episodeRange.first} ~ {episodeRange.last}
             {:else if (!Array.isArray(data.episode))}
-              Episode {Number(data.episode) || data.episode?.replace(/\D/g, '')}
+              Episode {isValidNumber(data.episode) ? Number(data.episode) : data.episode?.replace(/\D/g, '')}
             {/if}
           {:else if media?.format === 'MOVIE'}
             Movie

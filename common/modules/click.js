@@ -123,7 +123,7 @@ export function focus(node, focusUpdate = noop) {
   }
   function handleOutsideClick(e) {
     const focused = e.target
-    if (node && focused?.offsetParent !== null && !node.contains(focused)) {
+    if (node && focused?.offsetParent != null && !node.contains(focused)) {
       clearTimeouts()
       focusUpdate(false)
       lastTapElement = null
@@ -142,7 +142,7 @@ export function focus(node, focusUpdate = noop) {
     clearTimeouts()
     blurTimeout = setTimeout(() => {
       const focused = document.activeElement
-      if (node && focused?.offsetParent !== null && !node.contains(focused)) {
+      if (node && focused?.offsetParent != null && !node.contains(focused)) {
         focusUpdate(false)
         lastTapElement = null
         lastTapCurrent = null
@@ -221,7 +221,7 @@ export function hoverClick(node, [cb = noop, hoverUpdate = noop, rcb = noop]) {
   node.role = 'button'
   function handleOutsideClick(e) {
     const focused = e.target
-    if (node && focused?.offsetParent !== null && !node.contains(focused)) {
+    if (node && focused?.offsetParent != null && !node.contains(focused)) {
       hoverUpdate(false)
       lastTapElement = null
       lastHoverElement = null

@@ -87,7 +87,7 @@ class Episodes {
     }
 
     handleArray(episodes, fileName) {
-        const episodeParts = (Array.isArray(episodes) && episodes) || (fileName?.match(/\b\d+\s*[-~]\s*\d+\b/)?.[0]?.split(/[-~]/)?.map(n => +n.trim())) || (typeof episodes === 'string' && episodes.match(/^\d+\s*~\s*\d+$/) && episodes.split(/~\s*/).map(n => +n.trim()))
+        const episodeParts = (Array.isArray(episodes) && episodes) || (fileName?.match(/(?<!Part\s)(?<!Cour\s)\b\d+\s*[-~]\s*\d+\b/i)?.map(n => +n.trim())) || (typeof episodes === 'string' && episodes.match(/^\d+\s*~\s*\d+$/) && episodes.split(/~\s*/).map(n => +n.trim()))
         if (episodeParts?.length && ((Number(episodeParts[0]) || episodeParts[0]) < (Number(episodeParts[1]) || episodeParts[1]))) return { first: (Number(episodeParts[0]) || episodeParts[0]), last: (Number(episodeParts[1]) || episodeParts[1]) }
         return null
     }

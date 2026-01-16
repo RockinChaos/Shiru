@@ -31,7 +31,7 @@
   let ignoreFocus = false
   function setHoverState(state) {
     const focused = document.activeElement
-    if (container && focused?.offsetParent !== null && (container.contains(focused)) && (!previewCard || !previewCard.contains(focused))) ignoreFocus = true
+    if (container && focused?.offsetParent != null && (container.contains(focused)) && (!previewCard || !previewCard.contains(focused))) ignoreFocus = true
     if (settings.value.cardPreview) preview = state
     else if (state) viewMedia()
   }
@@ -56,7 +56,7 @@
     clearTimeouts()
     blurTimeout = setTimeout(() => {
       const focused = document.activeElement
-      const lostFocus = container && focused?.offsetParent !== null && !container.contains(focused)
+      const lostFocus = container && focused?.offsetParent != null && !container.contains(focused)
       const lostPreviewFocus = previewCard && !previewCard.contains(focused)
       if (lostFocus && lostPreviewFocus) {
         preview = false
@@ -91,7 +91,7 @@
   })
   onDestroy(() => {
     document.removeEventListener('pointerup', handleOutsideClick)
-    container.removeEventListener('focusout', handleBlur)
+    container?.removeEventListener?.('focusout', handleBlur)
     clearTimeouts()
     clearTimeout(airingInterval)
   })

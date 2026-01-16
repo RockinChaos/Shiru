@@ -2,7 +2,7 @@ import { cache, caches } from '@/modules/cache.js'
 import { writable } from 'simple-store-svelte'
 import { defaults } from '@/modules/util.js'
 import { toast } from 'svelte-sonner'
-import IPC from '@/modules/ipc.js'
+import { IPC } from '@/modules/bridge.js'
 import Debug from 'debug'
 const debug = Debug('ui:settings')
 
@@ -210,16 +210,16 @@ export async function refreshMalToken (token) {
 
 export async function swapProfiles(profile, newProfile) {
   const currentProfile = isAuthorized()
-  if (!isAuthorized() && profile !== null) await cache.abandon(profile.viewer.data.Viewer.id)
+  if (!isAuthorized() && profile != null) await cache.abandon(profile.viewer.data.Viewer.id)
 
-  if (profile === null && profiles.value.length > 0) {
+  if (profile == null && profiles.value.length > 0) {
     let firstProfile
     profiles.update(profiles => {
         firstProfile = profiles[0]
         setViewer(firstProfile)
         return profiles.slice(1)
     })
-  } else if (profile !== null) {
+  } else if (profile != null) {
     if (profile?.viewer?.data?.Viewer?.id === currentProfile?.viewer?.data?.Viewer?.id && newProfile) {
       localStorage.setItem(alToken ? 'ALviewer' : 'MALviewer', JSON.stringify(profile))
     } else if (profiles.value.some(p => p.viewer?.data?.Viewer?.id === profile?.viewer?.data?.Viewer?.id && newProfile)) {

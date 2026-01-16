@@ -6,14 +6,14 @@ const CopyWebpackPlugin = require('copy-webpack-plugin')
 const mode = process.env.NODE_ENV?.trim() || 'development'
 
 const alias = {
-  '@/modules/ipc.js': join(__dirname, 'src', 'ipc.js'),
-  '@/modules/support.js': join(__dirname, 'src', 'support.js')
+  '@/modules/support.js': join(__dirname, 'src', 'main', 'support.js'),
+  '@': resolve(__dirname, '..', 'common')
 }
 
 /** @type {import('webpack').Configuration} */
 const capacitorConfig = {
   devtool: 'source-map',
-  entry: [join(__dirname, 'src', 'main.js')],
+  entry: [join(__dirname, 'src', 'background', 'background.js')],
   output: {
     path: join(__dirname, 'build', 'nodejs'),
     filename: 'index.js'
@@ -32,7 +32,9 @@ const capacitorConfig = {
       ...alias,
       wrtc: false,
       'node-datachannel': false,
-      'bittorrent-tracker/lib/client/http-tracker.js': resolve('../node_modules/bittorrent-tracker/lib/client/http-tracker.js'),
+      '@client': resolve(__dirname, '..', 'client'),
+      'webtorrent-client': resolve(__dirname, '..', 'client/core/webtorrent.js'),
+      'http-tracker': resolve('../node_modules/bittorrent-tracker/lib/client/http-tracker.js'),
       'webrtc-polyfill': false // no webrtc on mobile, need the resources
     }
   },
@@ -56,4 +58,4 @@ const capacitorConfig = {
   ]
 }
 
-module.exports = [capacitorConfig, merge(commonConfig(__dirname, alias, 'browser', 'index'), { entry: [join(__dirname, 'src', 'capacitor.js')] })]
+module.exports = [capacitorConfig, merge(commonConfig(__dirname, alias, 'browser', 'index'), { entry: [join(__dirname, 'src', 'main', 'main.js')] })]

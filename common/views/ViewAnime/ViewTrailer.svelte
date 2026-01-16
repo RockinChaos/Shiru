@@ -7,6 +7,7 @@
   import { X } from 'lucide-svelte'
   import SmartImage from '@/components/visual/SmartImage.svelte'
   import { episodesList } from '@/modules/episodes.js'
+  import { ELECTRON } from '@/modules/bridge.js'
 
   export let overlay
   export let staticMedia
@@ -15,7 +16,7 @@
   let trailer = writable(false)
 
   function close () {
-    if (overlay.includes('trailer')) overlay = overlay.filter(item => item !== 'trailer')
+    setTimeout(() => { if (overlay.includes('trailer')) overlay = overlay.filter(item => item !== 'trailer') })
     trailer.set(false)
   }
 
@@ -42,18 +43,20 @@
       {#if trailerId}
         {show()}
         {#if $trailer}
-          <div class='pointer-events-auto ratio-16-9 position-relative w-full wm-calc'>
-            <SmartImage class='ratio-16-9 img-cover w-full h-full rounded-bottom-6' images={[...(trailerId ? [`https://i.ytimg.com/vi/${trailerId}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${trailerId}/hqdefault.jpg`] : []), staticMedia.bannerImage, staticMedia.coverImage?.extraLarge ]} hidden={!loading}/>
-            <iframe
-                class='position-absolute w-full h-full top-0 left-0 border-0 rounded-bottom-5'
-                class:d-none={loading}
-                title={staticMedia.title.userPreferred}
-                allow='autoplay'
-                allowfullscreen
-                on:load={() => { loading = false }}
-                src={`https://www.youtube-nocookie.com/embed/${trailerId}?autoplay=1&vq=medium&cc_lang_pref=ja`}
-            />
-          </div>
+          {#await ELECTRON.getYouTube() then youtubeServer}
+            <div class='pointer-events-auto ratio-16-9 position-relative w-full wm-calc'>
+              <SmartImage class='ratio-16-9 img-cover w-full h-full rounded-bottom-6' images={[...(trailerId ? [`https://i.ytimg.com/vi/${trailerId}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${trailerId}/hqdefault.jpg`] : []), staticMedia.bannerImage, staticMedia.coverImage?.extraLarge ]} hidden={!loading}/>
+              <iframe
+                  class='position-absolute w-full h-full top-0 left-0 border-0 rounded-bottom-5'
+                  class:d-none={loading}
+                  title={staticMedia.title.userPreferred}
+                  allow='autoplay'
+                  allowfullscreen
+                  on:load={() => { loading = false }}
+                  src={`${youtubeServer}/embed/${trailerId}?autoplay=1&vq=medium&cc_lang_pref=ja`}
+              />
+            </div>
+          {/await}
         {/if}
       {/if}
     {/await}

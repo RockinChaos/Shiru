@@ -1,5 +1,5 @@
 import { anilistClient } from '@/modules/anilist.js'
-import { mediaCache } from '@/modules/cache.js'
+import { cache } from '@/modules/cache.js'
 import { anitomyscript, hasZeroEpisode } from '@/modules/anime/anime.js'
 import { chunks, matchKeys } from '@/modules/util.js'
 //import levenshtein from 'js-levenshtein'
@@ -195,9 +195,9 @@ export default new class AnimeResolver {
    * @param {number} id
    */
   async getAnimeById (id) {
-    if (mediaCache.value[id]) return mediaCache.value[id]
+    const cachedMedia = cache.getMedia(id)
+    if (cachedMedia?.length) return cachedMedia
     const res = await anilistClient.searchIDSingle({ id })
-
     return res.data.Media
   }
 
@@ -259,12 +259,14 @@ export default new class AnimeResolver {
       if (name.match(/Kanchigai no Atelier Meister/i) && !name.match(/Mini|Short|Eiyuu|Party/i)) name = name.replace(/Kanchigai no Atelier Meister/i, 'The Unaware Atelier Meister') // stupid fix to prevent the Mini Anime from being fetched due to egregiously long romaji name in the TV series.
       if (name.match(/Prince/i) && name.match(/Tennis/i)) name = name.replace(/new /i, '') // Prince of Tennis fix.
       if (name.match(/Mugen Gacha/i) && !name.match(/Shinjiteita|Nakamatachi|Korosarekaketa|Fukushuu|Unlimited|Backstabbed|Backwater|Dungeon|Revenge/i)) name = name.replace(/Mugen Gacha/i, `My Gift Lvl 9999 Unlimited Gacha: Backstabbed in a Backwater Dungeon, I'm Out for Revenge!`) // My Gift Lvl 9999 Unlimited Gacha fix.
-      if (name.match(/Gintama /i) && name.match(/3-nen|Z-gumi|Ginpachi/i) && !name.match(/Tuuuunnn/i)) name = name.replace(/Gintama /i, '') // Mr. Ginpachi's Zany Class fix.
+      if (name.match(/Gintama[: ]/i) && name.match(/3-nen|Z-gumi|Ginpachi/i) && !name.match(/Tuuuunnn/i)) name = name.replace(/Gintama[: ]?/i, '') // Mr. Ginpachi's Zany Class fix.
       if (name.match(/Mobile Suit Z /i)) name = name.replace(/ Z /i, ' Zeta ') // Mobile Suit Zeta Gundam fix.
       if (name.match(/Kaijuu 8-gou/i) && name.match(/Mission Recon/i)) name = name.replace(/- Mission Recon| -Mission Recon|Mission Recon/i, '').replace(/Kaijuu 8-gou/i, 'Kaiju No. 8: Mission Recon') // Kaiju No. 8: Mission Recon fix...
       if (name.match(/Living/i) && name.match(/Otaku/i) && name.match(/NEET Kunoichi/i)) name = name.replace(/ an /i, ' a ') // I'm Living With a Otaku NEET Kunoichi?! fix for release groups like ToonsHub using Engrish...
       if (name.match(/Seishun Buta Yarou wa Bunny Girl Senpai no Yume wo Minai|Rascal Does Not Dream of Bunny Girl Senpai|AoButa /i) && name.match(/Season\s*2|S\s*0?2/i)) name = name.replace(/Seishun Buta Yarou wa Bunny Girl Senpai no Yume wo Minai|Rascal Does Not Dream of Bunny Girl Senpai|AoButa /i, 'Rascal Does Not Dream of Santa Claus').replace(/Season\s*2|S\s*0?2/gi, '') // Stupid fix for primarily stupid English release groups, you should use the actual name of the series here not the parent name... this is technically not a season 2, it's a sequel to a movie.
       if (name.match(/Hero/i) && name.match(/Academia/i) && !name.match(/FINAL/i) && name.match(/S8|S08|Season 8|Season 08/i)) name = name.replace(/Academia/i, 'Academia FINAL SEASON').replace(/S8|S08|Season 8|Season 08/i, '') // My Hero Academia FINAL SEASON fix...
+      if (name.match(/Intai Shitai (Part|Cour) 2/i)) name = name.replace(/Intai Shitai (Part|Cour) 2/i, 'Intai Shitai 2') // Let This Grieving Soul Retire Cour 2 fix...
+      if (name.match(/Soul Retire Part 2/i)) name = name.replace(/Soul Retire Part 2/i, 'Soul Retire Cour 2') // Let This Grieving Soul Retire Cour 2 fix...
 
       // fix incorrect marker patterns to prevent them from being detected as episode count...
       name = name

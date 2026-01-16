@@ -14,7 +14,7 @@ function setHeartBeat() {
 setHeartBeat()
 ipcRenderer.on('main-heartbeat', async (event, settings) => {
   clearInterval(heartbeatId)
-  const { default: TorrentClient } = await import('@/modules/client/core/webtorrent.js')
+  const { default: TorrentClient } = await import('webtorrent-client')
   globalThis.client = new TorrentClient(ipcRenderer, storageQuota, 'node', settings)
 })
 ipcRenderer.on('webtorrent-reload', async () => {

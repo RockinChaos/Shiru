@@ -10,9 +10,10 @@
   import { writable } from 'simple-store-svelte'
   import { getContext, createEventDispatcher } from 'svelte'
   import Subtitles from '@/modules/subtitles.js'
-  import { toTS, fastPrettyBytes, matchPhrase, videoRx } from '@/modules/util.js'
+  import { toTS, fastPrettyBytes, matchPhrase, videoRx, isValidNumber } from '@/modules/util.js'
   import { toast } from 'svelte-sonner'
   import { getChaptersAniSkip } from '@/modules/anime/anime.js'
+  import { mediaCache } from '@/modules/cache.js'
   import Seekbar from 'perfect-seekbar'
   import { click } from '@/modules/click.js'
   import VideoDeband from 'video-deband'
@@ -23,9 +24,9 @@
   import Keybinds, { loadWithDefaults, condition } from 'svelte-keybinds'
   import { SUPPORTS } from '@/modules/support.js'
   import 'rvfc-polyfill'
-  import IPC from '@/modules/ipc.js'
+  import { IPC, ELECTRON, ANDROID } from '@/modules/bridge.js'
   import WPC from '@/modules/wpc.js'
-  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone } from 'lucide-svelte'
+  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone } from 'lucide-svelte'
   import Debug from 'debug'
   const debug = Debug('ui:player')
 
@@ -41,7 +42,7 @@
   })
 
   export function playFile (file) {
-    if (!isNaN(file)) handleCurrent(videos?.[file])
+    if (isValidNumber(file)) handleCurrent(videos?.[file])
     else handleCurrent(file)
   }
 
@@ -55,7 +56,7 @@
   export let playPage
   export let miniplayer = false
   $: viewAnime = overlay.includes('viewanime')
-  $condition = () => SUPPORTS.keybinds && ((!miniplayer && !overlay.length && !document.querySelector('.modal.show')) || (viewAnime && page === 'player'))
+  $condition = () => SUPPORTS.keybinds && page === 'player' && ((!miniplayer && !overlay.length && !document.querySelector('.modal.show')) || viewAnime)
 
   export let files = []
   export let playableFiles = []
@@ -77,9 +78,9 @@
   let bufferTimeout = null
   let subHeaders = null
   let pip = false
-  const presentationRequest = null
-  const presentationConnection = null
-  const canCast = false
+  // const presentationRequest = null
+  // const presentationConnection = null
+  // const canCast = false
   let isFullscreen = false
   let ended = false
   let gain = 0
@@ -91,7 +92,8 @@
   let playbackRate = 1
   let externalPlayerReady = false
   $: cache.setEntry(caches.GENERAL, 'volume', String(volume || 0))
-  $: externalPlayback = settings.value.enableExternal && (SUPPORTS.isAndroid || settings.value.playerPath)
+  $: launchedExternal = false
+  $: externalPlayback = ($settings.enableExternal || launchedExternal) && (SUPPORTS.isAndroid || $settings.playerPath)
   $: safeduration = externalPlayback ? ((current?.media?.media?.duration || (current?.media?.media?.format && durationMap[current?.media?.media?.format]) || 24) * 60) : (isFinite(duration) ? duration : currentTime)
   $: {
     if (hidden) setDiscordRPC(media, video?.currentTime)
@@ -242,7 +244,9 @@
 
   let externalReadyListener
   async function handleCurrent (file) {
+    paused = true
     canPlay = false
+    video?.pause?.()
     externalPlayerReady = false
     showBuffering()
     if (file) {
@@ -263,26 +267,31 @@
         subs = null
       }
       current = file
-      if (!externalPlayback) {
-        src = file.url
-        subs = new Subtitles(video, files, current, handleHeaders)
-        video.load()
-        await loadAnimeProgress()
-      } else externalPlaying = false
-      emit('current', current) // #handleCurrent in MediaHandler
-      if (externalPlayback) {
-        WPC.clear('externalReady', externalReadyListener)
-        externalReadyListener = () => {
-          hideBuffering()
-          externalPlayerReady = true
-          setTimeout(() => {
-            if (externalPlayerReady && !externalPlaying) autoPlay()
-          }, 1_500)
-        }
-        WPC.listen('externalReady', externalReadyListener)
-      }
-      WPC.send('current', { current: file, external: settings.value.enableExternal })
+      setCurrent(file)
     }
+  }
+
+  async function setCurrent(file, launchExternal = false) {
+    if (!externalPlayback) {
+      src = file.url
+      subs = new Subtitles(video, files, current, handleHeaders)
+      video.load()
+      await loadAnimeProgress()
+    } else externalPlaying = false
+    emit('current', current) // #handleCurrent in MediaHandler
+    if (externalPlayback) {
+      WPC.clear('externalReady', externalReadyListener)
+      externalReadyListener = () => {
+        hideBuffering()
+        externalPlayerReady = true
+        setTimeout(() => {
+          if (externalPlayerReady && !externalPlaying) autoPlay()
+        }, 1_500)
+      }
+      WPC.listen('externalReady', externalReadyListener)
+    }
+    launchedExternal = launchExternal
+    WPC.send('current', { current: file, external: settings.value.enableExternal || launchExternal })
   }
 
   export let media
@@ -299,7 +308,7 @@
 
   async function loadAnimeProgress () {
     let animeProgress
-    if (!current?.media?.media?.id || !current?.media?.episode || current?.media?.failed || !media?.media?.id || !media?.episode) animeProgress = await getAnimeProgress({ name: current?.media?.parseObject?.anime_title ? (current?.media?.parseObject?.anime_title + ((media?.season || current?.media?.parseObject?.anime_season ? ` S${media?.season || current?.media?.parseObject?.anime_season}` : '') + ((media?.episode || current?.media?.parseObject?.episode_number ? ` E${media?.episode || current?.media?.parseObject?.episode_number}` : '')))) : current?.name })
+    if (!current?.media?.media?.id || !isValidNumber(current?.media?.episode) || current?.media?.failed || !media?.media?.id || !isValidNumber(media?.episode)) animeProgress = await getAnimeProgress({ name: current?.media?.parseObject?.anime_title ? (current?.media?.parseObject?.anime_title + ((media?.season || current?.media?.parseObject?.anime_season ? ` S${media?.season || current?.media?.parseObject?.anime_season}` : '') + ((media?.episode || current?.media?.parseObject?.episode_number ? ` E${media?.episode || current?.media?.parseObject?.episode_number}` : '')))) : current?.name })
     else animeProgress = await getAnimeProgress({ name: current?.media?.parseObject?.anime_title ? (current?.media?.parseObject?.anime_title + ((media?.season || current?.media?.parseObject?.anime_season ? ` S${media?.season || current?.media?.parseObject?.anime_season}` : '') + ((media?.episode || current?.media?.parseObject?.episode_number ? ` E${media?.episode || current?.media?.parseObject?.episode_number}` : '')))) : current?.name, mediaId: current.media.media.id, episode: current.media.episode })
     if (!animeProgress) return
 
@@ -314,7 +323,7 @@
       targetTime = 0
       video.currentTime = targetTime
     }
-    if (!current?.media?.media?.id || !current?.media?.episode || current?.media?.failed || !media?.media?.id || !media?.episode) setAnimeProgress({ name: current?.media?.parseObject?.anime_title ? (current?.media?.parseObject?.anime_title + ((media?.season || current?.media?.parseObject?.anime_season ? ` S${media?.season || current?.media?.parseObject?.anime_season}` : '') + ((media?.episode || current?.media?.parseObject?.episode_number ? ` E${media?.episode || current?.media?.parseObject?.episode_number}` : '')))) : current?.name, currentTime: video.currentTime, safeduration })
+    if (!current?.media?.media?.id || !isValidNumber(current?.media?.episode) || current?.media?.failed || !media?.media?.id || !isValidNumber(media?.episode)) setAnimeProgress({ name: current?.media?.parseObject?.anime_title ? (current?.media?.parseObject?.anime_title + ((media?.season || current?.media?.parseObject?.anime_season ? ` S${media?.season || current?.media?.parseObject?.anime_season}` : '') + ((media?.episode || current?.media?.parseObject?.episode_number ? ` E${media?.episode || current?.media?.parseObject?.episode_number}` : '')))) : current?.name, currentTime: video.currentTime, safeduration })
     else setAnimeProgress({ mediaId: current.media.media.id, episode: current.media.episode, currentTime: video.currentTime, safeduration })
   }
   setInterval(() => {
@@ -395,7 +404,7 @@
     await promptFiller()
     if ((((page === 'player') && (!overlay || overlay.length === 0)) || pip) && !resolvePrompt && !skipPrompt) {
       if (externalPlayback) playPause()
-      else {
+      else if (!hidden) {
         video.play()
         resetImmerse()
         setTimeout(() => subs?.renderer?.resize(), 200) // stupid fix because video metadata doesn't update for multiple frames
@@ -404,38 +413,60 @@
   }
 
   let watchedListener
+  let androidListener
   let externalPlaying = false
   function playPause () {
+    if (hidden) return
     if (externalPlayback) {
       const duration = current.media?.media?.duration || durationMap[current.media?.media?.format]
       if (duration) {
         WPC.clear('externalWatched', watchedListener)
-        watchedListener = (detail) => checkCompletionByTime(detail, duration * 60)
+        watchedListener = (detail) => {
+          checkCompletionByTime(detail, duration * 60)
+          currentTime = detail
+          targetTime = detail
+          launchedExternal = false
+        }
         WPC.listen('externalWatched', watchedListener)
       }
       externalPlaying = true
+      if (SUPPORTS.isAndroid) {
+        WPC.clear('androidExternal', androidListener)
+        androidListener = (url) => {
+          const startTime = Date.now()
+          const externalWatched = () => {
+            const watchTime = (Date.now() - startTime) / 1_000
+            checkCompletionByTime(watchTime, duration * 60)
+            currentTime = watchTime
+            targetTime = watchTime
+            launchedExternal = false
+          }
+          ANDROID.launchExternal?.(url)?.then?.(() => externalWatched())
+        }
+        WPC.listen('androidExternal', androidListener)
+      }
       WPC.send('externalPlay', { current })
     } else paused = !paused
     resetImmerse()
     setTimeout(() => subs?.renderer?.resize(), 200) // stupid fix because video metadata doesn't update for multiple frames
   }
-  const handleVisibility = visibility => {
+  let hidden = false
+  let visibilityPaused = true
+  const handleVisibility = visible => {
     if ($settings.playerPause && !pip) {
-      hidden = (visibility === 'hidden')
+      hidden = !visible
       if (!video?.ended) {
         if (hidden) {
           visibilityPaused = paused
           paused = true
-        } else {
-          if (!visibilityPaused) paused = false
-        }
+        } else if (!visibilityPaused) paused = false
       }
     }
   }
-  let hidden = false
-  let visibilityPaused = true
-  document.addEventListener('visibilitychange', () => handleVisibility(document.visibilityState))
-  IPC.on('visibilitychange', handleVisibility)
+  ELECTRON.isMinimized().then(isMinimized => {
+    handleVisibility(!isMinimized)
+    ELECTRON.onMinimize(handleVisibility)
+  })
   function tryPlayNext () {
     currentSkippable = null
     if ($settings.playerAutoplay && !state.value) playNext()
@@ -494,10 +525,10 @@
   function skip () {
     const current = findChapter(currentTime)
     if (current) {
-      if (!isChapterSkippable(current) && ((current.end - current.start) / 1000) > 100) {
+      if (!isChapterSkippable(current) && ((current.end - current.start) / 1_000) > 100) {
         currentTime = currentTime + 85
       } else {
-        const endtime = current.end / 1000
+        const endtime = current.end / 1_000
         if ((safeduration - endtime | 0) === 0 && hasNext && settings.value.playerAutoplay) return playNext()
         currentTime = endtime
         currentSkippable = null
@@ -525,7 +556,7 @@
     seek(-settings.value.playerSeek)
   }
   function selectAudio (id) {
-    if (id !== undefined) {
+    if (id != null) {
       for (const track of video.audioTracks) {
         track.enabled = track.id === id
       }
@@ -533,7 +564,7 @@
     }
   }
   function selectVideo (id) {
-    if (id !== undefined) {
+    if (id != null) {
       for (const track of video.videoTracks) {
         track.selected = track.id === id
       }
@@ -927,14 +958,17 @@
       if (!paused || miniplayer) {
         immerseTimeout = setTimeout(() => {
           if (token === immerseToken) immersePlayer()
-        }, (paused ? 5 : 1.5) * 1000)
+        }, (paused ? 5 : 1.5) * 1_000)
       }
     })
   }
 
   function toggleImmerse () {
-    clearTimeout(immerseTimeout)
-    immersed = !immersed
+    if (immersed) resetImmerse()
+    else {
+      clearTimeout(immerseTimeout)
+      immersed = !immersed
+    }
   }
 
   let canPlay = !!src
@@ -1049,7 +1083,7 @@
   }
 
   let currentSkippable = null
-  $: currentSkippable && settings.value.playerAutoSkip && skip()
+  $: currentSkippable && $settings.playerAutoSkip && skip()
   function checkSkippableChapters () {
     const current = findChapter(currentTime)
     if (current) {
@@ -1067,7 +1101,7 @@
     ['Recap', /recap/mi]
   ]
   function isChapterSkippable(chapter) {
-    if (((chapter.end - chapter.start) / 1000) > MAX_TOTAL_SKIP_TIME) return null // Anything longer than 180s (3m) is likely invalid, skipping this chapter would be a mistake!
+    if (((chapter.end - chapter.start) / 1_000) > MAX_TOTAL_SKIP_TIME) return null // Anything longer than 180s (3m) is likely invalid, skipping this chapter would be a mistake!
     for (const [name, regex] of skippableChaptersRx) {
       if (/** @type {RegExp} */ chapter.text && (regex).test(chapter.text.trim())) {
         return name
@@ -1078,13 +1112,13 @@
   function findChapter (time) {
     if (!chapters.length) return null
     for (const chapter of chapters) {
-      if (time < (chapter.end / 1000) && time >= (chapter.start / 1000)) return chapter
+      if (time < (chapter.end / 1_000) && time >= (chapter.start / 1_000)) return chapter
     }
   }
   function mergeMicroSkippable(_chapters) {
     const isSkippable = (chapter) => chapter.text && skippableChaptersRx.some(([_, rx]) => rx.test(chapter.text.trim()))
-    const isShort = (chapter) => ((chapter.end - chapter.start) / 1000) < 10 // anything shorter than 10 seconds is just fluff... probably a mistake.
-    const underMaxSkip = (chapter) => (chapter.end - chapter.start) / 1000 <= MAX_TOTAL_SKIP_TIME
+    const isShort = (chapter) => ((chapter.end - chapter.start) / 1_000) < 10 // anything shorter than 10 seconds is just fluff... probably a mistake.
+    const underMaxSkip = (chapter) => (chapter.end - chapter.start) / 1_000 <= MAX_TOTAL_SKIP_TIME
     for (let i = 0; i < _chapters.length - 1; i++) {
       const cur = _chapters[i]
       const next = _chapters[i + 1]
@@ -1127,11 +1161,11 @@
     _chapters = _chapters.map((chapter, index, arr) => {
       if (chapter.start === chapter.end) { // Fix chapters with incorrect start/end times which causes an invisible seekbar, this happens when the start and end time are identical
         const nextChapter = arr[index + 1] // We now assume each chapter is a bookmark and use the next chapters start time and the current chapters end time.
-        return { ...chapter, end: nextChapter ? nextChapter.start : safeduration * 1000 } // Use next chapter's start or ensure the entire safe duration of seekbar is visible.
+        return { ...chapter, end: nextChapter ? nextChapter.start : safeduration * 1_000 } // Use next chapter's start or ensure the entire safe duration of seekbar is visible.
       }
       return chapter
     })
-    _chapters[_chapters.length - 1].end = safeduration * 1000 // fix the final chapter so its duration actually reaches the end of the video...
+    _chapters[_chapters.length - 1].end = safeduration * 1_000 // fix the final chapter so its duration actually reaches the end of the video...
     _chapters[0].start = 0
 
     mergeMicroSkippable(_chapters)
@@ -1140,8 +1174,8 @@
     const sanitised = []
     let chapterCounter = 1
     for (let { start, end, text } of _chapters) {
-      if (start > safeduration * 1000) continue
-      if (end > safeduration * 1000) end = safeduration * 1000
+      if (start > safeduration * 1_000) continue
+      if (end > safeduration * 1_000) end = safeduration * 1_000
       if (text && /^[\d:.\s]+$/.test(text)) { // Replace numerical/timestamp-like chapter names
         text = `Chapter ${chapterCounter}`
         chapterCounter++
@@ -1190,7 +1224,7 @@
       debug('Detected a currently running thumbnail generation process, interrupting...')
       thumbnailProcess.videoDraw.remove()
       thumbnailProcess.running = false
-      await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+      await new Promise(resolve => setTimeout(resolve, 5 * 1_000))
     }
     const t0 = performance.now()
     thumbnailProcess = { videoDraw: document.createElement('video'), running: true}
@@ -1210,7 +1244,7 @@
         let dynamicDuration = (buffer / 100) * videoDraw.duration
         if (!isFinite(dynamicDuration)) {
           debug('Video is still loading... waiting to generate thumbnails...')
-          setTimeout(() => captureThumbnail(), 1000)
+          setTimeout(() => captureThumbnail(), 1_000)
           return
         }
         while (thumbnailData.thumbnails[index]) index++
@@ -1226,12 +1260,12 @@
               debug('Detected a buffer change, continuing thumbnail generation...')
             }
             captureThumbnail()
-          }, 1000)
+          }, 1_000)
           return
         }
 
         if (currentTime >= videoDraw.duration) {
-          debug('Thumbnail generation has successfully completed, took:', (toTS((performance.now() - t0) / 1000)))
+          debug('Thumbnail generation has successfully completed, took:', (toTS((performance.now() - t0) / 1_000)))
           videoDraw.remove()
           return
         } else if (isFinite(currentTime) && currentTime >= 0 && currentTime <= dynamicDuration) {
@@ -1346,7 +1380,7 @@
           saveAnimeProgress(true)
           toast.error('Video Codec Unsupported', {
             description: 'The video could not be loaded, either because the server or network failed or because the format is not supported. Try a different release by disabling Autoplay Torrents in RSS settings.',
-            duration: 30000
+            duration: 30_000
           })
         }
         break
@@ -1396,8 +1430,8 @@
       const details = np.title || undefined
       const timeLeft = safeduration - targetTime
       const timestamps = !paused ? {
-        start: Date.now() - (targetTime > 0 ? targetTime * 1000 : 0),
-        end: Date.now() + timeLeft * 1000
+        start: Date.now() - (targetTime > 0 ? targetTime * 1_000 : 0),
+        end: Date.now() + timeLeft * 1_000
       } : undefined
        activity = {
         details,
@@ -1666,7 +1700,7 @@
   <div class='bottom d-flex z-40 flex-column px-20'>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
       <Seekbar
-        accentColor='var(--accent-color)'
+        accentColor='{completed || (media?.media && (($mediaCache[media.media.id] || media.media)?.mediaListEntry?.progress === (media.episodeRange ? media.episodeRange.last : media.episode))) ? `var(--completed-color-dim)` : `var(--accent-color)`}'
         class='font-size-20'
         length={safeduration}
         {buffer}
@@ -1723,10 +1757,10 @@
         <div class='ts mr-auto font-scale-20'>x{playbackRate.toFixed(1)}</div>
       {/if}
       <input type='file' class='d-none' id='search-subtitle' accept='.srt,.vtt,.ass,.ssa,.sub,.txt' on:input|preventDefault|stopPropagation={handleFile} bind:this={fileInput}/>
-      <div class='dropdown dropleft with-arrow' use:click={() => {showOptions.set(!$showOptions)}}>
+      <div class='dropdown dropleft with-arrow' use:click={() => { showOptions.set(!$showOptions) }}>
         <span class='icon text-white ctrl d-flex align-items-center h-full' title='More'><EllipsisVertical size='2.5rem' strokeWidth={2.5} /></span>
-        <div class='position-absolute hm-40 text-capitalize text-nowrap bg-dark rounded dr-arrow' style='margin-top: {(externalPlayback ? -10.3 : -17.5)}rem !important; margin-left: {(externalPlayback ? -9.6 : -11.4)}rem !important; transition: opacity 0.1s ease-in;' class:hidden={!$showOptions}>
-          <div role='button' aria-label='Add External Subtitles' class='pointer d-none align-items-center justify-content-center font-size-16 bd-highlight py-5 px-10 rounded-top option' class:d-flex={!externalPlayback} title='Add External Subtitles' use:click={() => { fileInput.click(); showOptions.set(false); }}>
+        <div class='position-absolute hm-40 text-capitalize text-nowrap bg-dark rounded dr-arrow' style='margin-top: {launchedExternal ? -14 : externalPlayback ? -10.3 : SUPPORTS.isAndroid || $settings.playerPath ? -21 : -17.5}rem !important; margin-left: {launchedExternal ? -11.1 : externalPlayback ? -9.8 : -11.4}rem !important; transition: opacity 0.1s ease-in;' class:hidden={!$showOptions}>
+          <div role='button' aria-label='Add External Subtitles' class='pointer d-none align-items-center justify-content-center font-size-16 bd-highlight py-5 px-10 rounded-top option' class:d-flex={!externalPlayback} title='Add External Subtitles' use:click={() => { fileInput.click(); showOptions.set(false) }}>
             <FilePlus2 size='2rem' strokeWidth={2.5} /> <div class='ml-10'>Add Subtitles</div>
           </div>
           <div class='dropdown dropleft with-arrow pointer bg-dark option font-size-16 bd-highlight' class:d-none={externalPlayback}>
@@ -1740,7 +1774,10 @@
               </div>
             </div>
           </div>
-          <div role='button' aria-label='Modify Existing Files or Change to a New File' class='pointer d-flex align-items-center justify-content-center font-size-16 bd-highlight py-5 px-10 rounded-bottom option' class:rounded-top={externalPlayback} title='Modify Existing Files or Change to a New File' use:click={() => { resolvePrompt = false; $managerView = !$managerView; showOptions.set(false); }}>
+          <div role='button' aria-label='Play the Current Video in an External Player' class='pointer d-none align-items-center justify-content-center font-size-16 bd-highlight py-5 px-10 option' class:d-flex={(!externalPlayback || launchedExternal) && (SUPPORTS.isAndroid || $settings.playerPath)} title='Play the Current Video in an External Player' use:click={() => { setCurrent(current, true); showOptions.set(false) }}>
+            <SquareArrowOutUpRight size='2rem' strokeWidth={2.5} /> <div class='ml-10'>External Player</div>
+          </div>
+          <div role='button' aria-label='Modify Existing Files or Change to a New File' class='pointer d-flex align-items-center justify-content-center font-size-16 bd-highlight py-5 px-10 rounded-bottom option' class:rounded-top={externalPlayback && !launchedExternal} title='Modify Existing Files or Change to a New File' use:click={() => { resolvePrompt = false; $managerView = !$managerView; showOptions.set(false) }}>
             <SquarePen size='2rem' strokeWidth={2.5} /> <div class='ml-10'>File Manager</div>
           </div>
         </div>
@@ -1789,7 +1826,7 @@
           </div>
         </div>
       {/if}
-      {#if subHeaders?.length}
+      {#if subHeaders?.length && !externalPlayback}
         <div class='subtitles dropdown dropup with-arrow' use:click={toggleDropdown}>
           <span class='icon text-white ctrl mr-5 d-flex align-items-center h-full' title='Subtitles [C]'>
             <Captions size='2.5rem' strokeWidth={2.5} />
@@ -1832,7 +1869,7 @@
           {#if pip}
             <PictureInPicture size='2.5rem' strokeWidth={2.5} />
           {:else}
-            <PictureInPicture2 size='2.5rem'strokeWidth={2.5} />
+            <PictureInPicture2 size='2.5rem' strokeWidth={2.5} />
           {/if}
         </span>
       {/if}

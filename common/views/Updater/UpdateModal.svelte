@@ -9,7 +9,7 @@
   import { changeLog, markdownToHtml } from '@/views/Settings/Changelog.svelte'
   import { settings } from '@/modules/settings.js'
   import { page } from '@/App.svelte'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import Debug from 'debug'
   const debug = Debug('ui:update-modal')
 
@@ -77,7 +77,7 @@
   function close(ignored = false) {
     if (androidUpdating) return
     if (ignored) $updateState = 'ignored'
-    if (overlay.includes('updateRequest')) overlay = overlay.filter(item => item !== 'updateRequest')
+    setTimeout(() => { if (overlay.includes('updateRequest')) overlay = overlay.filter(item => item !== 'updateRequest') })
   }
   function confirm() {
     if (androidUpdating) return

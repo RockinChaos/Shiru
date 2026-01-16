@@ -1,7 +1,7 @@
 <script context='module'>
   import ChangelogSk from '@/components/skeletons/ChangelogSk.svelte'
   import Debug from 'debug'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import { SUPPORTS } from '@/modules/support.js'
   const debug = Debug('ui:changelog-view')
 

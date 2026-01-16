@@ -1,0 +1,90 @@
+diff --git a/android/src/main/java/com/capacitor/safearea/SafeArea.java b/android/src/main/java/com/capacitor/safearea/SafeArea.java
+index 7ada9ada3471462ea6e02f2b1a9a9b05f75fc72a..0a7930ec52fad002e48ecda5bd0f8d9f08f179ad 100644
+--- a/android/src/main/java/com/capacitor/safearea/SafeArea.java
++++ b/android/src/main/java/com/capacitor/safearea/SafeArea.java
+@@ -10,6 +10,9 @@ import com.getcapacitor.JSObject;
+ import android.view.DisplayCutout;
+ import android.view.View;
+ import android.view.WindowInsets;
++import androidx.core.view.DisplayCutoutCompat;
++import androidx.core.view.ViewCompat;
++import androidx.core.view.WindowInsetsCompat;
+ 
+ public class SafeArea {
+     private Bridge bridge;
+@@ -17,6 +20,58 @@ public class SafeArea {
+     public void setBridge(Bridge bridge) {
+         this.bridge = bridge;
+     }
++	
++    /**
++     * Get only the display cutout insets (notch/camera cutout), excluding system bars
++     */
++    public JSObject getDisplayCutoutInsets() {
++        if (this.bridge == null || this.bridge.getActivity() == null) {
++            return this.result(0, 0, 0, 0);
++        }
++        View decor = this.bridge.getActivity().getWindow().getDecorView();
++        if (decor == null) {
++            return this.result(0, 0, 0, 0);
++        }
++        int top = 0;
++        int left = 0;
++        int right = 0;
++        int bottom = 0;
++        // Display cutouts are only available on Android P (API 28) and above
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
++            try {
++               WindowInsetsCompat insetsCompat = ViewCompat.getRootWindowInsets(decor);
++                if (insetsCompat != null) {
++                    DisplayCutoutCompat dc = insetsCompat.getDisplayCutout();
++                    if (dc != null) {
++                        top = dc.getSafeInsetTop();
++                        left = dc.getSafeInsetLeft();
++                        right = dc.getSafeInsetRight();
++                        bottom = dc.getSafeInsetBottom();
++                    }
++                }
++            } catch (Throwable t) {
++                Log.i(SafeAreaPlugin.class.toString(), "DisplayCutoutCompat failed, trying platform API: " + t);
++            }
++            // Fallback to platform API
++            if (top == 0 && left == 0 && right == 0 && bottom == 0) {
++                try {
++                    WindowInsets winInsets = decor.getRootWindowInsets();
++                    if (winInsets != null) {
++                        DisplayCutout displayCutout = winInsets.getDisplayCutout();
++                        if (displayCutout != null) {
++                            top = displayCutout.getSafeInsetTop();
++                            left = displayCutout.getSafeInsetLeft();
++                            right = displayCutout.getSafeInsetRight();
++                            bottom = displayCutout.getSafeInsetBottom();
++                       }
++                    }
++                } catch (Throwable t) {
++                    Log.i(SafeAreaPlugin.class.toString(), "Platform DisplayCutout failed: " + t);
++                }
++            }
++        }
++        return this.result(top, left, right, bottom);
++    }
+ 
+     public JSObject getSafeAreaInsets() {
+         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+diff --git a/android/src/main/java/com/capacitor/safearea/SafeAreaPlugin.java b/android/src/main/java/com/capacitor/safearea/SafeAreaPlugin.java
+index fcabc666d0dd5454f3a338ee26cc072749edc280..b4f8a904eed74a2abea1935b0e03144b2d1ad199 100644
+--- a/android/src/main/java/com/capacitor/safearea/SafeAreaPlugin.java
++++ b/android/src/main/java/com/capacitor/safearea/SafeAreaPlugin.java
+@@ -118,6 +118,12 @@ public class SafeAreaPlugin extends Plugin {
+         notifyListeners("safeAreaChanged", ret);
+     }
+ 
++    @PluginMethod
++    public void getDisplayCutoutInsets(PluginCall call) {
++        JSObject ret = new JSObject();
++        ret.put(KEY_INSET, safeAreaInsets.getDisplayCutoutInsets());
++        call.resolve(ret);
++    }
+ 
+     @PluginMethod
+     public void getSafeAreaInsets(PluginCall call) {

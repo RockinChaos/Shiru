@@ -57,13 +57,13 @@ export default class SectionsManager {
           return Helper.userLists(search).then(_res => {
             if (!_res?.data && _res?.errors) throw _res.errors[0]
             let animeFilter = {}
-            const hasHideSubs = Object.keys(hideSubs).length > 0
+            const hasHideSubs = Object.keys(hideSubs)?.length > 0
             const targetLists = Helper.isAniAuth() ? _res.data.MediaListCollection.lists : _res.data.MediaList
             const statusFilter = search.hideMyAnime ? search.hideStatus : search.showStatus
-            const userAnimeIds = Array.from(new Set(Helper.isAniAuth() ? targetLists.filter(({ status }) => statusFilter.includes(status)).flatMap(list => list.entries.map(({ media }) => hasHideSubs ? media.idMal : media.id)) : targetLists.filter(({ node }) => statusFilter.includes(Helper.statusMap(node.my_list_status.status))).map(({ node }) => node.id)))
+            const userAnimeIds = Array.from(new Set(Helper.isAniAuth() ? targetLists.filter(({ status }) => statusFilter.includes(status)).flatMap(list => list.entries.map(({ media }) => hasHideSubs ? media.idMal : media.id)) : targetLists.filter(({ node }) => statusFilter.includes(Helper.statusMap(node.my_list_status.status))).map(({ node }) => node.id))).filter(Boolean)
             // anilist queries do not support mix and match, you have to use the same id includes as excludes, id_not_in cannot be used with idMal_in.
-            if (search.hideMyAnime) animeFilter = Helper.isAniAuth() ? { [hasHideSubs ? 'idMal_not' : 'id_not']: userAnimeIds } : { idMal_not: userAnimeIds }
-            else if (search.showMyAnime) animeFilter = { id: userAnimeIds }
+            if (search.hideMyAnime) animeFilter = userAnimeIds?.length ? (Helper.isAniAuth() ? { [hasHideSubs ? 'idMal_not' : 'id_not']: userAnimeIds.filter(Boolean) } : { idMal_not: userAnimeIds }) : {}
+            else if (search.showMyAnime) animeFilter = userAnimeIds?.length ? { id: userAnimeIds.filter(Boolean) } : {}
             return anilistClient.search({ page, perPage, ...hideSubs, ...animeFilter, ...SectionsManager.sanitiseObject(search) })
           })
         }
@@ -117,20 +117,6 @@ settings.subscribe((value) => debounceUpdate(value))
 function createSections () {
   const sectionFormat = (title) => (settings.value.homeSections.find(([t]) => t === title)?.[2] || [])
   const createSection = (section, variables = {}, staticSort) => ({ ...section, ...(section.sort && staticSort ? { sort: 'N/A' } : {}), variables: { ...variables, sort: settings.value.homeSections.find(([t]) => !staticSort && t === section.title)?.[1] ?? section.sort, ...(Array.isArray(sectionFormat(section.title)) && sectionFormat(section.title).length > 0 ? { format : sectionFormat(section.title) } : {}) } })
-
-  const rssmap = {
-    SubsPlease: 'aHR0cHM6Ly9mZWVkLmFuaW1ldG9zaG8ub3JnL3JzczI/cXg9MSZxPSJbU3Vic1BsZWFzZV0gIg==',
-    'Erai-raws [Multi-Sub]': 'aHR0cHM6Ly9mZWVkLmFuaW1ldG9zaG8ub3JnL3JzczI/cXg9MSZxPSJbRXJhaS1yYXdzXSAi',
-    'Yameii [Dubbed]': 'aHR0cHM6Ly9mZWVkLmFuaW1ldG9zaG8ub3JnL3JzczI/cXg9MSZxPSJbWWFtZWlpXSAi',
-    'Judas [Small Size]': 'aHR0cHM6Ly9mZWVkLmFuaW1ldG9zaG8ub3JnL3JzczI/cXg9MSZxPSJbSnVkYXNdICI='
-  }
-
-  settings.value.rssFeedsNew = settings.value.rssFeedsNew.map(([title, url]) => {
-    const rssUrl = rssmap[url]
-    if (rssUrl) return [title, `${atob(rssUrl)}${settings.value.rssQuality ? `${settings.value.rssQuality}p|${settings.value.rssQuality}` : ''}`]
-    return [title, url]
-  })
-  
   return [
     // RSS feeds
     ...settings.value.rssFeedsNew.filter(([title, url]) => url).map(([title, url]) => {
@@ -178,11 +164,9 @@ function createSections () {
         const res = Helper.userLists(variables).then(res => {
           if (!res?.data && res?.errors) throw res.errors[0]
           const mediaList = res.data.MediaListCollection.lists.find(({ status }) => status === 'COMPLETED')?.entries
-          const excludeIds = res.data.MediaListCollection.lists.reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered}, []).map(({ media }) => media.id) || []
+          const excludeIds = res.data.MediaListCollection.lists.reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered}, []).map(({ media }) => media.id).filter(Boolean) || []
           if (!mediaList) return {}
-          const ids = mediaList.flatMap(({ media }) => {
-            return media.relations.edges.filter(edge => edge.relationType === 'SEQUEL')
-          }).map(({ node }) => node.id)
+          const ids = mediaList.flatMap(({ media }) => media.relations.edges.filter(edge => edge.relationType === 'SEQUEL')).map(({ node }) => node.id).filter(Boolean)
           if (!ids.length) return {}
           return anilistClient.searchIDS({ page, perPage, id: ids, id_not: excludeIds, ...SectionsManager.sanitiseObject(variables), status: ['FINISHED', 'RELEASING'] })
         })
@@ -195,11 +179,9 @@ function createSections () {
         const res = Helper.userLists(variables).then(res => {
           if (!res?.data && res?.errors) throw res.errors[0]
           const mediaList = res.data.MediaListCollection.lists.find(({ status }) => status === 'COMPLETED')?.entries
-          const excludeIds = res.data.MediaListCollection.lists.reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered}, []).map(({ media }) => media.id) || []
+          const excludeIds = res.data.MediaListCollection.lists.reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered}, []).map(({ media }) => media.id).filter(Boolean) || []
           if (!mediaList) return {}
-          const ids = mediaList.flatMap(({ media }) => {
-            return media.relations.edges.filter(edge => !['SEQUEL', 'CHARACTER', 'OTHER'].includes(edge.relationType))
-          }).map(({ node }) => node.id)
+          const ids = mediaList.flatMap(({ media }) => media.relations.edges.filter(edge => !['SEQUEL', 'CHARACTER', 'OTHER'].includes(edge.relationType))).map(({ node }) => node.id).filter(Boolean)
           if (!ids.length) return {}
           return anilistClient.searchIDS({ page, perPage, id: ids, id_not: excludeIds, ...SectionsManager.sanitiseObject(variables), status: ['FINISHED', 'RELEASING'] })
         })
@@ -220,8 +202,9 @@ function createSections () {
                 const matchingAiring = airing?.find(item => (watchMedia?.media ? item?.media?.media?.id : item?.media?.media?.idMal) === media?.id)
                 if (matchingAiring && (media?.mediaListEntry || media?.my_list_status)) {
                   const episodes = matchingAiring?.media?.media?.airingSchedule?.nodes
+                  const progress = (media?.mediaListEntry?.progress || media?.my_list_status?.num_episodes_watched || 0) - (matchingAiring?.media?.media?.zeroEpisode ? 1 : 0)
                   const episodeNumber = episodes?.[episodes.length > 1 ? episodes.length - 1 : 0]?.episode - (new Date(episodes?.[episodes.length > 1 ? episodes.length - 1 : 0]?.airingAt) > new Date() ? 1 : 0)
-                  if (((media?.mediaListEntry?.progress || media?.my_list_status?.num_episodes_watched) === (episodeNumber + (media.episodes && (episodeNumber === media.episodes) ? 1 : 0))) && ((media?.status === 'RELEASING' || media?.status === 'currently_airing') || !((media?.mediaListEntry?.progress || media?.my_list_status?.num_episodes_watched) >= media?.num_episodes))) ids.push(media?.id)
+                  if ((progress === (episodeNumber + (media.episodes && (episodeNumber === media.episodes) ? 1 : 0))) && ((media?.status === 'RELEASING' || media?.status === 'currently_airing') || !(progress >= media?.num_episodes))) ids.push(media?.id)
                 }
               })
               mediaList = mediaList.filter(media => !ids.includes(media?.media?.id || media?.node?.id))
@@ -257,6 +240,19 @@ function createSections () {
           const mediaList = Helper.isAniAuth()
             ? res.data.MediaListCollection.lists.find(({ status }) => status === 'CURRENT')?.entries
             : res.data.MediaList.filter(({ node }) => node.my_list_status.status === Helper.statusMap('CURRENT'))
+          if (!mediaList) return {}
+          return Helper.getPaginatedMediaList(page, perPage, variables, mediaList)
+        })
+        return SectionsManager.wrapResponse(res, perPage)
+      }
+    }, { userList: true, disableHide: true, status_not }),
+    createSection({ title: 'Rewatching List', sort: 'UPDATED_TIME_DESC', format: [], hide: !Helper.isAuthorized(),
+      load: (page = 1, perPage = 50, variables = {}) => {
+        const res = Helper.userLists(variables).then(res => {
+          if (!res?.data && res?.errors) throw res.errors[0]
+          const mediaList = Helper.isAniAuth()
+            ? res.data.MediaListCollection.lists.find(({ status }) => status === 'REPEATING')?.entries
+            : res.data.MediaList.filter(({ node }) => node.my_list_status.status === Helper.statusMap('REPEATING'))
           if (!mediaList) return {}
           return Helper.getPaginatedMediaList(page, perPage, variables, mediaList)
         })
