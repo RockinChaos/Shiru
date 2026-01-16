@@ -21,7 +21,7 @@
   import SmallCard from '@/components/cards/SmallCard.svelte'
   import SmallCardSk from '@/components/skeletons/SmallCardSk.svelte'
   import Helper from '@/modules/helper.js'
-  import { Clapperboard, Users, Heart, Play, Timer, TrendingUp, Tv, Hash, ArrowDown01, ArrowUp10 } from 'lucide-svelte'
+  import { Clapperboard, Users, Heart, Play, Timer, TrendingUp, Tv, ArrowDown01, ArrowUp10 } from 'lucide-svelte'
 
   export let overlay
   const view = getContext('view')
@@ -275,8 +275,10 @@ function getGenreColor(genre) {
 <div class="m-0 pb-0 pt-10 d-flex flex-wrap text-capitalize align-items-start">
   {#each staticMedia.tags.slice(0, 6) as tag}
     <div class="genre-tag mb-10 mr-10">
-      <Hash class="mr-5" size="1.4rem" />
       {tag.name}
+      {#if tag.rank}
+        <span class="tag-percentage opacity-50" style="margin-left: 0.5rem;">{tag.rank}%</span>
+      {/if}
     </div>
   {/each}
   {#if staticMedia.tags.length > 6}
