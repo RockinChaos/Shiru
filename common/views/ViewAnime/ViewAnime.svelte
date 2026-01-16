@@ -277,12 +277,12 @@ function getGenreColor(genre) {
     <div class="genre-tag mb-10 mr-10">
       {tag.name}
       {#if tag.rank}
-        <span class="tag-percentage opacity-50" style="margin-left: 0.5rem;">{tag.rank}%</span>
+        <span class="tag-percentage opacity-55 ml-10">{tag.rank}%</span>
       {/if}
     </div>
   {/each}
   {#if staticMedia.tags.length > 6}
-    <div class="genre-tag mb-10 mr-10 opacity-50" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(6).map((t) => `${t.name}${t.rank ? ' ' + t.rank + '%' : ''}`).join(", ")}>
+    <div class="genre-tag mb-10 mr-10" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(6).map((t) => `${t.name}${t.rank ? ' ' + t.rank + '%' : ''}`).join(", ")}>
       +{staticMedia.tags.length - 6} more...
     </div>
   {/if}

@@ -62,6 +62,8 @@
   }
 </script>
 
+<!-- It would be better if genre, tags, etc. would be defined here instead of ViewAnime.svelte probably -->
+<!-- Details Section -->
 <div class='m-0 pb-0 d-flex flex-wrap text-capitalize align-items-start'>
   {#each detailsMap as detail}
     {#await getProperty(detail.property, media) then property}
