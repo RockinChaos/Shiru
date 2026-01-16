@@ -272,15 +272,15 @@ function getGenreColor(genre) {
             <Details media={staticMedia} alt={recommendations} />
 <!-- Tags Section -->
 <div class="m-0 pb-0 pt-10 d-flex flex-wrap text-capitalize align-items-start">
-  {#each staticMedia.tags.slice(0, 7) as tag}
+  {#each staticMedia.tags.slice(0, 6) as tag}
     <div class="genre-tag mb-10 mr-10">
       <Hash class="mr-5" size="1.4rem" />
       {tag.name}
     </div>
   {/each}
-  {#if staticMedia.tags.length > 7}
-    <div class="genre-tag mb-10 mr-10 opacity-50" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(7).map((t) => t.name).join(", ")}>
-      +{staticMedia.tags.length - 7} more...
+  {#if staticMedia.tags.length > 6}
+    <div class="genre-tag mb-10 mr-10 opacity-50" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(6).map((t) => t.name).join(", ")}>
+      +{staticMedia.tags.length - 6} more...
     </div>
   {/if}
 </div>
