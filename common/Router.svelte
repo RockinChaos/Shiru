@@ -15,6 +15,7 @@
   export let page = 'home'
   export let overlay = []
   export let playPage = false
+  export let statusTransition = false
 
   export let miniplayerPadding = getPadding()
   export let miniplayerActive = false
@@ -27,19 +28,18 @@
     return (miniplayerTop ? 'padding-top: ' : 'padding-bottom: ') + `${pixelPadding}px !important`
   }
 
-  $: document.documentElement.style.setProperty('--safe-bar-top', !SUPPORTS.isAndroid && !$status.match(/offline/i) ? '18px' : '0px')
   $: miniplayerActive = !(playPage || !$media || !Object.keys($media).length || $media?.display)
   $: visible = !overlay.includes('torrent') && !overlay.includes('notifications') && !overlay.includes('profiles') && !overlay.includes('minimizetray') && !overlay.includes('trailer') && !playPage && !$media?.display
   $: miniplayer = ($media && (Object.keys($media).length > 0)) && ((page !== 'player' && visible) || (overlay.includes('viewanime') && visible))
 </script>
 <div class='w-full h-full position-absolute overflow-hidden' class:invisible={!($media && (Object.keys($media).length > 0)) || (playPage && overlay.includes('viewanime')) || (!visible && (page !== 'player'))}>
-  <Miniplayer active={miniplayer} class='bg-dark-light rounded-10 z-100 miniplayer-border {(page === `player` && !overlay.includes(`viewanime`)) ? `h-full` : ``}' padding='2rem' bind:page>
+  <Miniplayer active={miniplayer} class='bg-dark-light rounded-10 z-100 miniplayer-border {(page === `player` && !overlay.includes(`viewanime`)) ? `h-full` : ``}' padding='2rem' bind:page bind:overlay>
     <MediaHandler {miniplayer} bind:page bind:overlay bind:playPage />
   </Miniplayer>
 </div>
 
 {#if page === 'settings'}
-  <Settings bind:playPage bind:overlay miniplayerPadding={miniplayerActive ? miniplayerPadding : ''} />
+  <Settings bind:playPage bind:overlay bind:statusTransition miniplayerPadding={miniplayerActive ? miniplayerPadding : ''} />
 {:else if page === 'home'}
   <Home />
 {:else if page === 'search'}
@@ -49,5 +49,5 @@
 {:else if page === 'watchtogether'}
   <WatchTogether />
 {:else if page === 'torrents'}
-  <ViewTorrent class='overflow-y-scroll overflow-x-hidden' miniplayerPadding={miniplayerActive && miniplayerPadding?.match(/bottom/i) ? miniplayerPadding : ''}/>
+  <ViewTorrent class='overflow-y-scroll overflow-x-hidden' miniplayerPadding={miniplayerActive ? miniplayerPadding : ''}/>
 {/if}

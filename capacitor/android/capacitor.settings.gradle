@@ -36,4 +36,4 @@ include ':capacitor-nodejs'
 project(':capacitor-nodejs').projectDir = new File('../../node_modules/.pnpm/capacitor-nodejs@https+++gi_99f5c139051d0d510ebeb039458173c1/node_modules/capacitor-nodejs/android')
 
 include ':capacitor-plugin-safe-area'
-project(':capacitor-plugin-safe-area').projectDir = new File('../../node_modules/.pnpm/capacitor-plugin-safe-area@3.0.4_@capacitor+core@6.2.1/node_modules/capacitor-plugin-safe-area/android')
+project(':capacitor-plugin-safe-area').projectDir = new File('../../node_modules/.pnpm/capacitor-plugin-safe-area@_cf9009c7371b64bd377a56324615f215/node_modules/capacitor-plugin-safe-area/android')

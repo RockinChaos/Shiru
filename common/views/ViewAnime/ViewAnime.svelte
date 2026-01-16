@@ -7,6 +7,7 @@
   import { mediaCache } from '@/modules/cache.js'
   import { add } from '@/modules/torrent.js'
   import { anilistClient } from '@/modules/anilist.js'
+  import { isValidNumber } from '@/modules/util.js'
   import { click } from '@/modules/click.js'
   import Details from '@/views/ViewAnime/Details.svelte'
   import EpisodeList from '@/views/ViewAnime/EpisodeList.svelte'
@@ -16,19 +17,17 @@
   import SmartImage from '@/components/visual/SmartImage.svelte'
   import AudioLabel from '@/views/ViewAnime/AudioLabel.svelte'
   import Following from '@/views/ViewAnime/Following.svelte'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import SmallCard from '@/components/cards/SmallCard.svelte'
   import SmallCardSk from '@/components/skeletons/SmallCardSk.svelte'
   import Helper from '@/modules/helper.js'
-  import { ArrowLeft, Clapperboard, Users, Heart, Play, Timer, TrendingUp, Tv, Hash, ArrowDown01, ArrowUp10 } from 'lucide-svelte'
+  import { Clapperboard, Users, Heart, Play, Timer, TrendingUp, Tv, Hash, ArrowDown01, ArrowUp10 } from 'lucide-svelte'
 
   export let overlay
   const view = getContext('view')
   function close () {
     $view = null
-    setTimeout(() => {
-      if (overlay.includes('viewanime') && !$view) overlay = overlay.filter(item => item !== 'viewanime')
-    })
+    setTimeout(() => { if (overlay.includes('viewanime') && !$view) overlay = overlay.filter(item => item !== 'viewanime') })
   }
 
   let modal
@@ -74,8 +73,9 @@
   function checkClose ({ keyCode }) {
     if (keyCode === 27) close()
   }
-  function play (episode) {
-    if (episode || episode === 0) return playAnime(media, episode)
+  function play (episode, force = false) {
+    if (!media) return
+    if (isValidNumber(episode)) return playAnime(media, episode, force)
     if (media.status === 'NOT_YET_RELEASED') return
     playMedia(media)
   }
@@ -100,8 +100,9 @@
 
   function handlePlay(id, episode, torrentOnly) {
     const cachedMedia = mediaCache.value[id]
-    const cachedEpisode = episode || cachedMedia?.mediaListEntry?.progress
-    const desiredEpisode = (episode ? episode : cachedEpisode && cachedEpisode !== 0 ? cachedEpisode + 1 : cachedEpisode)
+    if (!cachedMedia) return
+    const cachedEpisode = isValidNumber(episode) ? episode : cachedMedia?.mediaListEntry?.progress
+    const desiredEpisode = (isValidNumber(episode) ? episode : cachedEpisode && cachedEpisode !== 0 ? cachedEpisode + 1 : cachedEpisode)
     if (torrentOnly) {
       if (desiredEpisode) return playAnime(cachedMedia, desiredEpisode)
       if (cachedMedia?.status === 'NOT_YET_RELEASED') return

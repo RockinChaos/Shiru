@@ -4,6 +4,7 @@
   import WPC from '@/modules/wpc.js'
   import { matchPhrase } from '@/modules/util.js'
   import { settings } from '@/modules/settings.js'
+  import { status } from '@/modules/networking.js'
   import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
   import ErrorCard from '@/components/cards/ErrorCard.svelte'
   import TorrentDetails from '@/views/TorrentManager/TorrentDetails.svelte'
@@ -28,8 +29,8 @@
   $: foundResults = !(searchText?.length && !filteredLoaded && !filteredStaging.length && !filteredSeeding.length && !filteredCompleted.length)
 </script>
 
-<div class='bg-dark h-full w-full root status-transition {$$restProps.class}' style={($$restProps.class ? 'padding-top: max(var(--safe-area-top), var(--safe-bar-top));' : '') + miniplayerPadding}>
-  <div class='w-full {$$restProps.class ? `pl-20 mt-20` : ``}'>
+<div class='bg-dark h-full w-full root status-transition {$$restProps.class}' class:pt-safe-area={$$restProps.class && !$status.match(/offline/i)} style={miniplayerPadding}>
+  <div class='w-full status-transition' class:pl-20={$$restProps.class} class:pt-28px={$$restProps.class && !$status.match(/offline/i)}>
     <h4 class='font-weight-bold m-0 mb-10'>Manage Torrents</h4>
     <div class='d-flex align-items-center'>
       <div class='input-group wm-600'>

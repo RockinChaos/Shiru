@@ -10,7 +10,7 @@
   import { episodesList } from '@/modules/episodes.js'
   import { click } from '@/modules/click.js'
   import { getHash } from '@/modules/anime/animehash.js'
-  import { since, fadeIn, fadeOut } from '@/modules/util.js'
+  import { since, fadeIn, fadeOut, isValidNumber } from '@/modules/util.js'
   import { liveAnimeEpisodeProgress } from '@/modules/anime/animeprogress.js'
   import { anilistClient } from '@/modules/anilist.js'
   import { settings } from '@/modules/settings.js'
@@ -19,23 +19,23 @@
   export let data
   export let prompt
   export let element
+  export let zeroEpisode = false
   /** @type {import('@/modules/al.d.ts').Media | null} */
   const media = data.media && mediaCache.value[data.media.id]
   const episodeRange = episodesList.handleArray(data?.episode, data?.parseObject?.file_name)
-  const lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || data?.episode
+  const lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || (isValidNumber(data?.episode) && (data?.episode + (zeroEpisode ? 1 : 0))) || (media?.episodes === 1 && media?.episodes)
   const episodeThumbnail = ((!media?.mediaListEntry?.status || !(['CURRENT', 'REPEATING', 'PAUSED', 'PLANNING'].includes(media.mediaListEntry.status) && media.mediaListEntry.progress < lastEpisode)) && data.episodeData?.image) || media?.bannerImage || media?.coverImage.extraLarge || ' '
-  let hide = true
-
-  const progress = liveAnimeEpisodeProgress(media?.id, data?.episode)
   const watched = media?.mediaListEntry?.status === 'COMPLETED'
   const completed = !watched && media?.mediaListEntry?.progress >= lastEpisode
+  const progress = liveAnimeEpisodeProgress(media?.id, data?.episode, completed)
+  let hide = true
 
   const view = getContext('view')
   function viewMedia () {
     $view = media
   }
 
-  $: resolvedHash = getHash(media?.id, { episode: data?.episode, client: true, batchGuess: true }, false, true)
+  $: resolvedHash = media?.id && !data.failed && getHash(media.id, { episode: data?.episode, client: true, batchGuess: true }, false, true)
 </script>
 
 <div class='position-absolute w-400 mh-400 absolute-container top-0 m-auto bg-dark-light z-30 rounded overflow-hidden pointer d-flex flex-column fade-change' in:fadeIn out:fadeOut bind:this={element}>
@@ -68,7 +68,7 @@
       {#if media?.duration}
         {#if (data.episodeRange || data.parseObject?.episodeRange)}
           {media.duration * (((data.episodeRange || data.parseObject?.episodeRange).last - (data.episodeRange || data.parseObject?.episodeRange).first) + 1)}m
-        {:else if episodeRange && Number(episodeRange.first) && Number(episodeRange.last)}
+        {:else if episodeRange && isValidNumber(episodeRange.first) && isValidNumber(episodeRange.last)}
           {media.duration * ((episodeRange.first - episodeRange.last) + 1)}m
         {:else}
           {media.duration}m
@@ -81,7 +81,7 @@
       </div>
     {:else if $progress > 0}
       <div class='progress container-fluid position-absolute z-10' style='height: 2px; min-height: 2px;'>
-        <div class='progress-bar' style='width: {progress}%' />
+        <div class='progress-bar' style='width: {$progress}%' />
       </div>
     {/if}
   </div>
@@ -98,10 +98,10 @@
           <div class='text-muted font-size-12 title overflow-hidden' title={data.episodeData?.title?.en || data.episodeData?.title?.['x-jat'] || data.episodeData?.title?.ja || data.episodeData?.title?.jp}>
             {data.episodeData?.title?.en || data.episodeData?.title?.['x-jat'] || data.episodeData?.title?.ja || data.episodeData?.title?.jp}
           </div>
-        {:else if data.episode}
+        {:else if data.episode != null}
           {@const episode = (data.episodeRange || data.parseObject?.episodeRange)?.first || episodeRange?.first || data.episode}
           {#await episodesList.getKitsuEpisodes(media?.id) then mappings}
-            {@const kitsuMappings = episode && mappings?.data?.find(ep => ep?.attributes?.number === Number(episode) || episode)?.attributes}
+            {@const kitsuMappings = episode != null && mappings?.data?.find(ep => ep?.attributes?.number === Number(episode) || episode)?.attributes}
             {@const ep_title =  kitsuMappings?.titles?.en_us || kitsuMappings?.titles?.en_jp || ''}
             <div class='text-muted font-size-12 title overflow-hidden' title={ep_title}>
               {ep_title}
@@ -113,11 +113,11 @@
         <div class='text-white font-weight-bold font-weight-very-bold'>
           {#if data.episodeRange || data.parseObject?.episodeRange}
             {`Episodes ${(data.episodeRange || data.parseObject.episodeRange).first} ~ ${(data.episodeRange || data.parseObject.episodeRange).last}`}
-          {:else if data.episode}
+          {:else if data.episode != null}
             {#if episodeRange}
               Episodes {episodeRange.first} ~ {episodeRange.last}
             {:else if !Array.isArray(data.episode)}
-              Episode {Number(data.episode) || data.episode?.replace(/\D/g, '')}
+              Episode {isValidNumber(data.episode) ? Number(data.episode) : data.episode?.replace(/\D/g, '')}
             {/if}
           {:else if media?.format === 'MOVIE'}
             Movie
@@ -156,10 +156,10 @@
     <div class='w-full text-muted description overflow-hidden pt-15'>
       {#if data.episodeData?.summary || data.episodeData?.overview}
         {(data.episodeData?.summary || data.episodeData?.overview).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()}
-      {:else if data.episode}
+      {:else if data.episode != null}
         {@const episode = (data.episodeRange || data.parseObject?.episodeRange)?.first || episodeRange?.first || data.episode}
         {#await episodesList.getKitsuEpisodes(media?.id) then mappings}
-          {@const kitsuMappings = data.episode && mappings?.data?.find(ep => ep?.attributes?.number === Number(episode) || episode)?.attributes}
+          {@const kitsuMappings = data.episode != null && mappings?.data?.find(ep => ep?.attributes?.number === isValidNumber(episode) ? Number(episode) : episode)?.attributes}
           {(kitsuMappings?.synopsis || kitsuMappings?.description || media?.description || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()}
         {/await}
       {:else}
@@ -184,7 +184,7 @@
       {#if !media?.mediaListEntry?.progress}
         You Haven't Watched Any Episodes Yet!
       {:else}
-        Your Current Progress Is At <b>Episode {media?.mediaListEntry?.progress}</b>
+        Your Current Progress Is At <b>Episode {media?.mediaListEntry?.progress - (zeroEpisode ? 1 : 0)}</b>
       {/if}
     </p>
     <button class='cont-button btn btn-lg btn-secondary w-250 text-dark font-weight-bold shadow-none border-0 d-flex align-items-center justify-content-center mt-10' tabindex={!prompt ? '-1' : '0'} use:click={() => { data.onclick() || viewMedia() }}>

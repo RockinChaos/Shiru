@@ -23,7 +23,7 @@
 
   $: search = $rss
   function close () {
-    if (overlay.includes('torrent')) overlay = overlay.filter(item => item !== 'torrent')
+    setTimeout(() => { if (overlay.includes('torrent')) overlay = overlay.filter(item => item !== 'torrent') })
     $rss = null
   }
 

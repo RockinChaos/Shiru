@@ -35,21 +35,8 @@ jobs:
               'severity: low'
             ];
             
-            // Remove existing severity labels
-            const labelsToRemove = labels.filter(label => severityLabels.includes(label));
-            
-            for (const label of labelsToRemove) {
-              try {
-                await github.rest.issues.removeLabel({
-                  owner,
-                  repo,
-                  issue_number,
-                  name: label
-                });
-              } catch (error) {
-                console.log(`Label ${label} not found or already removed`);
-              }
-            }
+            // Find current severity label
+            const currentSeverityLabel = labels.find(label => severityLabels.includes(label));
             
             // Extract the Bug Severity section
             const severityMatch = body.match(/### Bug Severity\s*\n\s*(Critical|High|Medium|Low)/i);
@@ -62,6 +49,27 @@ jobs:
               console.log(`Found severity: ${severity}`);
             } else {
               console.log('Could not find Bug Severity section or value');
+            }
+            
+            // Stop if label hasn't changed
+            if (currentSeverityLabel === newLabel) {
+              console.log(`Severity label unchanged: ${newLabel}`);
+              return;
+            }
+            
+            // Remove old severity label if it exists
+            if (currentSeverityLabel) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number,
+                  name: currentSeverityLabel
+                });
+                console.log(`Removed old label: ${currentSeverityLabel}`);
+              } catch (error) {
+                console.log(`Could not remove label ${currentSeverityLabel}: ${error.message}`);
+              }
             }
             
             // Add new severity label
@@ -99,21 +107,8 @@ jobs:
               'priority: low'
             ];
             
-            // Remove existing priority labels
-            const labelsToRemove = labels.filter(label => priorityLabels.includes(label));
-            
-            for (const label of labelsToRemove) {
-              try {
-                await github.rest.issues.removeLabel({
-                  owner,
-                  repo,
-                  issue_number,
-                  name: label
-                });
-              } catch (error) {
-                console.log(`Label ${label} not found or already removed`);
-              }
-            }
+            // Find current priority label
+            const currentPriorityLabel = labels.find(label => priorityLabels.includes(label));
             
             // Extract the Feature Priority section
             const priorityMatch = body.match(/### How Important Is This Feature To You\?\s*\n\s*(Critical|High|Medium|Low)/i);
@@ -126,6 +121,27 @@ jobs:
               console.log(`Found priority: ${priority}`);
             } else {
               console.log('Could not find Feature Priority section or value');
+            }
+            
+            // Stop if label hasn't changed
+            if (currentPriorityLabel === newLabel) {
+              console.log(`Priority label unchanged: ${newLabel}`);
+              return;
+            }
+            
+            // Remove old priority label if it exists
+            if (currentPriorityLabel) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number,
+                  name: currentPriorityLabel
+                });
+                console.log(`Removed old label: ${currentPriorityLabel}`);
+              } catch (error) {
+                console.log(`Could not remove label ${currentPriorityLabel}: ${error.message}`);
+              }
             }
             
             // Add new priority label

@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte'
   import { click } from '@/modules/click.js'
   import { SUPPORTS } from '@/modules/support.js'
 
@@ -19,9 +20,20 @@
   function handleOverlays() {
     if (!icon.includes('moveleft') && !icon.includes('moveright') && ((!icon.includes("login") && !icon.includes("bell") && !icon.includes("favorite")) || (!overlay && !icon.includes("favorite")))) { window.dispatchEvent(new CustomEvent('overlay-check', { detail: { nowPlaying: !overlay && nowPlaying } })) }
   }
+
+  let hovering = false
+  let supportsHover = false
+  onMount(() => supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches)
 </script>
 
-<div role='button' tabindex='0' class='sidebar-link sidebar-link-with-icon pointer overflow-hidden {css} {SUPPORTS.isAndroid ? `my-auto pl-12` : `my-sm-h-auto pl-14`}' title={text} use:click={() => { handleOverlays(); _click() } } on:contextmenu|preventDefault={() => { if (rbClick) { handleOverlays(); rbClick() } } }>
+<div role='button' tabindex='0' class='sidebar-link sidebar-link-with-icon pointer overflow-hidden flex-shrink-0 {css} {SUPPORTS.isAndroid ? `my-auto pl-12` : `my-sm-h-auto pl-14`}' title={text}
+     on:mouseenter={() => { if (supportsHover) hovering = true }}
+     on:mouseleave={() => { if (supportsHover) hovering = false }}
+     on:focus={(e) => { if (e.relatedTarget != null) hovering = true }}
+     on:blur={() => { hovering = false }}
+     on:pointerdown={() => { if (!supportsHover) hovering = false }}
+     use:click={() => { handleOverlays(); _click() } }
+     on:contextmenu|preventDefault={() => { if (rbClick) { handleOverlays(); rbClick() } } }>
   <span class='text-nowrap d-flex align-items-center w-full h-full'>
     {#if image}
       <span class='rounded d-flex {innerCss}'>
@@ -31,7 +43,7 @@
     {:else}
       {@const active = (page === _page && overlay !== 'active') || overlay === 'notify' || (overlay === 'active' && nowPlaying)}
       <span class='rounded d-flex {innerCss}'>
-        <slot active={active}>{icon}</slot>
+        <slot {active} {hovering}>{icon}</slot>
       </span>
       <span class='text ml-20' class:font-weight-bolder={active} class:font-size-16={active}>{text}</span>
     {/if}

@@ -1,6 +1,6 @@
 import { settings } from '@/modules/settings.js'
 import { cache, caches } from '@/modules/cache.js'
-import { getRandomInt } from '@/modules/util.js'
+import { getRandomInt, createDeferred } from '@/modules/util.js'
 import { status, printError } from '@/modules/networking.js'
 import { SUPPORTS } from '@/modules/support.js'
 import { toast } from 'svelte-sonner'
@@ -71,7 +71,7 @@ async function getExtension(name, url) {
         if (!code || code.trim().length === 0) throw new Error(`Failed to load extension code for url ${url}, extension code is empty`)
         return code
       } catch (error) {
-        await printError(`Failed to load extension ${name}`, error.message, error)
+        await printError(`Failed to load extension ${name}`, 'Unable to fetch extension code', error)
         return null
       }
     }
@@ -90,8 +90,10 @@ class ExtensionManager {
   activeWorkers = {}
   /** @type {Record<string, import('comlink').Remote<import('@/modules/extensions/worker.js').Worker>>} */
   inactiveWorkers = {}
-  /** @type {Promise<void|boolean>} */
-  whenReady = Promise.resolve(false)
+  /** @type {{promise: Promise<boolean>, resolve: (function(boolean): void)}} */
+  whenReady = createDeferred()
+  /** @type {Map<string, Promise<void>>} */
+  loadingExtensions = new Map()
 
   constructor() {
     let sources = null
@@ -102,11 +104,12 @@ class ExtensionManager {
       const sourcesNew = Object.keys(newSources)
       if ((!sourcesOld?.length && !sourcesNew?.length) || !(sourcesOld.length === sourcesNew.length && sourcesOld.every(key => sourcesNew.includes(key)))) {
         if (sourcesOld.length && !sourcesNew.length) { sources = structuredClone(newSources); return }
-        if (!sources && !sourcesNew.length) sources = {}
+        if (!sources && !sourcesNew.length) { this.whenReady.resolve(true); sources = {} }
         else if (sourcesNew.length) {
           sources = structuredClone(newSources)
-          this.whenReady = this.updateExtensions(newSources, value.extensionSources).then(update => this.loadExtensions(settings.value.sourcesNew ?? newSources, update)).catch(error => {
-            printError('Failed to Update Extensions', `Unable to check for updates or update extensions.`, error)
+          this.whenReady = createDeferred()
+          this.updateExtensions(newSources, value.extensionSources).then(update => this.loadExtensions(settings.value.sourcesNew ?? newSources, update)).catch(error => {
+            printError('Failed to Update Extensions', 'Unable to check for updates or update extensions.', error)
             return this.loadExtensions(settings.value.sourcesNew ?? newSources, false)
           })
           debug('Found new sources and updated...', JSON.stringify(newSources))
@@ -115,19 +118,57 @@ class ExtensionManager {
     })
 
     window.addEventListener('online', async () => {
-      for (const [key, worker] of Object.entries(extensionManager.inactiveWorkers)) {
-        if (!this.activeWorkers[key]) {
-          try {
-            if (!(await worker.validate())) throw new Error(`Source #validate() failed`)
-            this.activeWorkers[key] = worker
-            delete this.inactiveWorkers[key]
-          } catch (error) {
-            if (!this.inactiveWorkers[key]) worker.terminate()
-            await printError(`Failed to load extension ${key}`, error.message, error)
-          }
+      const tasks = Object.entries(extensionManager.inactiveWorkers).map(async ([key, worker]) => {
+        if (extensionManager.activeWorkers[key]) return
+        try {
+          if (!(await worker.validate())) throw new Error('The content source appears to be unreachable.')
+          extensionManager.activeWorkers[key] = worker
+          delete extensionManager.inactiveWorkers[key]
+          settings.set(settings.value)
+        } catch (error) {
+          if (extensionManager.inactiveWorkers[key]) worker.terminate()
+          await printError(`Failed to load extension ${key}`, 'Validation has failed', error)
         }
-      }
+      })
+      await Promise.all(tasks)
     })
+  }
+
+  /**
+   * Checks if the keyed extension source exists in the active workers.
+   * @param {string} key The identifier for the extension worker.
+   * @returns {import('comlink').Remote<import('@/modules/extensions/worker.js').Worker>} The active worker instance, or undefined if not found.
+   */
+  isActive(key) {
+    return this.activeWorkers[key]
+  }
+
+  /**
+   * Checks if the keyed extension source exists in the inactive workers.
+   * @param {string} key The identifier for the extension worker.
+   * @returns {import('comlink').Remote<import('@/modules/extensions/worker.js').Worker>} The inactive worker instance, or undefined if not found.
+   */
+  isInactive(key) {
+    return this.inactiveWorkers[key]
+  }
+
+  /**
+   * Validates and activates an inactive extension worker by key.
+   * @param {string} key The identifier for the extension worker to validate.
+   * @returns {Promise<void>}
+   */
+  async validateExtension(key) {
+    const inactiveWorker = this.inactiveWorkers[key]
+    if (!inactiveWorker) return
+    try {
+      delete this.inactiveWorkers[key]
+      if (!(await inactiveWorker.validate())) throw new Error('The content source appears to be unreachable.')
+      this.activeWorkers[key] = inactiveWorker
+      settings.set(settings.value)
+    } catch (error) {
+      if (!this.activeWorkers[key]) this.inactiveWorkers[key] = inactiveWorker
+      await printError(`Failed to load extension ${key}`, 'Validation has failed', error)
+    }
   }
 
   /** Terminates all workers and reloads extensions from settings. */
@@ -135,7 +176,8 @@ class ExtensionManager {
     Object.values(this.activeWorkers).forEach(worker => worker.terminate())
     Object.values(this.inactiveWorkers).forEach(worker => worker.terminate())
     this.activeWorkers = {}
-    this.whenReady = this.loadExtensions(settings.value.sourcesNew)
+    this.whenReady = createDeferred()
+    this.loadExtensions(settings.value.sourcesNew)
   }
 
   /**
@@ -215,6 +257,21 @@ class ExtensionManager {
   }
 
   /**
+   * Gets a promise that resolves when a specific extension is ready (or rejects if it fails)
+   * @param {string} key The extension key
+   * @returns {Promise<import('comlink').Remote<import('@/modules/extensions/worker.js').Worker>|null>}
+   */
+  async whenExtensionReady(key) {
+    if (this.activeWorkers[key]) return this.activeWorkers[key]
+    if (this.inactiveWorkers[key]) return null
+    if (this.loadingExtensions.has(key)) {
+      await this.loadingExtensions.get(key)
+      return this.activeWorkers[key] || null
+    }
+    return null
+  }
+
+  /**
    * Loads extension modules from cache or network and starts workers.
    * @param {object} extensions Extension metadata.
    * @param {boolean} update Whether this load is an update pass.
@@ -223,7 +280,6 @@ class ExtensionManager {
   async loadExtensions(extensions, update) {
     const extensionIds = Object.keys(extensions || {})
     if (!extensionIds?.length) return false
-
     const modules = !update ? Object.fromEntries(await Promise.all(extensionIds.map(async (id) => {
       try {
         const cachedModule = await cache.cachedEntry(caches.EXTENSIONS, (extensions[id]?.locale || (extensions[id]?.update + '/')) + extensions[id]?.id, true)
@@ -238,68 +294,78 @@ class ExtensionManager {
       }
     })).then(results => results.flatMap(result => result ? [result] : []))) : {}
 
-    for (const key of extensionIds) {
-      if (!modules[key]) {
-        const newCode = await getExtension(extensions[key]?.name || extensions[key]?.id, (extensions[key]?.locale || (extensions[key]?.update + '/')) + extensions[key]?.main)
-        if (newCode && typeof newCode === 'string' && newCode.trim().length > 0) {
-          if (!extensions[key].locale) {
-            modules[key] = await cache.cacheEntry(caches.EXTENSIONS, key, { mappings: true }, newCode, Date.now() + getRandomInt(7, 14) * 24 * 60 * 60 * 1_000)
-            if (!modules[key]) {
-              debug(`Cache write failed for ${key}, using code directly`)
-              modules[key] = newCode
-            }
-          } else modules[key] = newCode
-        } else {
-          debug(`Failed to fetch extension ${key}, attempting to use cached version`)
-          modules[key] = await cache.cachedEntry(caches.EXTENSIONS, key, true)
-          if (!modules[key] || (typeof modules[key] === 'string' && modules[key].trim().length === 0)) {
-            debug(`No valid cache fallback for ${key}, skipping extension`)
-            await cache.deleteEntry(caches.EXTENSIONS, key).catch(error => debug('Failed to delete empty cache entry:', error))
-            continue
-          }
-        }
+    const loadWorkers = Promise.allSettled(extensionIds.map(async (key) => {
+      const loadingPromise = (async () => {
         if (!modules[key]) {
-          debug(`No valid module code for ${key}, skipping`)
-          continue
-        }
-      }
-
-      if (!this.activeWorkers[key]) {
-        try {
-          const worker = createWorker(extensions[key])
-          if (SUPPORTS.isAndroid && extensions[key].trusted) worker.onmessage = async (event) => this.portMessage(event, worker) // hacky Android workaround for Access-Control-Allow-Origin error.
-          try {
-            /** @type {comlink.Remote<import('@/modules/extensions/worker.js').Worker>} */
-            const remoteWorker = await wrap(worker)
-            const initialize = await remoteWorker.initialize(key, modules[key], { bypassCORS: SUPPORTS.isAndroid && extensions[key].trusted})
-            if (!initialize.validated) {
-              this.inactiveWorkers[key] = remoteWorker
-              throw new Error(initialize.error)
+          const extension = extensions[key]
+          let newCode = await getExtension(extension?.name || extension?.id, (extension?.locale || (extension?.update + '/')) + extension?.main)
+          if (newCode && typeof newCode === 'string' && newCode.trim().length > 0) {
+            if (!extension.locale) {
+              modules[key] = await cache.cacheEntry(caches.EXTENSIONS, key, { mappings: true }, newCode, Date.now() + getRandomInt(7, 14) * 24 * 60 * 60 * 1_000)
+              if (!modules[key]) {
+                debug(`Cache write failed for ${key}, using code directly`)
+                modules[key] = newCode
+              }
+            } else modules[key] = newCode
+          } else {
+            debug(`Failed to fetch extension ${key}, attempting to use cached version`)
+            modules[key] = await cache.cachedEntry(caches.EXTENSIONS, key, true)
+            if (!modules[key] || (typeof modules[key] === 'string' && modules[key].trim().length === 0)) {
+              debug(`No valid cache fallback for ${key}, skipping extension`)
+              await cache.deleteEntry(caches.EXTENSIONS, key).catch(error => debug('Failed to delete empty cache entry:', error))
+              return
             }
-            if (this.activeWorkers[key]) {
-              this.activeWorkers[key].terminate()
-              delete this.activeWorkers[key]
-            } else if (this.inactiveWorkers[key]) {
-              this.inactiveWorkers[key].terminate()
-              delete this.inactiveWorkers[key]
-            }
-            this.activeWorkers[key] = remoteWorker
-          } catch (error) {
-            if (!this.inactiveWorkers[key]) worker.terminate()
-            throw new Error(error)
           }
-        } catch (error) {
-          await printError(`Failed to load extension ${key}`, error.message, error)
+          if (!modules[key]) {
+            debug(`No valid module code for ${key}, skipping`)
+            return
+          }
         }
-      }
-    }
+
+        if (!this.activeWorkers[key]) {
+          try {
+            const extension = extensions[key]
+            const worker = createWorker(extension)
+            if (SUPPORTS.isAndroid && extension.trusted) worker.onmessage = async (event) => this.portMessage(event, worker) // hacky Android workaround for Access-Control-Allow-Origin error.
+            try {
+              /** @type {comlink.Remote<import('@/modules/extensions/worker.js').Worker>} */
+              const remoteWorker = await wrap(worker)
+              const initialize = await remoteWorker.initialize(key, modules[key], { bypassCORS: SUPPORTS.isAndroid && extension.trusted})
+              if (!initialize.validated) {
+                this.inactiveWorkers[key] = remoteWorker
+                settings.set(settings.value)
+                throw new Error(initialize.error)
+              }
+              if (this.activeWorkers[key]) {
+                this.activeWorkers[key].terminate()
+                delete this.activeWorkers[key]
+              } else if (this.inactiveWorkers[key]) {
+                this.inactiveWorkers[key].terminate()
+                delete this.inactiveWorkers[key]
+              }
+              this.activeWorkers[key] = remoteWorker
+              settings.set(settings.value)
+            } catch (error) {
+              if (!this.inactiveWorkers[key]) worker.terminate()
+              throw new Error(error)
+            }
+          } catch (error) {
+            await printError(`Failed to load extension ${key}`, 'Initialization has failed', error)
+          }
+        }
+      })()
+      this.loadingExtensions.set(key, loadingPromise)
+      await loadingPromise.finally(() => this.loadingExtensions.delete(key))
+    })).catch((error) => printError('Unexpected error initializing extensions', error.message, error))
+    this.whenReady.resolve(true)
+    await loadWorkers
     return true
   }
 
   /**
    * Updates the extension source repository if it has changed.
    *
-   * @param {string} url - The URL of the source repository.
+   * @param {string} url The URL of the source repository.
    * @returns {Promise<boolean>} True if updated, false if unchanged or failed.
    */
   async updateSources(url) {
@@ -330,7 +396,7 @@ class ExtensionManager {
     if (!extensionIds?.length) return false
     try {
       const latestManifests = await Promise.all([...new Set(Object.values(currentExtensions).map(ext => ext?.locale || ext?.update).filter(Boolean))].map(url => getManifest(url, true)))
-      const validManifests = latestManifests.filter(manifest => manifest !== null && Array.isArray(manifest))
+      const validManifests = latestManifests.filter(manifest => manifest != null && Array.isArray(manifest))
       if (validManifests.length === 0) {
         debug('No valid manifests retrieved during update check, skipping update')
         return false

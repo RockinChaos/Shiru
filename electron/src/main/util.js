@@ -1,4 +1,4 @@
-import { app, ipcMain, shell } from 'electron'
+import { app, ipcMain, shell, screen } from 'electron'
 import Store from './store.js'
 
 export const store = new Store(app.getPath('userData'), 'persist.json', { angle: 'default' })
@@ -25,7 +25,6 @@ const flags = [
   ['disk-cache-size', '500000000']
 ]
 for (const [flag, value] of flags) app.commandLine.appendSwitch(flag, value)
-
 app.commandLine.appendSwitch('use-angle', store.get('angle') || 'default')
 
 ipcMain.on('open', (event, url) => shell.openExternal(url))
@@ -60,3 +59,42 @@ app.setJumpList?.([
     ]
   }
 ])
+
+let defaultBounds
+export function getWindowState() {
+  const state = store.get('windowState') || {}
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize
+  defaultBounds = { width: Math.floor(screenWidth * 0.75), height: Math.floor(screenHeight * 0.75), x: undefined, y: undefined }
+  let bounds = state.bounds || defaultBounds
+  if (bounds.width > screenWidth || bounds.height > screenHeight) bounds = { ...defaultBounds }
+  if (!isNaN(bounds.x) && !isNaN(bounds.y)) {
+    const { width, height, x, y } = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }).bounds
+    if (bounds.x < x || bounds.y < y || bounds.x > x + width || bounds.y > y + height) {
+      bounds.x = undefined
+      bounds.y = undefined
+    }
+  }
+  if (isNaN(bounds.x) || isNaN(bounds.y)) {
+    bounds.x = Math.floor((screenWidth - bounds.width) / 2)
+    bounds.y = Math.floor((screenHeight - bounds.height) / 2)
+  }
+  return { bounds, isMaximized: (state.isMaximized || false), isFullScreen: (state.isFullScreen || false) }
+}
+
+export function saveWindowState(window) {
+  if (!window || window.isDestroyed()) return
+  let bounds
+  if (!window.isMaximized() && !window.isFullScreen()) bounds = window.getBounds()
+  else bounds = store.get('windowState')?.bounds || defaultBounds
+  store.set('windowState', { bounds,  isMaximized: window.isMaximized(), isFullScreen: window.isFullScreen() })
+}
+
+export function getDefaultBounds() {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize
+  return {
+    width: defaultBounds.width,
+    height: defaultBounds.height,
+    x: Math.floor((screenWidth - defaultBounds.width) / 2),
+    y: Math.floor((screenHeight - defaultBounds.height) / 2)
+  }
+}

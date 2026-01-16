@@ -16,13 +16,13 @@
 
     function getOptions() {
         if (Array.isArray(options) && options.every(item => typeof item === 'string' || typeof item === 'number')) return options
-        else if (typeof options === 'object' && options !== null) return Object.keys(options)
+        else if (typeof options === 'object' && options != null) return Object.keys(options)
         throw new Error('Invalid list format')
     }
 
     function getOptionDisplay(option) {
         if (Array.isArray(options) && options.every(item => typeof item === 'string' || typeof item === 'number')) return String(option)
-        else if (typeof options === 'object' && options !== null) return options.hasOwnProperty(option) ? options[option] : null
+        else if (typeof options === 'object' && options != null) return options.hasOwnProperty(option) ? options[option] : null
     }
 
     const dropdown = writable(false)

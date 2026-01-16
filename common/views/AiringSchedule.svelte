@@ -23,7 +23,7 @@
     let ids = airingLists.map(entry => {
         const media = variables.hideSubs ? entry.media?.media : entry
         return media?.id ? { id: media.id, idMal: media.idMal ?? null } : null
-    }).filter(item => item !== null)
+    }).filter(item => item != null)
     // Hide My Anime / Show My Anime
     if ((variables.hideMyAnime || variables.showMyAnime) && Helper.isAuthorized()) {
       const userIds = await Helper.userLists(variables).then(res => {
@@ -33,7 +33,7 @@
       })
       ids = ids.filter(({ id, idMal }) => Helper.isAniAuth() ? variables.hideMyAnime ? !userIds.includes(id) : userIds.includes(id) : variables.hideMyAnime ? !userIds.includes(idMal) : userIds.includes(idMal))
     }
-    const res = await anilistClient.searchAllIDS({ id: ids.map(({ id }) => id), ...SectionsManager.sanitiseObject(variables), page: 1, perPage: 50 })
+    const res = await anilistClient.searchAllIDS({ id: ids.map(({ id }) => id).filter(Boolean), ...SectionsManager.sanitiseObject(variables), page: 1, perPage: 50 })
     if (!res?.data && res?.errors) throw res.errors[0]
     results.data.Page.media = results.data.Page.media.concat(res.data.Page.media)
     if (variables.hideSubs) {

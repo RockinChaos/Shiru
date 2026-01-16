@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { videoRx } from '../../util.js'
+import { videoRx } from '@/modules/util.js'
 import querystring from 'querystring'
 import parseTorrent from 'parse-torrent'
 import { SUPPORTS } from '@/modules/support.js'

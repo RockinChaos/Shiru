@@ -1,4 +1,6 @@
 <script>
+    import { isValidNumber } from '@/modules/util.js'
+
     export let min = 0
     export let max = 100
     export let step = 1
@@ -28,7 +30,7 @@
      */
     function handleBlur(event) {
         const value = parseInt(event.target.value, 10)
-        if (!isNaN(value)) bindTo = clamp(value)
+        if (isValidNumber(value)) bindTo = clamp(value)
         else bindTo = min
         input = bindTo
     }

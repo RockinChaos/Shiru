@@ -1,7 +1,11 @@
 :root {
-  --base-html-font-size: 48%;
-  --base-html-font-size-1600: 50%;
-  --base-html-font-size-1920: 62.5%;
+  --ui-scale: 1;
+  --default-html-font-size: 48%;
+  --default-html-font-size-1600: 50%;
+  --default-html-font-size-1920: 62.5%;
+  --base-html-font-size: calc(var(--default-html-font-size) * var(--ui-scale));
+  --base-html-font-size-1600: calc(var(--default-html-font-size-1600) * var(--ui-scale));
+  --base-html-font-size-1920: calc(var(--default-html-font-size-1920) * var(--ui-scale));
   --tooltip-width: 17rem;
   --card-border-width: 0;
   --sidebar-border-width: 0;
@@ -9,7 +13,7 @@
   --sidebar-minimised: 0px;
   --sidebar-width: 0px;
   --navbar-height: 7rem;
-  --statusbar-height: 3.2rem;
+  --statusbar-height: 28px;
   --safe-area-top: 0px;
   --safe-area-left: 0px;
 
@@ -17,7 +21,12 @@
   --highlight-color: #FFFFFF !important;
   --current-color: #3DB4F2 !important;
   --planning-color: #F79A63 !important;
-  --completed-color: #7BD555 !important;
+  --completed-color-hue: 110deg;
+  --completed-color-saturation: 60%;
+  --completed-hsl: var(--completed-color-hue), var(--completed-color-saturation), 58%;
+  --completed-color: hsl(var(--completed-hsl)) !important;
+  --completed-dim-hsl: var(--completed-color-hue), var(--completed-color-saturation), 42%;
+  --completed-color-dim: hsl(var(--completed-dim-hsl)) !important;
   --paused-color: #FA7A7A !important;
   --repeating-color: #3BAEEA !important;
   --dropped-color: #E85D75 !important;
@@ -576,6 +585,17 @@ a[href]:active, button:not([disabled], .not-reactive):active:not([data-sonner-to
   margin-top: 10rem;
 }
 
+.pt-28px {
+  padding-top: 28px;
+}
+
+.pt-safe-area {
+  padding-top: var(--safe-area-top) !important;
+}
+.pl-safe-area {
+  padding-left: var(--safe-area-left) !important;
+}
+
 .h-10 {
   height: 1rem !important;
 }
@@ -769,6 +789,11 @@ img[src=''], img[src=' '] {
   width: 100% !important;
 }
 
+.fill-1 {
+  font-variation-settings: 'FILL' 1;
+  transition: color .8s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
 .favourite {
   animation: favourite_glow 1s ease-in-out infinite alternate;
   will-change: drop-shadow;
@@ -776,6 +801,22 @@ img[src=''], img[src=' '] {
 @keyframes favourite_glow {
   from { filter: drop-shadow(0 0 1.5rem var(--tertiary-color)) }
   to { filter: drop-shadow(0 0 0.4rem var(--tertiary-color)) }
+}
+
+@keyframes pink_glow {
+  from { filter: drop-shadow(0 0 1rem var(--quattuordenary-color)); }
+  to { filter: drop-shadow(0 0 0.5rem var(--quattuordenary-color)); }
+}
+@keyframes purple_glow {
+  from { filter: drop-shadow(0 0 2rem var(--notify-color)); }
+  to { filter: drop-shadow(0 0 0.2rem var(--notify-color)); }
+}
+@keyframes bell_shake {
+  0%, 7.5% { transform: rotate(0deg); }
+  1.5% { transform: rotate(-15deg); }
+  3% { transform: rotate(15deg); }
+  4.5% { transform: rotate(-10deg); }
+  6% { transform: rotate(10deg); }
 }
 
 .load-in {

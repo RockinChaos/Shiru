@@ -3,7 +3,7 @@
   import { SUPPORTS } from '@/modules/support.js'
   import { capitalize } from '@/modules/util.js'
   import { toast } from 'svelte-sonner'
-  import IPC from '@/modules/ipc.js'
+  import { IPC, ANDROID, VERSION } from '@/modules/bridge.js'
   import Debug from 'debug'
   const debug = Debug('ui:settings-view')
 
@@ -22,22 +22,28 @@
   export let version = '1.0.0'
   IPC.on('version', data => {
     version = data
-    debug(`v${version} ${platformMap[window.version.platform] || 'dev'} ${window.version.arch || 'dev'} ${capitalize(window.version.session) || ''}`, JSON.stringify(settings))
+    debug(`v${version} ${platformMap[VERSION.platform] || 'dev'} ${VERSION.arch || 'dev'} ${capitalize(VERSION.session) || ''}`, JSON.stringify(settings))
   })
   IPC.emit('version')
   IPC.emit('discord-rpc', settings.value.enableRPC)
   if (SUPPORTS.angle) settings.value.angle = await IPC.invoke('get:angle')
-  if (SUPPORTS.isAndroid) {
-    setTimeout(() => {
-      if (settings.value.torrentPathNew && settings.value.torrentPathNew !== '/tmp') IPC.emit('request-file-access')
-    }, 2500)
-    IPC.on('no-file-access', () => {
-      toast.warning('Missing File Access', {
-        description: 'To reliably use a different torrent download location, please enable All Files Access for this app in your device settings. Dismiss this toast to enable all file access.',
-        duration: Infinity,
-        onDismiss: () => IPC.emit('request-file-access')
-      })
-    })
+  if (SUPPORTS.isAndroid) setTimeout(() => requestFileAccess(), 2500).unref?.()
+  function requestFileAccess() {
+    if (settings.value.torrentPathNew && settings.value.torrentPathNew !== '/tmp') {
+      const requestAccess = () => {
+        ANDROID.requestFileAccess().then(success => {
+          if (!success) toastAccess()
+        })
+      }
+      const toastAccess = () => {
+        toast.warning('Missing File Access', {
+          description: 'To reliably use a different torrent download location, please enable All Files Access for this app in your device settings. Dismiss this toast to enable all file access.',
+          duration: Infinity,
+          onDismiss: () => requestAccess()
+        })
+      }
+      requestAccess()
+    }
   }
 </script>
 
@@ -52,10 +58,12 @@
   import ExtensionSettings from '@/views/Settings/ExtensionSettings.svelte'
   import ViewTorrent from '@/views/TorrentManager/TorrentManager.svelte'
   import { profileView } from '@/components/Profiles.svelte'
+  import { status } from '@/modules/networking.js'
   import { AppWindow, Puzzle, User, Heart, Logs, Play, Rss, Download, LayoutDashboard } from 'lucide-svelte'
 
   export let overlay = []
   export let playPage = false
+  export let statusTransition = false
   export let miniplayerPadding = ''
 
   const groups = {
@@ -103,7 +111,7 @@
   }
   function pathListener (data) {
     $settings.torrentPathNew = data
-    if (SUPPORTS.isAndroid && data && data !== '/tmp') setTimeout(() => IPC.emit('request-file-access'), 1000)
+    if (SUPPORTS.isAndroid) setTimeout(() => requestFileAccess(), 1_000).unref?.()
   }
 
   function playerListener (data) {
@@ -120,7 +128,7 @@
 </script>
 
 <Tabs>
-  <div class='d-flex w-full h-full position-relative settings root flex-md-row flex-column status-transition' style='padding-top: {SUPPORTS.isAndroid ? `var(--safe-area-top)` : `var(--safe-bar-top)`}'>
+  <div class='d-flex w-full h-full position-relative settings root flex-md-row flex-column' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-lg-28px={SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-safe-area={SUPPORTS.isAndroid && !$status.match(/offline/i)}>
     <div class='d-flex flex-column h-lg-full bg-dark position-absolute position-lg-relative bb-10 w-full w-lg-300 z-10 flex-lg-shrink-0'>
       <div class='px-20 py-5 font-size-24 font-weight-semi-bold position-absolute d-none d-lg-block'>Settings</div>
       <div class='mt-lg-20 py-lg-20 py-10 d-flex flex-lg-column flex-row justify-content-center justify-content-lg-start align-items-center align-items-lg-start'>
@@ -135,7 +143,7 @@
       <div class='d-none d-lg-block mt-auto'>
         <p class='text-muted px-20 py-10 m-0'>Restart may be required for some settings to take effect.</p>
         <p class='text-muted px-20 pb-10 m-0'>If you don't know what settings do what, use defaults.</p>
-        <p class='text-muted px-20 m-0 mb-lg-20'>{version ? `v${version}` : ``} {platformMap[window.version.platform] || 'dev'} {window.version.arch || 'dev'} {capitalize(window.version.session) || ''}</p>
+        <p class='text-muted px-20 m-0 mb-lg-20'>{version ? `v${version}` : ``} {platformMap[VERSION.platform] || 'dev'} {VERSION.arch || 'dev'} {capitalize(VERSION.session) || ''}</p>
       </div>
     </div>
     <div class='mt-75 mt-lg-0 w-full overflow-y-auto overflow-y-md-hidden'>

@@ -177,7 +177,7 @@ export class W2GClient extends EventEmitter {
         })
         break
       case EventTypes.MagnetLinkEvent: {
-        if (data.payload?.magnet === undefined) break
+        if (data.payload?.magnet == null) break
         const { hash, magnet } = data.payload
         if (hash !== this.magnet?.hash) {
           this.isHost = false
@@ -188,7 +188,7 @@ export class W2GClient extends EventEmitter {
         break
       }
       case EventTypes.MediaIndexEvent: {
-        if (data.payload?.index === undefined) break
+        if (data.payload?.index == null) break
         if (this.index !== data.payload.index) {
           this.index = data.payload.index
           this.emit('index', data.payload.index)
@@ -196,7 +196,7 @@ export class W2GClient extends EventEmitter {
         break
       }
       case EventTypes.PlayerStateEvent: {
-        if (data.payload?.time === undefined) break
+        if (data.payload?.time == null) break
         if (this._playerStateChanged(data.payload)) this.emit('player', data.payload)
         break
       }

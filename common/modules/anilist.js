@@ -5,7 +5,7 @@ import Bottleneck from 'bottleneck'
 import { alToken, settings } from '@/modules/settings.js'
 import { malDubs } from '@/modules/anime/animedubs.js'
 import { isSubbedProgress, getMediaMaxEp } from '@/modules/anime/anime.js'
-import { getRandomInt, sleep } from '@/modules/util.js'
+import { getRandomInt, sleep, debounce } from '@/modules/util.js'
 import { printError, status } from '@/modules/networking.js'
 import { cache, caches, mediaCache } from '@/modules/cache.js'
 import { malClient } from '@/modules/myanimelist.js'
@@ -302,7 +302,7 @@ class AnilistClient {
       const newNotifications = (lastNotified > 0) && notifications ? notifications.filter(({createdAt}) => createdAt > lastNotified) : []
       debug(`Found ${newNotifications?.length} new notifications`)
       for (const { media, episode, type, createdAt } of newNotifications) {
-        if ((settings.value.aniNotify !== 'limited' || type !== 'AIRING') && media.type === 'ANIME' && media.format !== 'MUSIC' && (!settings.value.preferDubs || (media?.status === 'FINISHED' && !['WATCHING', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(mediaCache.value[media?.id]))) {
+        if ((settings.value.aniNotify !== 'limited' || type !== 'AIRING') && media.type === 'ANIME' && media.format !== 'MUSIC' && (!settings.value.preferDubs || (media?.status === 'FINISHED' && !['CURRENT', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(await cache.requestMedia(media?.id)))) {
           window.dispatchEvent(new CustomEvent('notification-app', {
             detail: {
               id: media?.id,
@@ -512,8 +512,8 @@ class AnilistClient {
       targetList = { status: listEntry?.status, entries: [] }
       lists.push(targetList)
     }
-    await cache.updateMedia([{ ...mediaCache.value[mediaId], mediaListEntry: listEntry }])
-    targetList.entries.unshift({ media: mediaCache.value[mediaId] })
+    await cache.updateMedia([{ ...(await cache.requestMedia(mediaId)), mediaListEntry: listEntry }])
+    targetList.entries.unshift({ media: await cache.requestMedia(mediaId) })
     const res = Promise.resolve({
       data: {
         MediaListCollection: {
@@ -526,7 +526,7 @@ class AnilistClient {
   }
 
   async deleteListEntry(mediaId) {
-    await cache.updateMedia([{ ...mediaCache.value[mediaId], mediaListEntry: null }])
+    await cache.updateMedia([{ ...(await cache.requestMedia(mediaId)), mediaListEntry: null }])
     const res = Promise.resolve({
       data: {
         MediaListCollection: {
@@ -677,7 +677,7 @@ class AnilistClient {
     if (settings.value.adult !== 'hentai' && (!variables.genre_not || !variables.genre_not.includes('Hentai'))) variables.genre_not = [ ...(variables.genre_not ? variables.genre_not : []), 'Hentai' ]
 
     debug(`Searching for IDs ${JSON.stringify(variables)}`)
-    const cachedEntry = cache.cachedEntry(caches.SEARCH_IDS, JSON.stringify(variables), status.value.match(/offline/i))
+    const cachedEntry = !variables.skipCache && cache.cachedEntry(caches.SEARCH_IDS, JSON.stringify(variables), status.value.match(/offline/i))
     if (cachedEntry) return cachedEntry
     const query = /* js */` 
     query($id: [Int], $idMal: [Int], $id_not: [Int], $page: Int, $perPage: Int, $status: [MediaStatus], $onList: Boolean, $sort: [MediaSort], $search: String, $season: MediaSeason, $year: Int, $genre: [String], $genre_not: [String], $tag: [String], $tag_not: [String], $format: [MediaFormat], $isAdult: Boolean) { 
@@ -708,7 +708,7 @@ class AnilistClient {
     if (settings.value.adult === 'none') variables.isAdult = false
     if (settings.value.adult !== 'hentai' && (!variables.genre_not || !variables.genre_not.includes('Hentai'))) variables.genre_not = [ ...(variables.genre_not ? variables.genre_not : []), 'Hentai' ]
     debug(`Searching for (ALL) IDs ${JSON.stringify(variables)}`)
-    const cachedEntry = cache.cachedEntry(caches.SEARCH_IDS, JSON.stringify(variables), status.value.match(/offline/i))
+    const cachedEntry = !variables.skipCache && cache.cachedEntry(caches.SEARCH_IDS, JSON.stringify(variables), status.value.match(/offline/i))
     if (cachedEntry) return cachedEntry
     let fetchedIDS = []
     let currentPage = 1
@@ -803,9 +803,9 @@ class AnilistClient {
   /** @returns {Promise<import('./al.d.ts').Query<{Media: import('./al.d.ts').Media}>>} */
   async recommendations(variables) {
     debug(`Getting recommendations for ${variables.id}`)
-    if (settings.value.queryComplexity === 'Complex' && mediaCache.value[variables.id]) {
+    if (settings.value.queryComplexity === 'Complex' && await cache.requestMedia(variables?.id)) {
       debug(`Complex queries are enabled, returning cached recommendations from media ${variables.id}`)
-      return { data: { Media: { ...mediaCache.value[variables.id] } } }
+      return { data: { Media: { ...(await cache.requestMedia(variables?.id)) } } }
     }
     const cachedEntry = cache.cachedEntry(caches.RECOMMENDATIONS, variables.id, status.value.match(/offline/i))
     if (cachedEntry) return cachedEntry
@@ -827,7 +827,7 @@ class AnilistClient {
       mutation($id: Int) {
         ToggleFavourite(animeId: $id) { anime { nodes { id } } } 
       }`
-    const cachedMedia = mediaCache.value[variables.id]
+    const cachedMedia = cache.getMedia(variables.id)
     const isFavourite = cachedMedia?.isFavourite
     if (cachedMedia) cachedMedia.isFavourite = !isFavourite
     this.alRequest(query, variables)
@@ -847,6 +847,59 @@ class AnilistClient {
   reviews(media) {
     const totalReviewers = media.stats?.scoreDistribution?.reduce((total, score) => total + score.amount, 0)
     return media.averageScore && totalReviewers ? totalReviewers.toLocaleString() : '?'
+  }
+
+  /** @type {Set<number>} */
+  queuedMediaIDs = new Set()
+  /** @type {Map<number, { promise: Promise, resolve: Function, reject: Function }>} */
+  mediaIDHandlers = new Map()
+  /**
+   * Processes all queued media IDs in a single batch.
+   * Resolves or rejects the stored promises when the data is fetched or if an error occurs.
+   * Debounced to avoid too frequent requests.
+   */
+  processQueuedMediaIDs = debounce(async () => {
+    const ids = Array.from(this.queuedMediaIDs)
+    this.queuedMediaIDs.clear()
+    if (!ids.length) return
+    let result
+    try {
+      result = await this.searchAllIDS({ id: ids, skipCache: true })
+    } catch (error) {
+      for (const id of ids) {
+        const handler = this.mediaIDHandlers.get(id) || {}
+        handler?.reject(error)
+        this.mediaIDHandlers.delete(id)
+      }
+      return
+    }
+    const mediaMap = new Map((result?.data?.Page?.media || []).map(media => [media.id, media]))
+    for (const id of ids) {
+      const media = mediaMap.get(id) ?? null
+      const handler = this.mediaIDHandlers.get(id) || {}
+      handler?.resolve(media)
+      this.mediaIDHandlers.delete(id)
+    }
+    debug('Processed media IDs successfully:', ids)
+  }, 1_500)
+
+  /**
+   * Returns a Promise for a given AniList media ID.
+   * Deduplicates multiple requests for the same ID, returning the same promise.
+   *
+   * @param {number} id - AniList media ID
+   * @returns {Promise<import('./al.d.ts').Media | null>}
+   */
+  requestMediaID(id) {
+    debug(`Requesting media ID: ${id}`, `Current queue: ${Array.from(this.queuedMediaIDs)}`)
+    if (status.value.match(/offline/i)) return Promise.resolve(null)
+    if (this.mediaIDHandlers.get(id)?.promise) return this.mediaIDHandlers.get(id).promise
+    let resolveFn, rejectFn
+    const promise = new Promise((resolve, reject) => { resolveFn = resolve; rejectFn = reject })
+    this.mediaIDHandlers.set(id, { promise, resolve: resolveFn, reject: rejectFn })
+    this.queuedMediaIDs.add(id)
+    this.processQueuedMediaIDs()
+    return promise
   }
 
   /**

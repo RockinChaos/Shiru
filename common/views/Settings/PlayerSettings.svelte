@@ -5,7 +5,7 @@
   import SettingCard from '@/views/Settings/SettingCard.svelte'
   import { SUPPORTS } from '@/modules/support.js'
   import { click } from '@/modules/click.js'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import { Trash2, Eraser } from 'lucide-svelte'
   export let settings
   export let playPage = false

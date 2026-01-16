@@ -1,5 +1,6 @@
 import { writable, derived } from 'simple-store-svelte'
 import { cache, caches } from '@/modules/cache.js'
+import { isValidNumber } from '@/modules/util.js'
 
 // Maximum number of entries to keep in the cache
 // const maxEntries = 10000
@@ -32,9 +33,10 @@ export function liveAnimeProgress (mediaId) {
 }
 
 // Return an individual episode's progress in percent (0-100)
-export function liveAnimeEpisodeProgress (mediaId, episode) {
+export function liveAnimeEpisodeProgress (mediaId, episode, completed) {
+  if (completed) return null
   return derived(animeProgressStore, (data) => {
-    if (!mediaId || !episode) return 0
+    if (!mediaId || !isValidNumber(episode)) return 0
     const result = data.find(item => item.mediaId === mediaId && item.episode === episode)
     if (!result) return 0
     return Math.ceil(result.currentTime / result.safeduration * 100)
@@ -52,7 +54,7 @@ export function getAnimeProgress ({ name, mediaId, episode }) {
 
 // Set an individual episode's progress
 export function setAnimeProgress ({ name, mediaId, episode, currentTime, safeduration }) {
-  if ((!name && !mediaId) || (!name && !episode) || (!currentTime && currentTime !== 0) || !safeduration) return
+  if ((!name && !mediaId) || (!name && !isValidNumber(episode)) || (!currentTime && currentTime !== 0) || !safeduration) return
   const data = read()
   // Update the existing entry or create a new one
   const existing = data.find(item => mediaId ? (item.mediaId === mediaId && item.episode === episode) : item.name === name)

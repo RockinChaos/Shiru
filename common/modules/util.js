@@ -33,6 +33,16 @@ export const codes = {
 }
 
 /**
+ * Checks whether a value is a valid finite number.
+ *
+ * @param {*} value - The value to check.
+ * @returns {boolean} True if the value is a finite number.
+ */
+export function isValidNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+/**
  * Gets the Hex Color of the String input.
  * @param {string} str
  * @returns {string} The full hex color of the string input.
@@ -45,6 +55,21 @@ export function stringToHex(str) {
     hash = hash & hash
   }
   return `#${[(hash >> 16) & 0xff, (hash >> 8) & 0xff, hash & 0xff].map(x => x.toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * Creates a deferred promise that can be resolved manually.
+ * @returns {{ promise: Promise<boolean>, resolve: (value?: boolean) => void }}
+ */
+export function createDeferred() {
+  let resolveFn
+  const promise = new Promise((resolve) => {
+    resolveFn = resolve
+  })
+  if (typeof resolveFn !== 'function') {
+    throw new Error('Failed to create deferred promise')
+  }
+  return { promise, resolve: resolveFn }
 }
 
 /**
@@ -527,6 +552,7 @@ export function createListener(triggerClasses = []) {
 
 export const defaults = {
   volume: 1,
+  uiScale: 1,
   presetTheme: 'default-dark',
   playerAutoplay: true,
   playerPause: true,
@@ -552,6 +578,7 @@ export const defaults = {
   torrentPersist: false,
   torrentDHT: false,
   torrentPeX: false,
+  torrentUTP: false,
   disableStartupTorrent: SUPPORTS.isAndroid,
   torrentPort: 0,
   torrentStreamedDownload: true,

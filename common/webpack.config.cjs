@@ -85,7 +85,7 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
 <meta name="theme-color" content="#17191C">
 <title>Shiru</title>
 
-<link rel="preconnect" href="https://i.ytimg.com.com">
+<link rel="preconnect" href="https://i.ytimg.com">
 <link rel="preconnect" href="https://www.youtube-nocookie.com">
 <link rel="preconnect" href="https://s4.anilist.co/">
 <link rel="preconnect" href="https://graphql.anilist.co/">

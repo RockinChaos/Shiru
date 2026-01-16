@@ -36,7 +36,7 @@ class Worker {
           validated = await this.source.validate()
         }
       } else validated = await this.source.validate()
-      if (!validated) return { validated: false, error: 'Source #validate() failed' }
+      if (!validated) return { validated: false, error: 'The content source appears to be unreachable.' }
 
       return { validated: true }
     } catch (err) {

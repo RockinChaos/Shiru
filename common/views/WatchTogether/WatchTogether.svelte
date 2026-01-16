@@ -4,7 +4,7 @@
   import { writable } from 'simple-store-svelte'
   import { SUPPORTS } from '@/modules/support.js'
   import { page } from '@/App.svelte'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import WPC from '@/modules/wpc.js'
   import 'browser-event-target-emitter'
   import Debug from 'debug'

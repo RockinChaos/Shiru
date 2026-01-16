@@ -129,7 +129,7 @@
   }
 
   function clampYCoordinate(y) {
-    if (distanceTopGrabbedVsPointer === null) return y
+    if (distanceTopGrabbedVsPointer == null) return y
     const bounds = getListBounds()
     if (!bounds) return y
     return Math.max(bounds.top, Math.min(bounds.bottom, y + distanceTopGrabbedVsPointer)) - distanceTopGrabbedVsPointer
@@ -190,18 +190,18 @@
         <option value='TITLE_ROMAJI'>Title</option>
         <option value='SCORE_DESC'>Score</option>
         <option value='START_DATE_DESC'>Release Date</option>
-        {#if !homeSections[index][0].includes('Missed') && (homeSections[index][0].includes('Watching') || homeSections[index][0].includes('Completed') || homeSections[index][0].includes('Planning') || homeSections[index][0].includes('Paused') || homeSections[index][0].includes('Dropped')) }
-          {#if homeSections[index][0].includes('Completed')}
+        {#if homeSections[index][0].match(/(Continue Watching|(?:Re)?watching List|Completed List|Paused List|Planning List|Dropped List)/i)}
+          {#if homeSections[index][0].match(/Completed List/i)}
             <option value='FINISHED_ON_DESC'>Completed Date</option>
           {/if}
-          {#if !homeSections[index][0].includes('Planning')}
+          {#if !homeSections[index][0].match(/Planning List/i)}
             <option value='STARTED_ON_DESC'>Start Date</option>
           {/if}
           <option value='UPDATED_TIME_DESC'>Last Updated</option>
-          {#if !homeSections[index][0].includes('Completed') && !homeSections[index][0].includes('Planning')}
+          {#if !homeSections[index][0].match(/(Completed|Planning) List/i)}
             <option value='PROGRESS_DESC'>Your Progress</option>
           {/if}
-          {#if homeSections[index][0].includes('Completed') || homeSections[index][0].includes('Dropped')}
+          {#if homeSections[index][0].match(/(Completed|Dropped) List/i)}
             <option value='USER_SCORE_DESC'>Your Score</option>
           {/if}
         {/if}

@@ -1,13 +1,13 @@
 import WebTorrent from 'webtorrent'
+import HTTPTracker from 'http-tracker'
 import Client from 'bittorrent-tracker'
-import HTTPTracker from 'bittorrent-tracker/lib/client/http-tracker.js'
 import { hex2bin, arr2hex, text2arr } from 'uint8-util'
-import { makeHash, getInfoHash, hasIntegrity, getProgressAndSize, stringifyQuery, errorToString, encodeStreamURL, ANNOUNCE, TMP } from '../lib/util.js'
-import { fontRx, sleep, subRx, videoRx } from '../../util.js'
+import { makeHash, getInfoHash, hasIntegrity, getProgressAndSize, stringifyQuery, errorToString, encodeStreamURL, ANNOUNCE, TMP } from '@client/lib/util.js'
+import { fontRx, sleep, subRx, videoRx, isValidNumber } from '@/modules/util.js'
 import { SUPPORTS } from '@/modules/support.js'
 import { spawn } from 'node:child_process'
-import Metadata from '../lib/metadata.js'
-import Cache from '../lib/torrentcache.js'
+import Metadata from '@client/lib/metadata.js'
+import Cache from '@client/lib/torrentcache.js'
 import Debug from 'debug'
 const debug = Debug('torrent:worker')
 
@@ -34,6 +34,7 @@ export default class TorrentClient extends WebTorrent {
     debug('Initializing TorrentClient with settings:', JSON.stringify(settings))
     super({
       dht: settings.dht,
+      utp: settings.torrentUTP,
       utPex: settings.torrentPeX,
       maxConns: settings.maxConns,
       downloadLimit: settings.downloadLimit,
@@ -288,7 +289,7 @@ export default class TorrentClient extends WebTorrent {
     const timeout = setTimeout(() => {
       const seeders = torrent?.wires?.filter(wire => wire.isSeeder)?.length
       if (!this.destroyed && !torrent.destroyed && torrent.current && !torrent.progress && !torrent.ready && torrent.numPeers === 0 && this.networking !== 'offline') this.dispatchError('No peers found, try using a different torrent.')
-      else if (!this.destroyed && !torrent.destroyed && torrent.current && torrent.progress < .95 && !isNaN(seeders) && seeders.length < 5 && !isNaN(torrent.numPeers) && torrent.numPeers < 25 && this.networking !== 'offline') this.dispatch('info', 'Availability Warning! This release is poorly seeded and likely will have playback issues such as buffering!')
+      else if (!this.destroyed && !torrent.destroyed && torrent.current && torrent.progress < .95 && isValidNumber(seeders) && seeders.length < 5 && isValidNumber(torrent.numPeers) && torrent.numPeers < 25 && this.networking !== 'offline') this.dispatch('info', 'Availability Warning! This release is poorly seeded and likely will have playback issues such as buffering!')
     }, 30_000)
     this.timeouts.push(timeout)
     timeout.unref?.()
@@ -566,15 +567,7 @@ export default class TorrentClient extends WebTorrent {
             const seconds = (Date.now() - startTime) / 1000
             this.dispatch('externalWatched', seconds)
           })
-        } else if (SUPPORTS.isAndroid) {
-          this.dispatch('open', `intent://localhost:${this.server.address().port}${encodeStreamURL(found.streamURL)}#Intent;type=video/any;scheme=http;end;`)
-          this.ipc.send('external-open')
-          this.ipc.once('external-close', () => {
-            if (this.destroyed) return
-            const seconds = (Date.now() - startTime) / 1000
-            this.dispatch('externalWatched', seconds)
-          })
-        }
+        } else if (SUPPORTS.isAndroid) this.dispatch('androidExternal', `intent://localhost:${this.server.address().port}${encodeStreamURL(found.streamURL)}#Intent;type=video/any;scheme=http;end;`)
         break
       } case 'torrent': {
         const hash = data.data && data.data.hash
@@ -687,6 +680,11 @@ export default class TorrentClient extends WebTorrent {
         this.dispatch('untrack', data.data)
         break
       } case 'networking': {
+        if (this.networking.match(/offline/i) && !data.data.match(/offline/i)) {
+          this.torrents.forEach(torrent => {
+            if (!this.destroyed && !torrent.destroyed) torrent.discovery?.tracker?.start()
+          })
+        }
         this.networking = data.data
         break
       } case 'debug': {

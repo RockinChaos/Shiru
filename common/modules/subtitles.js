@@ -94,7 +94,7 @@ export default class Subtitles {
             if (!wantedTrack) wantedTrack = tracks.find(track => (track.name?.toLowerCase() ?? '').includes(settings.value.subtitleLanguage.toLowerCase()))
             if (wantedTrack) return this.selectCaptions(wantedTrack.number)
 
-            const englishTrack = tracks.find(({ language }) => language === null || language === 'eng')
+            const englishTrack = tracks.find(({ language }) => language == null || language === 'eng')
             if (englishTrack) return this.selectCaptions(englishTrack.number)
 
             this.selectCaptions(tracks[0].number)
@@ -143,17 +143,16 @@ export default class Subtitles {
     this.onHeader()
     this.tracks[index] = []
     const subtitles = Subtitles.convertSubText(await file.text(), type)
-    if (type === 'ass') {
-      this.headers[index].header = subtitles
-    } else {
-      this.headers[index].header += subtitles.join('\n')
-    }
-    if (!this.current) {
-      this.current = index
-      this.initSubtitleRenderer()
-      this.selectCaptions(this.current)
-      this.onHeader()
-    }
+    if (subtitles) {
+      if (type === 'ass') this.headers[index].header = subtitles
+      else this.headers[index].header += subtitles.join('\n')
+      if (!this.current) {
+        this.current = index
+        this.initSubtitleRenderer()
+        this.selectCaptions(this.current)
+        this.onHeader()
+      }
+    } else console.error(`Failed to load the file ${file.name} as it is not a subtitle file.`)
   }
 
   initSubtitleRenderer () {

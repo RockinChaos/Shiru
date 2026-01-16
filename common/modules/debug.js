@@ -21,6 +21,14 @@ exports.destroy = (() => {
   }
 })()
 
+const consoleError = console.error
+console.error = function(...args) {
+  consoleError.apply(console, args.map(arg => {
+    if (arg instanceof Error && arg.stack) return arg.stack
+    return arg
+  }))
+}
+
 /**
  * Colors.
  */
@@ -269,7 +277,7 @@ function setup (env) {
       enumerable: true,
       configurable: false,
       get: () => {
-        if (enableOverride !== null) {
+        if (enableOverride != null) {
           return enableOverride
         }
         if (namespacesCache !== createDebug.namespaces) {

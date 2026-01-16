@@ -3,9 +3,9 @@ import { anilistClient } from '@/modules/anilist.js'
 import { malClient } from '@/modules/myanimelist.js'
 import { malDubs } from '@/modules/anime/animedubs.js'
 import { profiles } from '@/modules/settings.js'
-import { mediaCache, mapStatus } from '@/modules/cache.js'
+import { cache, mediaCache, mapStatus } from '@/modules/cache.js'
 import { getMediaMaxEp, hasZeroEpisode } from '@/modules/anime/anime.js'
-import { codes, matchKeys } from '@/modules/util.js'
+import { codes, matchKeys, isValidNumber } from '@/modules/util.js'
 import { toast } from 'svelte-sonner'
 import Debug from 'debug'
 const debug = Debug('ui:helper')
@@ -53,14 +53,18 @@ export default class Helper {
 
   static getFuzzyDate(media, status) {
     const updatedDate = new Date()
-    const fuzzyDate = {
-      year: updatedDate.getFullYear(),
-      month: updatedDate.getMonth() + 1,
-      day: updatedDate.getDate()
+    const fuzzyDate = { year: updatedDate.getFullYear(), month: updatedDate.getMonth() + 1, day: updatedDate.getDate() }
+    let startedAt = media.mediaListEntry?.startedAt?.year && media.mediaListEntry?.startedAt?.month && media.mediaListEntry?.startedAt?.day ? media.mediaListEntry.startedAt : (['CURRENT', 'REPEATING'].includes(status) ? fuzzyDate : undefined)
+    let completedAt = media.mediaListEntry?.completedAt?.year && media.mediaListEntry?.completedAt?.month && media.mediaListEntry?.completedAt?.day ? media.mediaListEntry.completedAt : (status === 'COMPLETED' ? fuzzyDate : undefined)
+    if (startedAt && completedAt) {
+      if (`${startedAt.year}-${String(startedAt.month).padStart(2, '0')}-${String(startedAt.day).padStart(2, '0')}` > `${completedAt.year}-${String(completedAt.month).padStart(2, '0')}-${String(completedAt.day).padStart(2, '0')}`) {
+        const yesterday = new Date(updatedDate)
+        yesterday.setDate(updatedDate.getDate() - 1)
+        completedAt = fuzzyDate
+        startedAt = { year: yesterday.getFullYear(), month: yesterday.getMonth() + 1, day: yesterday.getDate() }
+      }
     }
-    const startedAt =  media.mediaListEntry?.startedAt?.year && media.mediaListEntry?.startedAt?.month && media.mediaListEntry?.startedAt?.day ? media.mediaListEntry.startedAt : (['CURRENT', 'REPEATING'].includes(status) ? fuzzyDate : undefined)
-    const completedAt = media.mediaListEntry?.completedAt?.year && media.mediaListEntry?.completedAt?.month && media.mediaListEntry?.completedAt?.day ? media.mediaListEntry.completedAt : (status === 'COMPLETED' ? fuzzyDate : undefined)
-    return {startedAt, completedAt}
+    return { startedAt, completedAt }
   }
 
   static sanitiseObject (object = {}) {
@@ -114,7 +118,8 @@ export default class Helper {
         window.dispatchEvent(new CustomEvent('notification-read', {
           detail: {
             id: media.id,
-            episode: res?.data?.SaveMediaListEntry?.progress
+            episode: res?.data?.SaveMediaListEntry?.progress,
+            episodes: media.episodes
           }
         }))
       }
@@ -147,7 +152,7 @@ export default class Helper {
     // check if values exist
     if (filemedia.media && this.isAuthorized()) {
       const { media, failed } = filemedia
-      const cachedMedia = mediaCache.value[media?.id] || media
+      const cachedMedia = await cache.requestMedia(media?.id)
       debug(`Checking entry for ${cachedMedia?.title?.userPreferred}`)
 
       debug(`Media viability: ${cachedMedia?.status}, is from failed resolve: ${failed}`)
@@ -163,7 +168,7 @@ export default class Helper {
       // check if media can even be watched, ex: it was resolved incorrectly
       // some anime/OVA's can have a single episode, or some movies can have multiple episodes
       const zeroEpisode = await hasZeroEpisode(cachedMedia)
-      const singleEpisode = ((!cachedMedia.episodes && (Number(filemedia.episode) === 1 || isNaN(Number(filemedia.episode)))) || (cachedMedia.format === 'MOVIE' && cachedMedia.episodes === 1)) && 1 // movie check
+      const singleEpisode = ((!cachedMedia.episodes && (!isValidNumber(filemedia.episode) || Number(filemedia.episode) === 1)) | (cachedMedia.format === 'MOVIE' && cachedMedia.episodes === 1)) && 1 // movie check
       const videoEpisode = (Number(filemedia.episode) || singleEpisode) + (zeroEpisode ? 1 : 0)
       const mediaEpisode = getMediaMaxEp(cachedMedia) || singleEpisode
 
@@ -208,7 +213,8 @@ export default class Helper {
           window.dispatchEvent(new CustomEvent('notification-read', {
             detail: {
               id: media.id,
-              episode: res?.data?.mediaListEntry?.progress || res?.data?.SaveMediaListEntry?.progress
+              episode: res?.data?.mediaListEntry?.progress || res?.data?.SaveMediaListEntry?.progress,
+              episodes: cachedMedia.episodes
             }
           }))
         }
@@ -314,7 +320,7 @@ export default class Helper {
             // api does not provide airing episode or tags, additionally genres are inaccurate and tags do not exist.
             return true
           }
-        }).map(({ node }) => node.id)
+        }).map(({ node }) => node.id).filter(Boolean)
       if (!ids.length) return {}
       if (this.isUserSort(variables)) {
         debug(`Handling page media list with user specific sorting ${variables.sort}`)

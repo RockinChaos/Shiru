@@ -1,13 +1,12 @@
 <script>
-  import { variables, setStyle } from '@/modules/themes.js'
+  import { variables, setStyle, setScale } from '@/modules/themes.js'
   import { click } from '@/modules/click.js'
   import HomeSections from '@/views/Settings/HomeSectionsSettings.svelte'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import SettingCard from '@/views/Settings/SettingCard.svelte'
   import { SUPPORTS } from '@/modules/support.js'
-  import { Trash2 } from 'lucide-svelte'
+  import { Trash2, RotateCcw } from 'lucide-svelte'
   import { genreList, tagList } from '@/modules/anime/anime.js'
-  import { defaults } from '@/modules/util.js'
   import CustomDropdown from '@/components/CustomDropdown.svelte'
   import Helper from '@/modules/helper.js'
   function updateAngle () {
@@ -34,6 +33,15 @@
     <option value='default-dark' selected>Default (Dark)</option>
     <option value='default-amoled'>Default (AMOLED)</option>
   </select>
+</SettingCard>
+<SettingCard title='Scale' description='Adjust the size of text, buttons, and other interface elements to match your preference and screen size.'>
+  <div class='form-group w-160 flex-shrink-0 my-auto'>
+    <input class='w-full p-2 bg-dark-light' type='range' id='ui-scale' min='0.5' max='2' step='0.05' bind:value={settings.uiScale} on:change={() => setScale()}/>
+    <div class='d-flex align-items-center justify-content-center gap-2 position-relative'>
+      <strong>{Math.round(settings.uiScale * 100)}%</strong>
+      <button type='button' use:click={() => { settings.uiScale = 1; setScale() }} class='btn btn-danger btn-square px-5 d-flex align-items-center position-absolute right-0' data-toggle='tooltip' data-placement='left' data-title='Reset To Default Interface Scaling' disabled={settings.uiScale === 1}><RotateCcw size='1.8rem' /></button>
+    </div>
+  </div>
 </SettingCard>
 <SettingCard title='CSS Variables' description='Used for custom themes. Can change colors, sizes, spacing and more. Supports only variables.{!SUPPORTS.isAndroid ? ` Best way to discover variables is to use the built-in devtools.` : ``}'>
   <div class='d-flex flex-column'>
@@ -223,7 +231,7 @@
           <div class='flex-shrink-1 w-150 font-size-16 text-center font-weight-bold'>Name</div>
           <div class='flex-shrink-1 w-150 font-size-16 text-center font-weight-bold'>Genres</div>
           <div class='flex-shrink-1 w-150 mr-5 font-size-16 text-center font-weight-bold'>Tags</div>
-          <div class='flex-shrink-1 font-size-16 text-center font-weight-bold hidden' style='width: 3rem'>&nbsp;</div>
+          <div class='flex-shrink-1 w-30 font-size-16 text-center font-weight-bold hidden'>&nbsp;</div>
         </div>
       {/if}
       <div class='d-flex mb-10 w-480 mw-full'>

@@ -26,12 +26,14 @@ module.exports = [
       mainFields: ['module', 'main', 'node'],
       alias: {
         '@': resolve(__dirname, '..', 'common'),
+        '@client': resolve(__dirname, '..', 'client'),
+        'webtorrent-client': resolve(__dirname, '..', 'client/core/webtorrent.js'),
         'node-fetch': false,
         ws: false,
         wrtc: false,
         debug: resolve(__dirname, '../common/modules/debug.js'),
-        'bittorrent-tracker/lib/client/http-tracker.js': resolve('../node_modules/bittorrent-tracker/lib/client/http-tracker.js'),
-        'webrtc-polyfill': resolve('../node_modules/webrtc-polyfill/browser.js')
+        'webrtc-polyfill': resolve('../node_modules/webrtc-polyfill/browser.js'),
+        'http-tracker': resolve('../node_modules/bittorrent-tracker/lib/client/http-tracker.js')
       }
     },
     plugins: [new HtmlWebpackPlugin({ filename: 'background.html' })],

@@ -9,7 +9,7 @@
   import SoftModal from '@/components/SoftModal.svelte'
   import SmartImage from '@/components/visual/SmartImage.svelte'
   import { ClockAlert, LogOut, Plus, X } from 'lucide-svelte'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
 
   const { reactive, init } = createListener(['pa-button', 'p-button', 'custom-switch', 'profile-safe-area'])
   init(true)
@@ -70,7 +70,7 @@
   function close () {
     $profileView = false
     $profileAdd = false
-    if (overlay.includes('profiles')) overlay = overlay.filter(item => item !== 'profiles')
+    setTimeout(() => { if (overlay.includes('profiles')) overlay = overlay.filter(item => item !== 'profiles') })
   }
 
   $: if ($profileView && !overlay.includes('profiles')) overlay = [...overlay, 'profiles']

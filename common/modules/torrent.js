@@ -8,7 +8,7 @@ import { writable } from 'simple-store-svelte'
 import { toast } from 'svelte-sonner'
 import clipboard from '@/modules/clipboard.js'
 import { setHash } from '@/modules/anime/animehash.js'
-import IPC from '@/modules/ipc.js'
+import { IPC } from '@/modules/bridge.js'
 import WPC from '@/modules/wpc.js'
 import 'browser-event-target-emitter'
 import Debug from 'debug'
@@ -27,7 +27,7 @@ class TorrentWorker extends EventTarget {
         this.port.onmessage(this.handleMessage.bind(this))
         resolve()
       })
-      _settings = { userID: cache.cacheID, dht: !settings.value.torrentDHT, maxConns: settings.value.maxConns, downloadLimit: (settings.value.torrentSpeed * 1048576) || 0, uploadLimit: (settings.value.torrentSpeed * 1048576) || 0, torrentPort: settings.value.torrentPort || 0, dhtPort: settings.value.dhtPort || 0, torrentPersist: settings.value.torrentPersist, torrentPeX: !settings.value.torrentPeX, torrentStreamedDownload: settings.value.torrentStreamedDownload, torrentPathNew: settings.value.torrentPathNew, playerPath: settings.value.playerPath, seedingLimit: settings.value.seedingLimit }
+      _settings = { userID: cache.cacheID, dht: !settings.value.torrentDHT, torrentUTP: !settings.value.torrentUTP, torrentPeX: !settings.value.torrentPeX, maxConns: settings.value.maxConns, downloadLimit: (settings.value.torrentSpeed * 1048576) || 0, uploadLimit: (settings.value.torrentSpeed * 1048576) || 0, torrentPort: settings.value.torrentPort || 0, dhtPort: settings.value.dhtPort || 0, torrentPersist: settings.value.torrentPersist, torrentStreamedDownload: settings.value.torrentStreamedDownload, torrentPathNew: settings.value.torrentPathNew, playerPath: settings.value.playerPath, seedingLimit: settings.value.seedingLimit }
       IPC.emit('portRequest', _settings)
     })
   }
@@ -52,7 +52,7 @@ setupTorrentClient()
 
 status.subscribe(value => client.send('networking', value))
 settings.subscribe(value => {
-  let settingsVal = { userID: cache.cacheID, dht: !value.torrentDHT, maxConns: value.maxConns, downloadLimit: (value.torrentSpeed * 1048576) || 0, uploadLimit: (value.torrentSpeed * 1048576) || 0, torrentPort: value.torrentPort || 0, dhtPort: value.dhtPort || 0, torrentPersist: value.torrentPersist, torrentPeX: !value.torrentPeX, torrentStreamedDownload: value.torrentStreamedDownload, torrentPathNew: value.torrentPathNew, playerPath: value.playerPath, seedingLimit: value.seedingLimit }
+  let settingsVal = { userID: cache.cacheID, dht: !value.torrentDHT, torrentUTP: !value.torrentUTP, torrentPeX: !value.torrentPeX, maxConns: value.maxConns, downloadLimit: (value.torrentSpeed * 1048576) || 0, uploadLimit: (value.torrentSpeed * 1048576) || 0, torrentPort: value.torrentPort || 0, dhtPort: value.dhtPort || 0, torrentPersist: value.torrentPersist, torrentStreamedDownload: value.torrentStreamedDownload, torrentPathNew: value.torrentPathNew, playerPath: value.playerPath, seedingLimit: value.seedingLimit }
   if (JSON.stringify(_settings) !== JSON.stringify(settingsVal)) {
     _settings = settingsVal
     client.send('settings', _settings)
@@ -69,7 +69,6 @@ IPC.on('webtorrent-crashed', () => {
   client = new TorrentWorker()
   setupTorrentClient()
 })
-IPC.on('intent-end', () => client.dispatch('externalWatched'))
 window.addEventListener('torrent-unload', () => {
   files.value = []
   media.value = { ...media.value, display: true } // set display to true to allow the 'Last Watched' button to remain on the SideBar.
@@ -171,7 +170,7 @@ function setupTorrentClient() {
   }
   client.send('complete_all', cache.getEntry(caches.GENERAL, 'completedTorrents').filter(Boolean))
 
-  for (const event of ['magnet', 'stats', 'chapters', 'progress', 'externalReady', 'externalWatched', 'scrape_done', 'rescan_done']) client.on(event, ({ detail }) => WPC.send(event, detail))
+  for (const event of ['magnet', 'stats', 'chapters', 'progress', 'externalReady', 'externalWatched', 'androidExternal', 'scrape_done', 'rescan_done']) client.on(event, ({ detail }) => WPC.send(event, detail))
   for (const event of ['current', 'scrape', 'externalPlay', 'debug']) WPC.listen(event, (detail) => client.send(event, detail))
 
   // external player for android

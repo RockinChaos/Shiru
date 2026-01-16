@@ -262,9 +262,16 @@ class MALClient {
       token: variables.token,
       refresh_in: variables.refresh_in
     }
-    const padNumber = (num) => num !== undefined && num !== null ? String(num).padStart(2, '0') : null
-    const start_date = variables.startedAt?.year && variables.startedAt.month && variables.startedAt.day ? `${variables.startedAt.year}-${padNumber(variables.startedAt.month)}-${padNumber(variables.startedAt.day)}` : null
-    const finish_date = variables.completedAt?.year && variables.completedAt.month && variables.completedAt.day ? `${variables.completedAt.year}-${padNumber(variables.completedAt.month)}-${padNumber(variables.completedAt.day)}` : null
+    const padNumber = (num) => num != null ? String(num).padStart(2, '0') : null
+    let start_date = variables.startedAt?.year && variables.startedAt.month && variables.startedAt.day ? `${variables.startedAt.year}-${padNumber(variables.startedAt.month)}-${padNumber(variables.startedAt.day)}` : null
+    let finish_date = variables.completedAt?.year && variables.completedAt.month && variables.completedAt.day ? `${variables.completedAt.year}-${padNumber(variables.completedAt.month)}-${padNumber(variables.completedAt.day)}` : null
+    if (start_date && finish_date && start_date > finish_date) {
+      const currentDate = new Date()
+      const dayAgo = new Date(currentDate)
+      dayAgo.setDate(currentDate.getDate() - 1)
+      finish_date = `${currentDate.getFullYear()}-${padNumber(currentDate.getMonth() + 1)}-${padNumber(currentDate.getDate())}`
+      start_date = `${dayAgo.getFullYear()}-${padNumber(dayAgo.getMonth() + 1)}-${padNumber(dayAgo.getDate())}`
+    }
     const updateData = {
       status: Helper.statusMap(variables.status),
       is_rewatching: variables.status?.includes('REPEATING'),
@@ -272,12 +279,8 @@ class MALClient {
       num_times_rewatched: variables.repeat || 0,
       score: variables.score || 0
     }
-    if (start_date) {
-      updateData.start_date = start_date
-    }
-    if (finish_date) {
-      updateData.finish_date = finish_date
-    }
+    if (start_date) updateData.start_date = start_date
+    if (finish_date) updateData.finish_date = finish_date
     const res = await this.malRequest(query, updateData)
     setTimeout(async () => {
       if (!variables.token) this.userLists.value = Promise.resolve(await this.getUserLists({ sort: 'list_updated_at' })) // awaits before setting the value as it is super jarring to have stuff constantly re-rendering when it's not needed.

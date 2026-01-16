@@ -12,18 +12,16 @@ const debug = Debug('ui:extensions')
 /** @typedef {import('extensions/index.d.ts').TorrentQuery} Options */
 /** @typedef {import('extensions/index.d.ts').TorrentResult} Result */
 
-const exclusions = ['DTS', 'TrueHD']
+const exclusions = []
 const isDev = location.hostname === 'localhost'
 
 const video = document.createElement('video')
-if (!isDev && !video.canPlayType('video/mp4; codecs="hev1.1.6.L93.B0"')) {
-  exclusions.push('HEVC', 'x265', 'H.265', '[EMBER]')
-}
-if (!isDev && !video.canPlayType('audio/mp4; codecs="ac-3"')) {
-  exclusions.push('AC3', 'AC-3')
-}
-if (!('audioTracks' in HTMLVideoElement.prototype)) {
-  exclusions.push('DUAL')
+if (!isDev) {
+  if (!video.canPlayType('video/mp4; codecs="hev1.1.6.L93.B0"')) exclusions.push('HEVC', 'x265', 'H.265', '[EMBER]')
+  if (!video.canPlayType('audio/mp4; codecs="ac-3"')) exclusions.push('AC3', 'AC-3')
+  if (!video.canPlayType('audio/mp4; codecs="dtsc"')) exclusions.push('DTS')
+  if (!video.canPlayType('audio/mp4; codecs="truehd"')) exclusions.push('TrueHD')
+  if (!('audioTracks' in HTMLVideoElement.prototype)) exclusions.push('DUAL')
 }
 video.remove()
 
@@ -33,21 +31,7 @@ video.remove()
  * Returns a Map of extension results keyed by extension id, each containing metadata and a result promise.
  */
 export async function getResultsFromExtensions({ media, episode, batch, movie, resolution }) {
-  await extensionManager.whenReady
-  if (!Object.values(extensionManager.activeWorkers)?.length) {
-    const offline = Object.values(extensionManager.inactiveWorkers)?.length && (status.value === 'offline')
-    debug(!offline ? 'No torrent sources configured' : 'Torrent sources detected but are inactive')
-    return new Map([
-      ['NaN', {
-        name: 'no-sources',
-        promise: Promise.resolve({
-          results: [],
-          errors: [{ message: !offline ? 'No torrent sources configured. Add sources in settings.' : 'Sources are inactive.. found no results.' }]
-        })
-      }]
-    ])
-  }
-
+  await extensionManager.whenReady.promise
   debug(`Fetching sources for ${media?.id}:${media?.title?.userPreferred} ${episode} ${batch} ${movie} ${resolution}`)
   const aniDBMeta = await ALToAniDB(media)
   const anidbAid = aniDBMeta?.mappings?.anidb_id
@@ -67,22 +51,46 @@ export async function getResultsFromExtensions({ media, episode, batch, movie, r
   }
 
   const promises = new Map()
-  for (const [key, worker] of Object.entries(extensionManager.activeWorkers)) {
-    const source = Object.values(settings.value.sourcesNew).find(entry => key === `${entry.locale || (entry.update + '/')}${entry.id}`)
+  const allExtensionKeys = Object.keys(settings.value.sourcesNew || {})
+  if (!allExtensionKeys.length) {
+    debug(status.value !== 'offline' ? 'No torrent sources configured' : 'Torrent sources detected but are inactive')
+    return new Map([
+      ['NaN', {
+        name: 'no-sources',
+        promise: Promise.resolve({
+          results: [],
+          errors: [{ message: status.value !== 'offline' ? 'No torrent sources configured. Add sources in settings.' : 'Sources are inactive.. found no results.' }]
+        })
+      }]
+    ])
+  }
+
+  for (const key of allExtensionKeys) {
+    const source = settings.value.sourcesNew[key]
     if (!source?.nsfw || settings.value.adult !== 'none') {
-      const promise = worker.query(options, { movie, batch }, status.value !== 'offline', settings.value.extensionsNew?.[key]).then(async ({ results, errors }) => {
-        if (errors?.length && !JSON.stringify(errors)?.match(/no anidb[ae]id provided/i)) throw new Error(errors?.map(error => (error?.message || JSON.stringify(error)).replace(/\\n/g, ' ').replace(/"/g, '')).join('\n') || 'Unknown error')
-        else if (errors?.length) throw new Error('Source ' + source.id + ' found no results.')
-        debug(`Extension ${key} found ${results?.length} results with ${errors?.length} errors`)
-        const deduped = dedupe(results)
-        if (!deduped.length) return []
-        const parseObjects = await anitomyscript(deduped.map(r => r.title))
-        deduped.forEach((r, i) => r.parseObject = parseObjects[i])
-        return await updatePeerCounts(deduped)
-      }).catch(error => {
-        debug(`Extension ${key} failed: ${error}`)
-        return { results: [], errors: [{ message: error?.[0]?.message || error?.message }] }
-      })
+      const promise = (async () => {
+        try {
+          const extensionEnabled = settings.value.extensionsNew?.[key]?.enabled
+          const worker = extensionEnabled && await extensionManager.whenExtensionReady(key)
+          if (!worker) {
+            if (!extensionEnabled) return { results: [], errors: [{ message: 'Extension is not enabled.. skipping...' }] }
+            debug(`Extension ${key} is not available`)
+            return { results: [], errors: [{ message: `Source ${source?.name || source?.id} is currently unavailable` }] }
+          }
+          const { results, errors } = await worker.query(options, { movie, batch }, status.value !== 'offline', settings.value.extensionsNew?.[key])
+          if (errors?.length && !JSON.stringify(errors)?.match(/no anidb[ae]id provided/i)) throw new Error(errors?.map(error => (error?.message || JSON.stringify(error)).replace(/\\n/g, ' ').replace(/"/g, '')).join('\n') || 'Unknown error')
+          else if (errors?.length) throw new Error('Source ' + source.id + ' found no results.')
+          debug(`Extension ${key} found ${results?.length} results with ${errors?.length} errors`)
+          const deduped = dedupe(results)
+          if (!deduped.length) return []
+          const parseObjects = await anitomyscript(deduped.map(r => r.title))
+          deduped.forEach((r, i) => r.parseObject = parseObjects[i])
+          return await updatePeerCounts(deduped)
+        } catch (error) {
+          debug(`Extension ${key} failed: ${error}`)
+          return { results: [], errors: [{ message: error?.[0]?.message || error?.message }] }
+        }
+      })()
       promises.set(key, { name: source?.name || source?.id, icon: source?.icon, promise })
     }
   }

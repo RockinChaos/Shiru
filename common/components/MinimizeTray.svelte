@@ -2,7 +2,7 @@
   import { settings } from '@/modules/settings.js'
   import { writable } from 'simple-store-svelte'
   import { click } from '@/modules/click.js'
-  import IPC from '@/modules/ipc.js'
+  import { IPC, VERSION } from '@/modules/bridge.js'
   import { Minimize2, SquareX, X } from 'lucide-svelte'
 
   export const actionPrompt = writable(false)
@@ -15,7 +15,7 @@
   function close () {
     $actionPrompt = false
     rememberChoice = false
-    if (overlay.includes('minimizetray')) overlay = overlay.filter(item => item !== 'minimizetray')
+    setTimeout(() => { if (overlay.includes('minimizetray')) overlay = overlay.filter(item => item !== 'minimizetray') })
   }
   function checkClose ({ keyCode }) {
     if (keyCode === 27) close()
@@ -53,7 +53,7 @@
           <button type='button' class='btn btn-square ml-auto d-flex align-items-center justify-content-center' use:click={close}><X size='1.7rem' strokeWidth='3'/></button>
         </div>
         <h3 class='mb-0 text-center'>Are You Sure You Want To Quit?</h3>
-        <p class='mt-1 text-center text-wrap'>Shiru can be minimized to the {window.version?.platform !== 'darwin' ? 'system tray' : ' dock and menu bar'} instead, useful if you want to receive notifications and seed torrents.</p>
+        <p class='mt-1 text-center text-wrap'>Shiru can be minimized to the {VERSION.platform !== 'darwin' ? 'system tray' : ' dock and menu bar'} instead, useful if you want to receive notifications and seed torrents.</p>
         <div class='mb-20 modal-body d-flex flex-column justify-content-center align-items-center'>
           <div class='custom-switch text-center'>
             <input type='checkbox' id='remember-choice' bind:checked={rememberChoice} />

@@ -20,19 +20,17 @@
     "@typescript-eslint/parser": "^8.45.0",
     "copy-webpack-plugin": "^13.0.1",
     "cross-env": "^10.1.0",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.2",
     "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-svelte": "^3.13.0",
+    "eslint-plugin-svelte": "^3.13.1",
     "html-webpack-plugin": "^5.6.5",
-    "matroska-metadata": "^1.0.7",
     "mini-css-extract-plugin": "^2.9.4",
-    "webpack": "^5.103.0",
+    "webpack": "^5.104.1",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "5.1.0",
-    "webtorrent": "^2.8.5"
+    "webpack-dev-server": "5.1.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251202.0",
+    "@cloudflare/workers-types": "^4.20251225.0",
     "npm-run-all": "^4.1.5"
   },
   "pnpm": {
@@ -45,7 +43,8 @@
       "@capacitor/local-notifications": "patches/@capacitor__local-notifications.patch",
       "@capacitor/android": "patches/@capacitor__android.patch",
       "lucide-svelte@0.455.0": "patches/lucide-svelte@0.455.0.patch",
-      "rfdc": "patches/rfdc.patch"
+      "rfdc": "patches/rfdc.patch",
+      "capacitor-plugin-safe-area": "patches/capacitor-plugin-safe-area.patch"
     },
     "onlyBuiltDependencies": [
       "@paymoapp/electron-shutdown-handler",

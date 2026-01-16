@@ -2,13 +2,14 @@ import { join } from 'node:path'
 import process from 'node:process'
 
 import { toXmlString } from 'powertoast'
+import { youtubeServer } from './youtube.js'
 import Jimp from 'jimp'
 import fs from 'fs'
 
 import { BrowserWindow, MessageChannelMain, Notification, Tray, Menu, nativeImage, app, dialog, ipcMain, powerMonitor, shell, session } from 'electron'
 import electronShutdownHandler from '@paymoapp/electron-shutdown-handler'
 
-import { development } from './util.js'
+import { development, getWindowState, saveWindowState, getDefaultBounds } from './util.js'
 import Discord from './discord.js'
 import Protocol from './protocol.js'
 import Updater from './updater.js'
@@ -20,12 +21,19 @@ export default class App {
   trayIcon = process.platform === 'darwin' ? nativeImage.createFromPath(join(__dirname, '/trayMacOSTemplate.png')) : this.icon
   trayNotifyIcon = nativeImage.createFromPath(join(__dirname, process.platform === 'darwin' ? '/trayNotifyMacOSTemplate.png' : process.platform === 'win32' ? '/icon_filled_notify.ico' : '/icon_filled_notify.png'))
 
+  timeouts = new Set()
+  stateTimeout = null
+
   torrentLoad = null
   webtorrentWindow = this.makeWebTorrentWindow()
 
+  isMinimized = false
+  isFullScreen = false
+  windowState = getWindowState()
   mainWindow = new BrowserWindow({
-    width: 1600,
-    height: 900,
+    ...this.windowState.bounds,
+    minWidth: 320,
+    minHeight: 390,
     frame: process.platform === 'darwin',
     titleBarStyle: 'hidden',
     ...(process.platform !== 'darwin' ? { titleBarOverlay: {
@@ -60,10 +68,6 @@ export default class App {
   constructor() {
     this.mainWindow.setMenuBarVisibility(false)
     this.mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-    this.mainWindow.on('minimize', () => this.mainWindow.webContents.postMessage('visibilitychange', 'hidden'))
-    this.mainWindow.on('hide', () => this.mainWindow.webContents.postMessage('visibilitychange', 'hidden'))
-    this.mainWindow.on('restore', () => this.mainWindow.webContents.postMessage('visibilitychange', 'visible'))
-    this.mainWindow.on('show', () => this.mainWindow.webContents.postMessage('visibilitychange', 'visible'))
     if (development) this.mainWindow.once('ready-to-show', () => this.showAndFocus(true))
     else ipcMain.once('main-ready', () => this.showAndFocus(true)) // HACK: Prevents the window from being shown while it's still loading. This is nice for production as the window can't be moved without the elements being rendered.
     ipcMain.on('torrent-devtools', () => this.webtorrentWindow.webContents.openDevTools({ mode: 'detach' }))
@@ -74,11 +78,33 @@ export default class App {
     ipcMain.on('maximize', () => this.mainWindow?.isMaximized() ? this.mainWindow.unmaximize() : this.mainWindow.maximize())
     ipcMain.on('webtorrent-restart', () => this.setWebTorrentWindow(true))
     this.mainWindow.on('maximize', () => this.mainWindow.webContents.send('isMaximized', true))
-    this.mainWindow.on('unmaximize', () => this.mainWindow.webContents.send('isMaximized', false))
-    if (process.platform === 'darwin') {
-      this.mainWindow.on('enter-full-screen', () => this.mainWindow.webContents.send('isFullscreen', true))
-      this.mainWindow.on('leave-full-screen', () => this.mainWindow.webContents.send('isFullscreen', false))
+    this.mainWindow.on('unmaximize', () => {
+      saveWindowState(this.mainWindow)
+      this.mainWindow.webContents.send('isMaximized', false)
+    })
+    const minimize = (isMinimized) => {
+      this.isMinimized = isMinimized
+      this.mainWindow.webContents.send('electron:onMinimize', !isMinimized)
     }
+    ipcMain.handle('electron:isMinimized', () => this.isMinimized)
+    this.mainWindow.on('minimize', () => minimize(true))
+    this.mainWindow.on('hide', () => minimize(true))
+    this.mainWindow.on('restore', () => minimize(false))
+    this.mainWindow.on('show', () => minimize(false))
+    const debounceState = () => {
+      clearTimeout(this.stateTimeout)
+      this.stateTimeout = setTimeout(() => saveWindowState(this.mainWindow), 150)
+      this.stateTimeout.unref?.()
+    }
+    this.mainWindow.on('resize', debounceState)
+    this.mainWindow.on('move', debounceState)
+    const fullScreen = (isFullScreen) => {
+      this.isFullScreen = isFullScreen
+      this.mainWindow.webContents.send('electron:onFullScreen', isFullScreen)
+    }
+    ipcMain.handle('electron:isFullScreen', () => this.isFullScreen)
+    this.mainWindow.on('enter-full-screen', () => fullScreen(true))
+    this.mainWindow.on('leave-full-screen', () => fullScreen(false))
 
     this.setWebTorrentWindow()
     this.mainWindow.on('closed', () => this.destroy())
@@ -109,20 +135,30 @@ export default class App {
       this.destroy()
     })
 
-    this.tray.setToolTip('Shiru')
-    this.tray.setContextMenu(Menu.buildFromTemplate([
-      { label: 'Show', click: () => this.showAndFocus() },
-      { label: 'Quit', click: () => { this.close = true; this.destroy() } }
-    ]))
-    this.tray.on('click', () => this.showAndFocus())
+    this.createTray()
 
     fs.rmSync(this.imageDir, { recursive: true, force: true })
     ipcMain.on('notification-unread', async (e, notificationCount) => this.setTrayIcon(notificationCount))
     ipcMain.on('notification', async (e, opts) => {
-      opts.icon &&= await this.getImage(opts.id, opts.icon)
-      opts.heroImg &&= await this.getImage(opts.id, opts.heroImg, true)
-      opts.inlineImg &&= await this.getImage(opts.id, opts.inlineImg)
-      const notification = new Notification({toastXml: toXmlString(opts) })
+      opts.icon = opts.icon ? ((await this.getImage(opts.id, opts.icon)) || this.icon) : this.icon
+      let notification
+      if (process.platform === 'win32') {
+        opts.heroImg &&= await this.getImage(opts.id, opts.heroImg, true)
+        opts.inlineImg &&= await this.getImage(opts.id, opts.inlineImg)
+        notification = new Notification({ toastXml: toXmlString(opts) })
+      } else {
+        const simpleOpts = { title: opts.title, body: opts.message, icon: opts.icon }
+        if (process.platform === 'darwin' && opts.button && opts.button.length) simpleOpts.actions = opts.button.map(button => ({ type: 'button', text: button.text }))
+        notification = new Notification(simpleOpts)
+        notification.on('click', () => {
+          if (opts.activation?.launch) shell.openExternal(opts.activation.launch)
+        })
+        if (process.platform === 'darwin') {
+          notification.on('action', (event, index) => {
+            if (opts.button && opts.button[index]) shell.openExternal(opts.button[index].activation)
+          })
+        }
+      }
       notification.show()
     })
 
@@ -160,7 +196,6 @@ export default class App {
     })
 
     ipcMain.on('portRequest', async (event, settings) => {
-      if (process.platform === 'darwin') this.mainWindow.webContents.send('isFullscreen', this.mainWindow.isFullScreen())
       const { port1, port2 } = new MessageChannelMain()
       await this.torrentLoad
       ipcMain.once('webtorrent-heartbeat', () => {
@@ -251,7 +286,12 @@ export default class App {
   setWebTorrentWindow(crashed = false) {
     if (!crashed || ++this.webTorrentCrashes < 5) {
       if (crashed) {
-        setTimeout(() => { if (this.webTorrentCrashes < 5) this.webTorrentCrashes = 0 }, 60_000).unref?.()
+        const timeout = setTimeout(() => {
+          this.timeouts.delete(timeout)
+          if (this.webTorrentCrashes < 5) this.webTorrentCrashes = 0
+        }, 60_000)
+        timeout.unref?.()
+        this.timeouts.add(timeout)
         try {
           if (this.webtorrentWindow && !this.webtorrentWindow.isDestroyed()) {
             this.webtorrentWindow.removeAllListeners('closed')
@@ -278,15 +318,23 @@ export default class App {
     this.close = true
     this.mainWindow.hide()
     this.mainWindow.webContents?.closeDevTools?.()
-    this.tray.destroy()
+    this.tray?.destroy()
+    for (const timeout of this.timeouts) clearTimeout(timeout)
+    this.timeouts.clear()
+    clearTimeout(this.stateTimeout)
+    saveWindowState(this.mainWindow)
+    youtubeServer?.close?.()
     try {
       if (this.webtorrentWindow && !this.webtorrentWindow.isDestroyed()) { // WebTorrent shouldn't ever be destroyed before main, but it's better to be safe.
         this.webtorrentWindow.webContents?.closeDevTools?.()
         this.webtorrentWindow.webContents?.postMessage('destroy', null)
+        let resolveTimeout
         await new Promise(resolve => {
           ipcMain.once('destroyed', resolve)
-          setTimeout(resolve, 5000).unref?.()
+          resolveTimeout = setTimeout(resolve, 5_000)
+          resolveTimeout.unref?.()
         })
+        clearTimeout(resolveTimeout)
       }
     } catch {} // WebTorrent crashed... prevents hanging infinitely.
     if (!this.updater.install(forceRunAfter)) app.quit()
@@ -320,16 +368,24 @@ export default class App {
       const squareRatio = Math.min(width, height)
       await image.crop((width - squareRatio) / 2, (height - squareRatio) / 2, squareRatio, squareRatio).resize(128, 128, Jimp.RESIZE_BEZIER).writeAsync(imagePath)
     }
-    setTimeout(() => {
-      fs.unlink(imagePath, (err) => {
-        if (!err) this.imageCache.delete(cacheKey)
+    const timeout = setTimeout(() => {
+      this.timeouts.delete(timeout)
+      fs.unlink(imagePath, (error) => {
+        if (!error) this.imageCache.delete(cacheKey)
       })
     }, 90_000)
+    timeout.unref?.()
+    this.timeouts.add(timeout)
     return imagePath
   }
 
   notificationCount = 0
   setTrayIcon(notificationCount, verify) {
+    if (this.destroyed) return
+    if (!this.tray || this.tray.isDestroyed()) {
+      this.tray = new Tray(this.trayIcon)
+      this.createTray()
+    }
     if (!verify) this.notificationCount = notificationCount
     if (this.notificationCount <= 0 || !this.notificationCount) {
       this.tray.setImage(this.trayIcon)
@@ -339,10 +395,52 @@ export default class App {
       this.tray.setImage(this.trayNotifyIcon)
     }
   }
+  createTray() {
+    if (this.destroyed) return
+    this.tray.setToolTip('Shiru')
+    this.setTrayMenu()
+    this.tray.on('click', () => this.showAndFocus())
+  }
+  setTrayMenu() {
+    if (this.destroyed || !this.tray || this.tray.isDestroyed()) return
+    this.tray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'Shiru', enabled: false },
+      ...(this.ready ? [
+          { type: 'separator' },
+          { label: 'Show', click: () => this.showAndFocus() },
+          { label: 'Restore', click: () => this.restoreWindow() }
+        ]
+        : []),
+      { type: 'separator' },
+      { label: 'Quit', click: () => this.destroy() }
+    ]))
+  }
+
+  restoreWindow() {
+    if (this.destroyed || this.mainWindow?.isDestroyed()) return
+    const defaultBounds = getDefaultBounds()
+    this.mainWindow.unmaximize()
+    this.mainWindow.setFullScreen(false)
+    this.mainWindow.setBounds(defaultBounds)
+    /** HACK: Electron doesn't handle DPI scaling differences between monitors very well so we have to set the bounds twice... */
+    setImmediate(() => {
+      this.mainWindow.setBounds(defaultBounds)
+      saveWindowState(this.mainWindow)
+      this.showAndFocus()
+    })
+  }
 
   showAndFocus(ready = false) {
     if (!this.ready && !ready) return
-    if (!this.ready) this.ready = true
+    if (!this.ready) {
+      this.ready = true
+      this.setTrayMenu()
+    }
+    if (ready) {
+      if (this.windowState.bounds.x && this.windowState.bounds.y) this.mainWindow.setBounds(this.windowState.bounds)
+      if (this.windowState.isMaximized) this.mainWindow.maximize()
+      if (this.windowState.isFullScreen) this.mainWindow.setFullScreen(true)
+    }
     if (this.mainWindow.isMinimized()) {
       this.mainWindow.restore()
     } else if (!this.mainWindow.isVisible()) {

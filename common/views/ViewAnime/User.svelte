@@ -6,7 +6,7 @@
   import { since, capitalize, fadeIn, fadeOut } from '@/modules/util.js'
   import { click, hover, focus } from '@/modules/click.js'
   import { copyToClipboard } from '@/modules/clipboard.js'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import WPC from '@/modules/wpc.js'
 
   export let user = {}

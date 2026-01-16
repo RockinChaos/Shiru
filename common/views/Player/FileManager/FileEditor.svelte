@@ -51,7 +51,7 @@
     function close () {
         $editorView = false
         $search = structuredClone(searchDefaults)
-        if (overlay.includes('fileEditor')) overlay = overlay.filter(item => item !== 'fileEditor')
+        setTimeout(() => { if (overlay.includes('fileEditor')) overlay = overlay.filter(item => item !== 'fileEditor') })
     }
     $: $editorView && setOverlay()
     $: !$editorView && close()

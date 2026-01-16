@@ -3,7 +3,7 @@ import { writable } from 'simple-store-svelte'
 import { anilistClient } from '@/modules/anilist.js'
 import { malDubs } from '@/modules/anime/animedubs.js'
 import { settings } from '@/modules/settings.js'
-import { cache, caches, mediaCache } from '@/modules/cache.js'
+import { cache, caches } from '@/modules/cache.js'
 import { getEpisodeMetadataForMedia, isSubbedProgress } from '@/modules/anime/anime.js'
 import { hasNextPage } from '@/modules/sections.js'
 import { printError } from '@/modules/networking.js'
@@ -109,10 +109,10 @@ class AnimeSchedule {
         const delayedEpisodes = (await this.dubAiringLists.value)?.filter(entry => new Date(entry.delayedFrom) <= new Date() && new Date(entry.delayedUntil) > new Date()).flatMap(entry => Array.from({ length: entry.episodeNumber - (entry.subtractedEpisodeNumber || entry.episodeNumber) + 1 }, (_, i) => (entry.subtractedEpisodeNumber || entry.episodeNumber) + i)?.filter(episode => !cache.getEntry(caches.NOTIFICATIONS, 'delayedDubs').includes(`${entry?.media?.media?.id}:${episode}:${entry.delayedUntil}`))?.map(episode => ({ ...entry, episodeNumber: episode, subtractedEpisodeNumber: undefined })))
         debug(`Found ${delayedEpisodes?.length} new delayed episodes${delayedEpisodes?.length ? '.. notifying!' : ''}`)
         if (!delayedEpisodes?.length) return
-        await anilistClient.searchAllIDS({id: delayedEpisodes.map(entry => entry?.media?.media.id)})
+        await anilistClient.searchAllIDS({ id: delayedEpisodes.map(entry => entry?.media?.media.id).filter(Boolean) })
         for (const entry of delayedEpisodes) {
             const media = entry?.media?.media
-            const cachedMedia = mediaCache.value[media?.id]
+            const cachedMedia = await cache.requestMedia(media?.id)
             const notify = (cache.getEntry(caches.NOTIFICATIONS, `lastDub`) > 0) && ((!cachedMedia?.mediaListEntry && settings.value.releasesNotify?.includes('NOTONLIST')) || (cachedMedia?.mediaListEntry && settings.value.releasesNotify?.includes(cachedMedia?.mediaListEntry?.status)))
             if (notify && media.format !== 'MUSIC') {
                 window.dispatchEvent(new CustomEvent('notification-app', {
@@ -160,9 +160,9 @@ class AnimeSchedule {
             const newNotifications = (await this[airingListKey].value)?.filter(entry => (entry?.unaired && ((type !== 'Hentai' && !(entry?.media?.media?.genres || entry?.genres)?.includes('Hentai')) || (type === 'Hentai' && (entry?.media?.media?.genres || entry?.genres)?.includes('Hentai'))) && !cache.getEntry(caches.NOTIFICATIONS, notifyKey).includes(entry?.media?.media?.id || entry?.id))).map(entry => entry?.media?.media || entry)
             debug(`Found ${newNotifications?.length} new ${type} notifications`)
             if (!newNotifications?.length) return
-            await anilistClient.searchAllIDS({id: newNotifications.map(media => media.id)})
+            await anilistClient.searchAllIDS({ id: newNotifications.map(media => media.id).filter(Boolean) })
             for (const media of newNotifications) {
-                const cachedMedia = mediaCache.value[media?.id]
+                const cachedMedia = await cache.requestMedia(media?.id)
                 if (settings.value[key] !== 'none' && media?.id) {
                     const res = await Helper.getClient().userLists.value
                     const isFollowing = () => {
@@ -326,11 +326,11 @@ class AnimeSchedule {
         let res = (await this[`${type.toLowerCase()}AiredLists`].value) || []
         const section = settings.value.homeSections.find(s => s[0] === `${type}${type === `Hentai` ? `` : `bed`} Releases`)
         if (section && section[2].length > 0) res = res.filter(episode => section[2].includes(episode.format) && (section[2].includes('TV_SHORT') || !episode.duration || (episode.duration >= 12)))
-        const filteredRes = await Promise.all(res.map(async episode => !settings.value.preferDubs || (mediaCache.value[episode.id]?.status === 'FINISHED' && !['WATCHING', 'REPEATING']?.includes(mediaCache.value[episode.id]?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(episode)) || !mediaCache.value[episode.id] || (type === 'Dub' ? !(await isSubbedProgress(mediaCache.value[episode.id])) : (await isSubbedProgress(mediaCache.value[episode.id])))))
+        const filteredRes = await Promise.all(res.map(async episode => !settings.value.preferDubs || ((await cache.requestMedia(episode.id))?.status === 'FINISHED' && !['CURRENT', 'REPEATING']?.includes((await cache.requestMedia(episode.id))?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(episode)) || !(await cache.requestMedia(episode.id))?.length || (type === 'Dub' ? !(await isSubbedProgress(await cache.requestMedia(episode.id))) : (await isSubbedProgress(await cache.requestMedia(episode.id))))))
         res = res.filter((_, index) => filteredRes[index])
         const cachedAiredLists = this[`${type.toLowerCase()}AiredListsCache`].value[`${page}-${perPage}`]
         const paginatedLists = res.slice((page - 1) * perPage, page * perPage) || []
-        const ids = paginatedLists.map(({ id }) => id)
+        const ids = paginatedLists.map(({ id }) => id).filter(Boolean)
 
         hasNextPage.value = ids?.length === perPage
         if (!ids.length) return {}
@@ -338,7 +338,7 @@ class AnimeSchedule {
         if (cachedAiredLists && JSON.stringify(cachedAiredLists.airedLists) === JSON.stringify(res)) return cachedAiredLists.results
         debug(`Episode Feed (${type}) has changed, updating`)
 
-        const missedIDS = res.filter(media => cache.getEntry(caches.NOTIFICATIONS, `last${type}`) > 0 && ((Math.floor(new Date(media.episode.airedAt).getTime() / 1000) >= cache.getEntry(caches.NOTIFICATIONS, `last${type}`)) || (Math.floor(new Date(media.episode.addedAt).getTime() / 1000) >= cache.getEntry(caches.NOTIFICATIONS, `last${type}`)))).filter(media => !ids.includes(media.id)).sort((a, b) => new Date(b.episode.addedAt) - new Date(a.episode.addedAt)).slice(0, 300).map(media => media.id)
+        const missedIDS = res.filter(media => cache.getEntry(caches.NOTIFICATIONS, `last${type}`) > 0 && ((Math.floor(new Date(media.episode.airedAt).getTime() / 1000) >= cache.getEntry(caches.NOTIFICATIONS, `last${type}`)) || (Math.floor(new Date(media.episode.addedAt).getTime() / 1000) >= cache.getEntry(caches.NOTIFICATIONS, `last${type}`)))).filter(media => !ids.includes(media.id)).sort((a, b) => new Date(b.episode.addedAt) - new Date(a.episode.addedAt)).slice(0, 300).map(media => media.id).filter(Boolean)
         const medias = await anilistClient.searchAllIDS({ id: Array.from(new Set([...ids, ...missedIDS])) })
         if (!medias?.data && medias?.errors) throw medias.errors[0]
 
@@ -390,7 +390,7 @@ class AnimeSchedule {
                     const addedAt = Math.floor(new Date(media.episode.addedAt).getTime() / 1000)
                     const notify = (!media?.mediaListEntry && settings.value.releasesNotify?.includes('NOTONLIST')) || (media?.mediaListEntry && settings.value.releasesNotify?.includes(media?.mediaListEntry?.status))
                     debug(`Attempting to notify for ${media?.id}:${media?.title?.userPreferred}...`)
-                    if (notify && (type === 'Dub' || !settings.value.preferDubs || (media?.status === 'FINISHED' && !['WATCHING', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(media)) && media.format !== 'MUSIC') {
+                    if (notify && (type === 'Dub' || !settings.value.preferDubs || (media?.status === 'FINISHED' && !['CURRENT', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(media)) && media.format !== 'MUSIC') {
                         window.dispatchEvent(new CustomEvent('notification-app', {
                             detail: {
                                 id: media?.id,
@@ -413,7 +413,7 @@ class AnimeSchedule {
                         }))
                         debug(`Successfully notified for ${media?.id}:${media?.title?.userPreferred}!`)
                     } else {
-                        debug(`Failed to notify for ${media?.id}:${media?.title?.userPreferred}:${notify}:${(type === 'Dub' || !settings.value.preferDubs || (media?.status === 'FINISHED' && !['WATCHING', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(media))}:${(media.format !== 'MUSIC')}`)
+                        debug(`Failed to notify for ${media?.id}:${media?.title?.userPreferred}:${notify}:${(type === 'Dub' || !settings.value.preferDubs || (media?.status === 'FINISHED' && !['CURRENT', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(media))}:${(media.format !== 'MUSIC')}`)
                     }
                 }
             }

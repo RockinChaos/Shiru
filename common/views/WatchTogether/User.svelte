@@ -1,6 +1,6 @@
 <script>
   import { click } from '@/modules/click.js'
-  import IPC from '@/modules/ipc.js'
+  import { IPC } from '@/modules/bridge.js'
   import { ExternalLink } from 'lucide-svelte'
 
   /** @type {import("d:/Webdevelopment/shiru/common/modules/al").Viewer | {}} */

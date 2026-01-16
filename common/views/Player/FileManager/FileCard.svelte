@@ -3,7 +3,7 @@
     import { click, hoverExit, blurExit } from '@/modules/click.js'
     import { SquarePen, SquareCheckBig, Play } from 'lucide-svelte'
     import { SUPPORTS } from '@/modules/support.js'
-    import { createListener } from '@/modules/util.js'
+    import { createListener, isValidNumber } from '@/modules/util.js'
     import { setHash } from '@/modules/anime/animehash.js'
     import { anilistClient } from '@/modules/anilist.js'
     import Helper from '@/modules/helper.js'
@@ -41,18 +41,13 @@
             const currentEpisodeRange = file.media?.episodeRange
             let value = event.target.value.trim().replace(/\s+/g, '').replace(/-+/g, '~')
             if (value.includes('~')) {
-                const parts = value.split('~').map(Number).filter(n => !isNaN(n))
-                if (parts[1]) {
-                    file.media.episodeRange = {
-                        first: parts[0],
-                        last: parts[1]
-                    }
-                }
+                const parts = value.split('~').map(Number).filter(number => isValidNumber(number))
+                if (parts[1]) file.media.episodeRange = { first: parts[0], last: parts[1] }
                 episode = getEpisode()
             } else {
-                const num = Number(value)
+                const number = Number(value)
                 if (file.media?.episodeRange) delete file.media.episodeRange
-                file.media.episode = !isNaN(num) ? num : null
+                file.media.episode = isValidNumber(number) ? number : null
                 episode = getEpisode()
             }
             if (file.media?.episodeRange ? `${currentEpisodeRange.first}~${currentEpisodeRange.last}` !== episode : currentEpisode !== episode) {
@@ -115,7 +110,7 @@
             {:else if episode || episode === 0 || file?.media?.media?.episodes > 1 || (!file?.media?.media && failed)}
                 <span class='badge text-dark bg-undenary mr-5 d-flex align-items-center justify-content-center' class:ml-auto={!failed} title={`Episode ${episode}`}>
                     <span class='mr-5'>Episode</span>
-                    <button type='button' tabindex='-1' class='position-absolute f-safe-area bottom-0 right-0 h-40 bg-transparent border-0 shadow-none not-reactive z-1' style='margin-bottom: -.5rem; margin-right: -1rem; width: calc(5.5rem + {(episode && String(episode).length <= 10 ? String(episode).length : 2) * .7}rem) !important' use:click={() => {}}/>
+                    <button type='button' tabindex='-1' class='position-absolute f-safe-area bottom-0 right-0 h-40 bg-transparent border-0 shadow-none not-reactive z-1' style='margin-bottom: -.5rem; margin-right: -1rem; width: calc(5.5rem + {((episode || isValidNumber(episode)) && String(episode).length <= 10 ? String(episode).length : 2) * .7}rem) !important' use:click={() => {}}/>
                     <input
                         type='text'
                         inputmode='text'
@@ -134,7 +129,7 @@
                             updateEpisode(file, event)
                         }}
                         class='episode-input input form-control h-20 text-left text-dark text-truncate font-weight-semi-bold font-size-12 justify-content-center z-1'
-                        style='background-color: {failed && !episode && episode !== 0 && file?.media?.media?.episodes > 1 ? `var(--danger-color-dim)` : `var(--undenary-color-dim)`}; width: calc(1.8rem + {(episode && String(episode).length <= 10 ? String(episode).length : 2) * .7}rem) !important'
+                        style='background-color: {failed && !episode && episode !== 0 && file?.media?.media?.episodes > 1 ? `var(--danger-color-dim)` : `var(--undenary-color-dim)`}; width: calc(1.8rem + {((episode || isValidNumber(episode)) && String(episode).length <= 10 ? String(episode).length : 2) * .7}rem) !important'
                         title='Episode Number(s)'/>
                 </span>
             {/if}

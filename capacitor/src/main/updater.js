@@ -12,13 +12,13 @@ export default class Updater {
 
   updateURL
   assetURL
-  main
+  IPC
   build
   currentVersion
   versionCode
   latestRelease
-  constructor(main, updateURL, assetURL) {
-    this.main = main
+  constructor(IPC, updateURL, assetURL) {
+    this.IPC = IPC
     this.updateURL = updateURL
     this.assetURL = assetURL
     this.getInfo()
@@ -51,7 +51,7 @@ export default class Updater {
           if (!this.updateAvailable && !this.hasUpdate) {
             this.updateAvailable = true
             this.availableInterval = setInterval(() => {
-              if (!this.hasUpdate) this.main.emit('update-available', sanitizeVersion(this.latestRelease))
+              if (!this.hasUpdate) this.IPC.emit('update-available', sanitizeVersion(this.latestRelease))
             }, 1000)
             this.availableInterval.unref?.()
           }

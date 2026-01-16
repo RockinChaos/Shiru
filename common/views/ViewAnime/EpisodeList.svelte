@@ -5,6 +5,7 @@
   import { SUPPORTS } from '@/modules/support.js'
   import { createListener, past } from '@/modules/util.js'
 
+  const episodeRx = /Episode (\d+) - (.*)/
   const { reactive, init } = createListener(['torrent-button'])
   init(true)
 
@@ -72,9 +73,7 @@
   $: id = media.id
   $: idMal = media.idMal
   $: duration = media.duration
-
-  const episodeRx = /Episode (\d+) - (.*)/
-  const animeProgress = liveAnimeProgress(id)
+  $: animeProgress = liveAnimeProgress(id)
 
   let loadScroll = false
   let maxEpisodes = 15
@@ -188,10 +187,11 @@
       }
 
       const episodeNumber = episode - (zeroAsFirstEpisode ? 1 : 0)
-      episodeList[episodeNumber - (!zeroEpisode ? 1 : 0)] = { zeroEpisode, episode: episodeNumber, image: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? episode === 0 ? zeroEpisode[0]?.thumbnail : episodeList.some((ep) => ep.image === (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) && ep.episode !== episodeNumber) ? null : (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) : null, summary: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= Date.now()) || ((episode === 0 || episode === 1) && !validatedAiringAt && media?.status === 'RELEASING')) ? episode === 0 ? (zeroSummary || summary || overview) : episodeList.some((ep) => ep.summary === (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) && ep.episode !== episodeNumber) ? null : (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) : `This episode ${validatedAiringAt || media?.startDate?.month || media?.season || media?.seasonYear ? `will be released ${validatedAiringAt || media?.startDate?.month ? `${validatedAiringAt ? `on` : `in`} ${monthDay(validatedAiringAt || new Date(media.startDate.year, media.startDate.month, media.startDate.day), !validatedAiringAt)}` : `in ${media?.season ? capitalize(media?.season?.toLowerCase()) : ''} ${media?.seasonYear || ''}`}.` : ` is in production and does not have an estimated release date.`}`, rating, title: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? title || kitsuEpisode?.titles?.en_us || kitsuEpisode?.titles?.en_jp || newTitle?.jp || oldTitle?.jp : null, length: media?.status === 'FINISHED' || validatedAiringAt ? lastDuration : null, airdate: validatedAiringAt, airingAt: validatedAiringAt, filler, dubAiring: _dubAiring }
+      episodeList[episodeNumber - (!zeroEpisode ? 1 : 0)] = { zeroEpisode, episode: episodeNumber, image: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? episode === 0 ? zeroEpisode[0]?.thumbnail : episodeList.some((ep) => ep.image === (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) && ep.episode !== episodeNumber) ? null : (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) : null, summary: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= Date.now()) || ((episode === 0 || episode === 1) && !validatedAiringAt && media?.status === 'RELEASING')) ? episode === 0 ? (zeroSummary || summary || overview) : episodeList.some((ep) => ep.summary === (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) && ep.episode !== episodeNumber) ? null : (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) : `This episode ${validatedAiringAt || media?.startDate?.month || media?.season || media?.seasonYear ? `will be released ${validatedAiringAt || media?.startDate?.month ? `${validatedAiringAt ? `on` : `in`} ${monthDay(validatedAiringAt || new Date(media.startDate.year, media.startDate.month, media.startDate.day), !validatedAiringAt)}` : `in ${media?.season ? capitalize(media?.season?.toLowerCase()) : ''} ${media?.seasonYear || ''}`}.` : ` is in production and does not have an estimated release date.`}`, rating, title: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? title || kitsuEpisode?.titles?.en_us || kitsuEpisode?.titles?.en_jp || newTitle?.jp || oldTitle?.jp : null, length: media?.status === 'FINISHED' || validatedAiringAt ? lastDuration : null, airdate: validatedAiringAt, airingAt: validatedAiringAt, filler, dubAiring: !zeroEpisode ? _dubAiring : dubbedEpisode(episodeNumber - 1, media) }
     }
 
     if (zeroEpisode && episodeList.length === alEpisodes.length) episodeList = episodeList.slice(0, -1)
+    if (media?.bannerImage && episodeList?.some(episode => episode?.image)) episodeList = episodeList.map(episode => episode?.image ? episode : { ...episode, image: media?.bannerImage })
     currentEpisodes = episodeList?.slice(0, maxEpisodes)
     return episodeList && episodeList?.length > 0 ? episodeList : null
   }
@@ -270,16 +270,16 @@
             {@const completed = !watched && userProgress >= (episode + (zeroEpisode ? 1 : 0))}
             {@const target = userProgress + 1 === (episode + (zeroEpisode ? 1 : 0))}
             {@const hasFiller = filler?.filler || filler?.recap}
-            {@const progress = !watched && ($animeProgress?.[episode + (zeroEpisode ? 1 : 0)] ?? 0)}
+            {@const progress = !watched && ($animeProgress?.[episode] ?? 0)}
             {@const resolvedTitle = episodeList.filter((ep) => ep.episode < episode).some((ep) => matchPhrase(ep.title, title, 0.1, true)) ? null : title}
             {@const largeCard = image || (summary && !unreleased)}
             {@const resolvedHash = ($completedTorrents || $seedingTorrents || $stagingTorrents || $loadedTorrent) && getHash(media?.id, { episode, client: true, batchGuess: true }, false, true)}
             <div class='w-full content-visibility-auto scale my-20' class:load-in={!loadScroll} class:opacity-half={completed} class:scale-target={target} class:px-20={!target} class:px-10={target} class:h-150={!SUPPORTS.isAndroid && largeCard} class:h-165={SUPPORTS.isAndroid && largeCard}>
-              <div class='episode-card rounded-2 w-full h-full overflow-hidden d-flex flex-xsm-column flex-row position-relative {unreleased ? `unreleased not-allowed` : `pointer`}' class:not-reactive={!$reactive} class:smallCard={!largeCard} class:android={SUPPORTS.isAndroid}  class:border={target || hasFiller} class:bg-black={completed} class:border-secondary={hasFiller} class:bg-dark-light={!completed} use:click={() => play(episode)}>
+              <div role='button' tabindex='0' class='episode-card rounded-2 w-full h-full overflow-hidden d-flex flex-xsm-column flex-row position-relative {unreleased ? `unreleased not-allowed` : `pointer`}' class:not-reactive={!$reactive} class:smallCard={!largeCard} class:android={SUPPORTS.isAndroid}  class:border={target || hasFiller} class:bg-black={completed} class:border-secondary={hasFiller} class:bg-dark-light={!completed} use:click={() => play(episode)} on:contextmenu|preventDefault={() => play(episode, true)}>
                 <div class="unreleased-overlay position-absolute top-0 left-0 right-0 h-full pointer-events-none rounded-2" class:d-none={!unreleased}/>
                 {#if image}
                   <div class='d-flex'>
-                    <SmartImage class='img-cover {!SUPPORTS.isAndroid ? `h-150` : `h-165`} w-full w-sm-auto' images={[image, './404_episode.png']}/>
+                    <SmartImage class='img-cover {!SUPPORTS.isAndroid ? `h-150` : `h-165`} w-full w-sm-265' images={[image, './404_episode.png']}/>
                     {#if resolvedHash}
                       <div class='position-relative torrent-button-container'>
                         <div class='position-absolute top-0 right-0 text-danger icon-padding icon-shadow'>

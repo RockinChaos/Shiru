@@ -46,9 +46,9 @@
     <NavbarLink click={() => { page = 'torrents' }} _page='torrents' icon='download' text='Torrents' css='d-none d-sm-block' {page} overlay={($view || $profileView || $notifyView || $actionPrompt || $rss) && 'active'} let:active>
       <Download size='3.6rem' class='flex-shrink-0 p-5 m-5 rounded' strokeWidth='2.5' color={active ? 'currentColor' : 'var(--gray-color-very-dim)'} />
     </NavbarLink>
-    <NavbarLink click={() => { $notifyView = !$notifyView }} icon='bell' text='Notifications' {page} overlay={$notifyView && 'notify'} nowPlaying={$view} let:active>
+    <NavbarLink click={() => { $notifyView = !$notifyView }} icon='bell' text='Notifications' {page} overlay={$notifyView && 'notify'} nowPlaying={$view} let:active let:hovering>
       {#if $hasUnreadNotifications &&  $hasUnreadNotifications > 0}
-        <BellDot size='3.6rem' class='flex-shrink-0 p-5 m-5 rounded notify' strokeWidth='2.5' color={$notifyView ? 'white' : 'currentColor'} />
+        <BellDot size='3.6rem' class='flex-shrink-0 p-5 m-5 rounded fill-1 notify' strokeWidth='2.5' color='currentColor' style='--fill-button-color: {hovering ? `var(--gray-color-very-dim)` : `var(--notify-color)`}'/>
       {:else}
         <Bell size='3.6rem' class='flex-shrink-0 p-5 m-5 rounded' strokeWidth='2.5' color={$notifyView ? 'currentColor' : 'var(--gray-color-very-dim)'}/>
       {/if}
@@ -68,54 +68,9 @@
     animation: purple_glow 1s ease-in-out infinite alternate, bell_shake 10s infinite;
     will-change: drop-shadow;
   }
-  .navbar :global(.donate):active {
-    color: var(--quattuordenary-color) !important;
-  }
-  .navbar :global(.donate) {
-    font-variation-settings: 'FILL' 1;
-    color: var(--quattuordenary-color);
-    text-shadow: 0 0 1rem var(--quattuordenary-color);
-  }
-  @keyframes pink_glow {
-    from {
-      filter: drop-shadow(0 0 1rem var(--quattuordenary-color));
-    }
-    to {
-      filter: drop-shadow(0 0 0.5rem var(--quattuordenary-color));
-    }
-  }
-  .navbar :global(.notify):active {
-    color: var(--notify-color) !important;
-  }
-  .navbar :global(.notify) {
-    font-variation-settings: 'FILL' 1;
-    color: var(--notify-color);
-    text-shadow: 0 0 1rem var(--notify-color);
-  }
-  @keyframes purple_glow {
-    from {
-      filter: drop-shadow(0 0 2rem var(--notify-color));
-    }
-    to {
-      filter: drop-shadow(0 0 0.2rem var(--notify-color));
-    }
-  }
-  @keyframes bell_shake {
-    0%, 7.5% {
-      transform: rotate(0deg);
-    }
-    1.5% {
-      transform: rotate(-15deg);
-    }
-    3% {
-      transform: rotate(15deg);
-    }
-    4.5% {
-      transform: rotate(-10deg);
-    }
-    6% {
-      transform: rotate(10deg);
-    }
+  .navbar :global(.fill-1) {
+    color: var(--fill-button-color);
+    text-shadow: 0 0 1rem var(--fill-button-color);
   }
   .bt-10 {
     border-top: .10rem var(--border-color-sp) solid !important;

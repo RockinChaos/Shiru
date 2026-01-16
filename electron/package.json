@@ -1,6 +1,6 @@
 {
   "name": "shiru",
-  "version": "6.4.2",
+  "version": "6.4.8",
   "license": "GPL-3.0-or-later",
   "private": true,
   "author": "RockinChaos <RockinChaos@users.noreply.github.com>",
@@ -19,10 +19,11 @@
   "devDependencies": {
     "@electron/notarize": "^3.1.0",
     "common": "workspace:*",
-    "electron": "39.1.2",
+    "client": "workspace:*",
+    "electron": "39.2.7",
     "electron-builder": "^26.0.12",
     "electron-log": "^5.4.3",
-    "electron-updater": "^6.7.2"
+    "electron-updater": "^6.7.3"
   },
   "dependencies": {
     "@paymoapp/electron-shutdown-handler": "^1.1.2",
@@ -49,7 +50,7 @@
     "asarUnpack": "**/*.node",
     "electronDownload": {
       "mirror": "https://craftationgaming.com/api/packages/electron/",
-      "customDir": "39.1.2"
+      "customDir": "39.2.7"
     },
     "protocols": {
       "name": "shiru",

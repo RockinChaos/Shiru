@@ -14,7 +14,11 @@
     "paths": {
       "@/*": ["./common/*"],
       "three": ["./types.d.ts"],
-      "rxjs": ["./types.d.ts"]
+      "rxjs": ["./types.d.ts"],
+      "@client/*": ["./client/*"],
+      "debug": ["./common/modules/debug.js"],
+      "webtorrent-client": ["./client/core/webtorrent.js"],
+      "http-tracker": ["./node_modules/bittorrent-tracker/lib/client/http-tracker.js"]
     },
     "types": ["@cloudflare/workers-types", "./types.d.ts"]
   },

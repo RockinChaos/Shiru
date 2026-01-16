@@ -1,6 +1,6 @@
 import _Metadata from 'matroska-metadata'
 import { arr2hex, hex2bin } from 'uint8-util'
-import { fontRx } from '../../util.js'
+import { fontRx } from '@/modules/util.js'
 import { SUPPORTS } from '@/modules/support.js'
 import Debug from 'debug'
 const debug = Debug('torrent:parser')
@@ -14,7 +14,7 @@ export default class Metadata {
   parsed = false
   /** @type {_Metadata} */
   metadata = null
-  /** @type {import('./webtorrent.js').default|null} */
+  /** @type {import('webtorrent-client').default|null} */
   client = null
   /** @type {any} */
   file = null
@@ -22,7 +22,7 @@ export default class Metadata {
   destroyed = false
 
   /**
-   * @param {import('./webtorrent.js').default} client - Torrent client instance
+   * @param {import('webtorrent-client').default} client - Torrent client instance
    * @param {any} file - WebTorrent file instance
    */
   constructor (client, file) {
