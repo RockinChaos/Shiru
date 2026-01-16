@@ -702,6 +702,10 @@ body {
   pointer-events: none;
 }
 
+.opacity-70 {
+  opacity: 0.7;
+}
+
 .opacity-55 {
   opacity: 0.55;
 }

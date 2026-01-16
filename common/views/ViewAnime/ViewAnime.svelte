@@ -277,7 +277,7 @@ function getGenreColor(genre) {
     <div class="genre-tag mb-10 mr-10">
       {tag.name}
       {#if tag.rank}
-        <span class="tag-percentage opacity-55 ml-10">{tag.rank}%</span>
+        <span class="tag-percentage opacity-70 ml-10">{tag.rank}%</span>
       {/if}
     </div>
   {/each}
