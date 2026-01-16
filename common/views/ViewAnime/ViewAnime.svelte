@@ -282,7 +282,7 @@ function getGenreColor(genre) {
     </div>
   {/each}
   {#if staticMedia.tags.length > 6}
-    <div class="genre-tag mb-10 mr-10 opacity-50" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(6).map((t) => t.name).join(", ")}>
+    <div class="genre-tag mb-10 mr-10 opacity-50" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(6).map((t) => `${t.name}${t.rank ? ' ' + t.rank + '%' : ''}`).join(", ")}>
       +{staticMedia.tags.length - 6} more...
     </div>
   {/if}
