@@ -21,7 +21,7 @@
   import SmallCard from '@/components/cards/SmallCard.svelte'
   import SmallCardSk from '@/components/skeletons/SmallCardSk.svelte'
   import Helper from '@/modules/helper.js'
-  import { Clapperboard, Users, Heart, Play, Timer, TrendingUp, Tv, ArrowDown01, ArrowUp10 } from 'lucide-svelte'
+  import { Clapperboard, Users, Heart, Play, Timer, Star, Tv, ArrowDown01, ArrowUp10 } from 'lucide-svelte'
 
   export let overlay
   const view = getContext('view')
@@ -196,49 +196,67 @@ function getGenreColor(genre) {
                   <AudioLabel media={staticMedia} viewAnime={true} />
                 </div>
               </div>
+              <!-- Title -->
               <div class='pl-sm-20 ml-sm-20'>
                 <h1 class='font-weight-very-bold text-white select-all mb-0 font-scale-40'>{anilistClient.title(staticMedia)}</h1>
-                <div class='d-flex flex-row font-size-18 flex-wrap mt-5'>
+                <!-- Average Score -->
+                <div class="d-flex flex-row font-size-18 flex-wrap mt-10 align-items-center" style="gap: 2rem; color: hsla(var(--white-color-hsl), 0.7);">
                   {#if staticMedia.averageScore}
-                    <div class='d-flex flex-row mt-10' title='{staticMedia.averageScore / 10} by {anilistClient.reviews(staticMedia)} reviews'>
-                      <TrendingUp class='mx-10' size='2.2rem' />
-                      <span class='mr-20'>
-                        Rating: {staticMedia.averageScore + '%'}
+                    <div class='d-flex flex-row' data-toggle='tooltip' data-title='{staticMedia.averageScore / 10} by {anilistClient.reviews(staticMedia)} reviews'>
+                      <Star class="mx-5 icon-shadow" size="2.2rem" fill="#ffd700" color="#ffd700" />
+                      <span class="font-weight-very-bold text-white">
+                        {staticMedia.averageScore} %
                       </span>
                     </div>
                   {/if}
+                  <!-- Series format -->
                   {#if staticMedia.format}
-                    <div class='d-flex flex-row mt-10'>
-                      <Tv class='mx-10' size='2.2rem' />
-                      <span class='mr-20 text-capitalize'>
-                        Format: {formatMap[staticMedia.format]}
+                    <div class="d-flex flex-row align-items-center">
+                      <span class="text-capitalize font-weight-bold">
+                        {formatMap[staticMedia.format]}
                       </span>
                     </div>
                   {/if}
+                  <!-- Episodes -->
                   {#if staticMedia.episodes !== 1}
                     {@const maxEp = getMediaMaxEp(staticMedia)}
-                    <div class='d-flex flex-row mt-10'>
-                      <Clapperboard class='mx-10' size='2.2rem' />
-                      <span class='mr-20'>
-                      Episodes: {maxEp && maxEp !== 0 ? maxEp : '?'}
+                    <div class="d-flex flex-row align-items-center">
+                      <span class="font-weight-bold">
+                        {maxEp && maxEp !== 0 ? maxEp : "?"} Ep
                       </span>
                     </div>
                   {:else if staticMedia.duration}
-                    <div class='d-flex flex-row mt-10'>
-                      <Timer class='mx-10' size='2.2rem' />
-                      <span class='mr-20'>
-                        Length: {staticMedia.duration + ' min'}
+                    <div class="d-flex flex-row align-items-center">
+                      <span class="font-weight-bold">
+                        {staticMedia.duration} min
                       </span>
                     </div>
                   {/if}
-                  {#if staticMedia.averageScore && staticMedia.stats?.scoreDistribution}
+                  <!-- Season & Status -->
+                  {#if staticMedia.seasonYear}
+                    <div class="d-flex flex-row align-items-center">
+                      <span class="font-weight-bold">
+                        {staticMedia.seasonYear}
+                      </span>
+                    </div>
+                  {/if}
+                  {#if staticMedia.status}
+                    <div class="d-flex flex-row align-items-center">
+                      <span class="text-capitalize font-weight-bold">
+                        {staticMedia.status.replace(/_/g, ' ').toLowerCase()}
+                      </span>
+                    </div>
+                  {/if}
+                  <!-- big numbers are distracting we can allow to hover over rating for this info maybe.. better solution is in-app anime for more niche info etc..-->
+                  <!-- Reviews -->
+                  <!-- {#if staticMedia.averageScore && staticMedia.stats?.scoreDistribution}
                     <div class='d-flex flex-row mt-10'>
                       <Users class='mx-10' size='2.2rem' />
                       <span class='mr-20' title='{staticMedia.averageScore / 10} by {anilistClient.reviews(staticMedia)} reviews'>
                         Reviews: {anilistClient.reviews(staticMedia)}
                       </span>
                     </div>
-                  {/if}
+                  {/if} -->
                 </div>
                 <div class='d-flex flex-row flex-wrap play'>
                   <button class='btn btn-lg btn-secondary w-250 text-dark font-weight-bold shadow-none border-0 d-flex align-items-center justify-content-center mr-20 mt-20'
