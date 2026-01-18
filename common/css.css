@@ -1087,6 +1087,10 @@ img[src=''], img[src=' '] {
   margin-right: 1rem;
 }
 
+.tag-percentage {
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9));
+}
+
 .genre-colored {
   border-color: var(--genre-color);
   color: var(--genre-color);
