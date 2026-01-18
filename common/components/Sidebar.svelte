@@ -15,7 +15,7 @@
   import { IPC, ELECTRON, VERSION } from '@/modules/bridge.js'
   import { goBack, goForward, canGoBack, canGoForward } from '@/modules/history.js'
   import SidebarLink from '@/components/SidebarLink.svelte'
-  import { MoveLeft, MoveRight, CalendarSearch, Download, CloudDownload, Heart, Home, Search, ListVideo, History, TvMinimalPlay, LogIn, Settings, Users, Bell, BellDot } from 'lucide-svelte'
+  import { ChevronLeft, ChevronRight, CalendarSearch, Download, CloudDownload, Heart, Home, Search, ListVideo, History, TvMinimalPlay, LogIn, Settings, Users, Bell, BellDot } from 'lucide-svelte'
 
   const view = getContext('view')
   const btnSize = !SUPPORTS.isAndroid ? '3.1rem' : '3.6rem'
@@ -47,10 +47,10 @@
     {#if !SUPPORTS.isAndroid}
       <div class='d-flex align-items-center justify-content-center z-102' style='width: var(--sidebar-width); margin-top:{`1rem`} !important'>
         <SidebarLink click={goBack} icon='moveleft' css='p-0 m-0 ml-5 h-auto w-30' innerCss='rounded-left-block' {page}>
-          <MoveLeft size={'2.5rem'} class='flex-shrink-0 rounded m-0' strokeWidth='2.5' color={$canGoBack ? 'currentColor' : 'var(--gray-color-very-dim)'} />
+          <ChevronLeft size={'2.5rem'} class='flex-shrink-0 rounded m-0' strokeWidth='2.5' color={$canGoBack ? 'currentColor' : 'var(--gray-color-very-dim)'} />
         </SidebarLink>
         <SidebarLink click={goForward} icon='moveright' css='p-0 m-0 h-auto w-30' innerCss='rounded-right-block' {page} overlay={($view || $profileView || $notifyView || $actionPrompt || $rss) && 'active'}>
-          <MoveRight size={'2.5rem'} class='flex-shrink-0 rounded m-0' strokeWidth='2.5' color={$canGoForward ? 'currentColor' : 'var(--gray-color-very-dim)'} />
+          <ChevronRight size={'2.5rem'} class='flex-shrink-0 rounded m-0' strokeWidth='2.5' color={$canGoForward ? 'currentColor' : 'var(--gray-color-very-dim)'} />
         </SidebarLink>
       </div>
       <img src='./icon_filled.png' tabindex='-1' class='w-50 h-50 m-10 pointer d-sm-h-none p-5' alt='ico' use:click={() => { $view = null; window.dispatchEvent(new Event('overlay-check')); page = 'home' }} />
