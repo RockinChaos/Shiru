@@ -310,7 +310,7 @@ function getGenreColor(genre) {
 <div class="m-0 pb-0 pt-10 d-flex flex-wrap text-capitalize align-items-start">
   {#each staticMedia.genres as genre}
     <div class="genre-tag mb-10 mr-10 genre-colored" style="--genre-color: {getGenreColor(genre)};">
-      <svelte:component this={genreIcons[genre]} class="mr-5" size="1.4rem" />
+      <svelte:component this={genreIcons[genre]} class="mr-5" size="2rem" />
       {genre}
     </div>
   {/each}

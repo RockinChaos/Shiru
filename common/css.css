@@ -1072,7 +1072,7 @@ img[src=''], img[src=' '] {
   padding: 0.6rem 1.4rem;
   background: hsla(var(--white-color-hsl), 0.06);
   border-radius: 2rem;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 600;
   border: 0.1rem solid hsla(var(--white-color-hsl), 0.1);
   color: hsla(var(--white-color-hsl), 0.9);
@@ -1080,6 +1080,7 @@ img[src=''], img[src=' '] {
   display: flex;
   align-items: center;
   white-space: nowrap;
+  height: 3.8rem;
 }
 
 /* GENRE TAG SPECIFIC */

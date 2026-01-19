@@ -70,9 +70,9 @@
       {#if property}
         <div class='detail-tag mb-10 mr-10' data-toggle={detail.property === 'romaji' ? 'tooltip' : undefined} data-placement='top' data-title={detail.property === 'romaji' ? [media.title.english, media.title.native].filter(f => f).join('\n') : undefined}>
           {#if detail.custom !== 'icon'}
-            <svelte:component this={detail.icon} size='1.4rem' class='mr-5' />
+            <svelte:component this={detail.icon} size='2rem' class='mr-5' />
           {:else}
-            <div class='mr-5'>{detail.icon}</div>
+            <div class='mr-5 detail-tag'>{detail.icon}</div>
           {/if}
           <div class='d-flex flex-column justify-content-center text-nowrap'>
             <div class='font-weight-bold select-all line-height-normal'>
