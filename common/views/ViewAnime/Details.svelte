@@ -67,7 +67,7 @@
   {#each detailsMap as detail}
     {#await getProperty(detail.property, media) then property}
       {#if property}
-        <div class='detail-tag mb-10 mr-10' data-toggle={detail.property === 'romaji' ? 'tooltip' : undefined} data-placement='top' data-title={detail.property === 'romaji' ? [media.title.english, media.title.native].filter(f => f).join('\n') : undefined}>
+        <div class='detail-tag mb-10 mr-10' data-toggle={detail.property === 'romaji' ? 'tooltip' : undefined} data-placement='top' data-title={detail.property === 'romaji' ? (property.length > 40 ? [property, media.title.english, media.title.native].filter(f => f).join('\n') : [media.title.english, media.title.native].filter(f => f).join('\n')) : undefined}>
           {#if detail.custom !== 'icon'}
             <svelte:component this={detail.icon} size='2rem' class='mr-5' />
           {:else}
