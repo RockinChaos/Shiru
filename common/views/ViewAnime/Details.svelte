@@ -1,5 +1,5 @@
 <script>
-  import { Building2, Earth, Adult, FolderKanban, Languages, CalendarRange, MonitorPlay, Type } from 'lucide-svelte'
+  import { Building2, Earth, Adult, FolderKanban, Languages, CalendarRange, Type } from 'lucide-svelte'
   import { getKitsuMappings } from '@/modules/anime/anime.js'
   import { seasons } from '@/modules/anilist.js'
 
@@ -15,7 +15,6 @@
   }
   const detailsMap = [
     { property: 'season', label: 'Season', icon: CalendarRange, custom: 'property' },
-    { property: 'status', label: 'Status', icon: MonitorPlay },
     { property: 'studios', label: 'Studio', icon: Building2, custom: 'property' },
     { property: 'source', label: 'Source', icon: FolderKanban },
     { property: 'countryOfOrigin', label: 'Country', icon: Earth, custom: 'property' },
