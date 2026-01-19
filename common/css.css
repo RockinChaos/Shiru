@@ -760,6 +760,10 @@ img[src=''], img[src=' '] {
   }
 }
 @media (hover: hover) and (pointer: fine) {
+  [data-toggle="tooltip"]::before {
+    pointer-events: none; /* prevents hover trap*/
+  }
+
   [data-toggle="tooltip"]:focus-visible::before {
     visibility: visible !important;
     opacity: 1 !important;
