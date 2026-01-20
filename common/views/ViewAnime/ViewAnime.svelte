@@ -289,32 +289,31 @@ function getGenreColor(genre) {
               </div>
             </div>
             <Details media={staticMedia} alt={recommendations} />
-<!-- Tags Section -->
-<div class="m-0 pb-0 pt-10 d-flex flex-wrap text-capitalize align-items-start">
-  {#each staticMedia.tags.slice(0, 6) as tag}
-    <div class="genre-tag mb-10 mr-10">
-      {tag.name}
-      {#if tag.rank}
-        <span class="tag-percentage opacity-70 ml-5">{tag.rank}%</span>
-      {/if}
-    </div>
-  {/each}
-  {#if staticMedia.tags.length > 6}
-    <div class="genre-tag mb-10 mr-10" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(6).map((t) => `${t.name}${t.rank ? ' ' + t.rank + '%' : ''}`).join(", ")}>
-      +{staticMedia.tags.length - 6} more...
-    </div>
-  {/if}
-</div>
-
-<!-- Genres Section -->
-<div class="m-0 pb-0 pt-10 d-flex flex-wrap text-capitalize align-items-start">
-  {#each staticMedia.genres as genre}
-    <div class="genre-tag mb-10 mr-10 genre-colored" style="--genre-color: {getGenreColor(genre)};">
-      <svelte:component this={genreIcons[genre]} class="mr-5" size="2rem" />
-      {genre}
-    </div>
-  {/each}
-</div>
+              <!-- Tags Section -->
+              <div class="m-0 pb-0 pt-10 d-flex flex-wrap text-capitalize align-items-start">
+                {#each staticMedia.tags.slice(0, 6) as tag}
+                  <div class="genre-tag mb-10 mr-10">
+                    {tag.name}
+                    {#if tag.rank}
+                      <span class="tag-percentage opacity-70 ml-5">{tag.rank}%</span>
+                    {/if}
+                  </div>
+                {/each}
+                {#if staticMedia.tags.length > 6}
+                  <div class="genre-tag mb-10 mr-10" data-toggle="tooltip" data-placement="top" data-title={staticMedia.tags.slice(6).map((t) => `${t.name}${t.rank ? ' ' + t.rank + '%' : ''}`).join(", ")}>
+                    +{staticMedia.tags.length - 6} more...
+                  </div>
+                {/if}
+                </div>
+              <!-- Genres Section -->
+              <div class="m-0 pb-0 pt-10 d-flex flex-wrap text-capitalize align-items-start">
+                {#each staticMedia.genres as genre}
+                  <div class="genre-tag mb-10 mr-10 genre-colored" style="--genre-color: {getGenreColor(genre)};">
+                    <svelte:component this={genreIcons[genre]} class="mr-5" size="2rem" />
+                    {genre}
+                  </div>
+                {/each}
+              </div>
             {#if staticMedia.description}
               <div class='w-full d-flex flex-row align-items-center pt-20 mt-10'>
                 <hr class='w-full' />
