@@ -125,15 +125,16 @@ relations {
       isAdult,
       seasonYear
     }
-  }
-}`
-
-const queryComplexObjects = /* js */`
+    }
+  },
 studios(sort: NAME, isMain: true) {
   nodes {
     name
   }
-},
+}`
+
+const queryComplexObjects = /* js */`
+
 recommendations {
   edges {
     node {

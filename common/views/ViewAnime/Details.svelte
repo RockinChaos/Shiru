@@ -47,7 +47,7 @@
     } else if (property === 'countryOfOrigin') {
       return countryMap[media.countryOfOrigin]
     } else if (property === 'studios') { // has to be manually fetched as studios returned by user lists are broken.
-      studio = ((await alt)?.data?.Media || media)?.studios?.nodes?.map(node => node.name)?.[0] // sometimes this can still be wrong, so we just get the first studio in the list and assume that's correct.
+      studio = media?.studios?.nodes?.[0]?.name || ((await alt)?.data?.Media)?.studios?.nodes?.[0]?.name // sometimes this can still be wrong, so we just get the first studio in the list and assume that's correct.
       return studio
     } else if (property === 'season') {
       const details = await (((media.season || media.seasonYear || (media.status === 'NOT_YET_RELEASED')) && media) || getKitsuMappings(media.id))
