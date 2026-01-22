@@ -247,7 +247,6 @@ function getGenreColor(genre) {
                       </span>
                     </div>
                   {/if}
-                  <!-- big numbers are distracting we can allow to hover over rating for this info maybe.. better solution is in-app anime for more niche info etc..-->
                   <!-- Reviews -->
                   <!-- {#if staticMedia.averageScore && staticMedia.stats?.scoreDistribution}
                     <div class='d-flex flex-row mt-10'>
