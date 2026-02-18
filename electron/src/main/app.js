@@ -44,7 +44,7 @@ export default class App {
     backgroundColor: '#17191c',
     autoHideMenuBar: true,
     webPreferences: {
-      webSecurity: false,
+      webSecurity: true,
       allowRunningInsecureContent: false,
       enableBlinkFeatures: 'FontAccess, AudioVideoTracks',
       backgroundThrottling: false,
@@ -272,7 +272,7 @@ export default class App {
   makeWebTorrentWindow() {
     return new BrowserWindow({
       webPreferences: {
-        webSecurity: false,
+        webSecurity: true,
         allowRunningInsecureContent: false,
         nodeIntegration: true,
         contextIsolation: false,
