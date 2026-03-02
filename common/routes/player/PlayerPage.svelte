@@ -27,7 +27,9 @@
   import 'rvfc-polyfill'
   import { IPC, ELECTRON, ANDROID } from '@/modules/bridge.js'
   import WPC from '@/modules/wpc.js'
-  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone } from 'lucide-svelte'
+  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone, FolderOpen, Download } from 'lucide-svelte'
+  import { jimakuClient } from '@/modules/jimaku.js'
+  import SoftModal from '@/components/modals/SoftModal.svelte'
   import Debug from 'debug'
   const debug = Debug('ui:player')
 
@@ -74,6 +76,12 @@
   let immerseTimeout = null
   let bufferTimeout = null
   let subHeaders = null
+  let jimakuResults = []
+  let jimakuLoading = false
+  let jimakuShow = false
+  let jimakuFiles = []
+  let jimakuLoadingFiles = false
+  let selectedJimakuEntry = null
   let pip = false
   // const presentationRequest = null
   // const presentationConnection = null
@@ -158,6 +166,67 @@
         }
       }
     }
+  }
+
+  async function exploreJimaku () {
+    if (!media?.media?.id) {
+      toast.error('No Media ID', { description: 'Unable to find media ID for Jimaku search' })
+      return
+    }
+    if (!settings.value.jimakuKey) {
+      toast.error('No API Key', { description: 'Please configure your Jimaku API key in Settings' })
+      return
+    }
+    jimakuLoading = true
+    jimakuShow = true
+    try {
+      const results = await jimakuClient.search({ anilist_id: media.media.id })
+      jimakuResults = results || []
+      if (!jimakuResults.length) {
+        toast.success('No Results', { description: 'No subtitles found on Jimaku for this series' })
+      }
+    } catch (err) {
+      toast.error('Jimaku Error', { description: err.message })
+      jimakuResults = []
+    } finally {
+      jimakuLoading = false
+    }
+  }
+
+  async function loadJimakuFiles (entry) {
+    selectedJimakuEntry = entry
+    jimakuLoadingFiles = true
+    jimakuFiles = []
+    try {
+      const files = await jimakuClient.getFiles(entry.id)
+      jimakuFiles = files || []
+    } catch (err) {
+      toast.error('Error', { description: err.message })
+    } finally {
+      jimakuLoadingFiles = false
+    }
+  }
+
+  async function downloadJimakuFile (file) {
+    try {
+      const response = await fetch(file.url)
+      const blob = await response.blob()
+      const subtitleFile = new File([blob], file.name, { type: 'application/x-subrip' })
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(subtitleFile)
+      window.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dataTransfer }))
+      toast.success('Subtitles Loaded', { description: file.name })
+      closeJimaku()
+    } catch (err) {
+      toast.error('Download Error', { description: err.message })
+    }
+  }
+
+  function closeJimaku () {
+    jimakuShow = false
+    jimakuResults = []
+    jimakuFiles = []
+    selectedJimakuEntry = null
   }
 
   // if ('PresentationRequest' in window) {
@@ -271,7 +340,7 @@
   async function setCurrent(file, launchExternal = false) {
     if (!externalPlayback) {
       src = file.url
-      subs = new Subtitles(video, files, current, handleHeaders)
+      subs = new Subtitles(video, files, file, handleHeaders)
       video.load()
       await loadAnimeProgress()
     } else externalPlaying = false
@@ -1851,6 +1920,11 @@
           </div>
         </div>
       {/if}
+      {#if media?.media && !externalPlayback}
+        <span class='icon text-white ctrl mr-5 d-flex align-items-center' title='Explore Jimaku Subtitles' use:click={exploreJimaku}>
+          <FolderOpen size='2.5rem' strokeWidth={2.5} />
+        </span>
+      {/if}
       <!--{#if 'PresentationRequest' in window && canCast && current}-->
       <!--  <span class='icon text-white ctrl mr-5 d-flex align-items-center text-white' title='Cast Video [D]' data-name='toggleCast' use:click={toggleCast}>-->
       <!--    {#if presentationConnection}-->
@@ -1878,6 +1952,56 @@
       </span>
     </div>
   </div>
+
+  <SoftModal class='p-20 w-450 mw-full bg-dark rounded' bind:showModal={jimakuShow} {closeJimaku} id='jimaku'>
+    <div class='d-flex justify-content-between align-items-center mb-20'>
+      <div>
+        <h5 class='m-0'>Jimaku Subtitles</h5>
+        {#if selectedJimakuEntry}
+          <div class='text-muted small'>{selectedJimakuEntry.name}</div>
+        {:else}
+          <div class='text-muted small'>Episode {media?.episode || 1}</div>
+        {/if}
+      </div>
+      <button class='btn btn-sm btn-secondary' on:click={closeJimaku}>Close</button>
+    </div>
+    {#if jimakuLoading || jimakuLoadingFiles}
+      <div class='text-center p-20'>Loading...</div>
+    {:else if jimakuFiles.length}
+      <div class='overflow-y-auto' style='max-height: 60vh'>
+        <button class='btn btn-sm btn-secondary mb-10' on:click={() => { jimakuFiles = []; selectedJimakuEntry = null }}>
+          &larr; Back to entries
+        </button>
+        {#each jimakuFiles as file}
+          <div class='d-flex justify-content-between align-items-center p-10 border-bottom border-secondary'>
+            <div class='overflow-hidden'>
+              <div class='text-truncate' style='max-width: 280px'>{file.name}</div>
+              <div class='text-muted small'>{Math.round(file.size / 1024)} KB</div>
+            </div>
+            <button class='btn btn-sm btn-primary' on:click={() => downloadJimakuFile(file)}>
+              <Download size='1rem' />
+            </button>
+          </div>
+        {/each}
+      </div>
+    {:else if jimakuResults.length}
+      <div class='overflow-y-auto' style='max-height: 60vh'>
+        {#each jimakuResults as result}
+          <div class='d-flex justify-content-between align-items-center p-10 border-bottom border-secondary'>
+            <div>
+              <div class='font-weight-bold'>{result.name}</div>
+              <div class='text-muted small'>{result.english_name || result.japanese_name}</div>
+            </div>
+            <button class='btn btn-sm btn-primary' on:click={() => loadJimakuFiles(result)}>
+              <FolderOpen size='1rem' />
+            </button>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class='text-center p-20 text-muted'>No subtitles found for this series</div>
+    {/if}
+  </SoftModal>
 </div>
 
 <style>

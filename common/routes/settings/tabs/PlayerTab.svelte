@@ -77,7 +77,7 @@
 </SettingCard>
 
 <h4 class='mb-10 font-weight-bold'>Subtitle Integrations</h4>
-<SettingCard title='Jimaku API Key' description='API Key for Jimaku.cc. This enables the app to fetch high quality subtitles for your media.'>
+<SettingCard title='Jimaku API Key' description='API Key for Jimaku.cc. This enables the app to fetch japanese subtitles for your media.'>
   <input type='text' class='form-control bg-dark mw-100 w-300 mw-full' placeholder='Enter API Key' bind:value={settings.jimakuKey} />
 </SettingCard>
 

@@ -3,8 +3,10 @@ import { hex2arr, bin2hex } from 'uint8-util'
 import { toTS, subRx, videoRx } from '@/modules/util.js'
 import { settings } from '@/modules/settings.js'
 import { client } from '@/modules/torrent.js'
+import { jimakuClient } from '@/modules/jimaku.js'
 import clipboard from '@/modules/clipboard.js'
 import { SUPPORTS } from '@/modules/support.js'
+import { toast } from 'svelte-sonner'
 
 const defaultHeader = `[Script Info]
 Title: English (US)
@@ -122,6 +124,75 @@ export default class Subtitles {
     client.on('subtitleFile', this.handleSubtitleFile)
     clipboard.on('text', this.handleClipboardText)
     clipboard.on('files', this.handleClipboardFiles)
+
+    if (settings.value.jimakuKey) this.loadJimakuSubtitles()
+  }
+
+  /**
+   * Searches and loads subtitles from Jimaku.cc for the current media and episode.
+   */
+  async loadJimakuSubtitles () {
+    const aniId = this.selected?.media?.media?.id
+    const episode = this.selected?.media?.episode
+    if (!aniId || !episode) return
+
+    try {
+      const search = await jimakuClient.search({ anilist_id: aniId })
+      const entry = search?.[0]
+      if (!entry) return
+
+      let files = await jimakuClient.getFiles(entry.id, { episode })
+      if (!files?.length) return
+
+      files = files
+        .filter(file => subRx.test(file.name))
+        .map(file => {
+          let score = 0
+          const name = file.name.toLowerCase()
+
+          if (name.includes('netflix')) score += 50
+          if (name.includes('amazon')) score += 50
+          if (name.includes('webrip') || name.includes('web-dl')) score += 40
+          if (name.includes('crunchyroll')) score += 30
+          if (name.includes('disney')) score += 30
+          if (name.includes('[sdh]') || name.includes('[cc]')) score += 10
+          if (name.includes('shincaps')) score -= 60
+          if (name.includes('nanakoraws')) score -= 60
+          if (name.includes('at-x') || name.includes('bs11') || name.includes('tokyo mx')) score -= 30
+
+          const videoKeywords = this.selected.name.toLowerCase().split(/[^a-z0-9]/).filter(w => w.length > 2)
+          for (const word of videoKeywords) {
+            if (name.includes(word)) score += 5
+          }
+
+          return { ...file, score }
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+
+      let loadedCount = 0
+      for (const file of files) {
+        try {
+          const res = await fetch(file.url, {
+            headers: { 'Authorization': settings.value.jimakuKey }
+          })
+          if (res.ok) {
+            const data = await res.arrayBuffer()
+            const name = `[Jimaku] ${file.name}`
+            this.addSingleSubtitleFile(new File([data], name), 'jpn')
+            loadedCount++
+          }
+        } catch (e) {
+          console.error(`Failed to load Jimaku file ${file.name}:`, e)
+        }
+      }
+
+      if (loadedCount > 0) {
+        toast.success('Jimaku Subtitles', { description: `Loaded ${loadedCount} subtitle(s)` })
+      }
+    } catch (err) {
+      console.error('Jimaku search failed:', err)
+    }
   }
 
   async addSingleSubtitleFile (file) {
