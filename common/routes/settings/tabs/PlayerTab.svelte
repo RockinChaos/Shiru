@@ -76,6 +76,11 @@
   </select>
 </SettingCard>
 
+<h4 class='mb-10 font-weight-bold'>Subtitle Integrations</h4>
+<SettingCard title='Jimaku API Key' description='API Key for Jimaku.cc. This enables the app to fetch high quality subtitles for your media.'>
+  <input type='text' class='form-control bg-dark mw-100 w-300 mw-full' placeholder='Enter API Key' bind:value={settings.jimakuKey} />
+</SettingCard>
+
 <h4 class='mb-10 font-weight-bold'>Language Settings</h4>
 <SettingCard title='Preferred Subtitle Language' description="What subtitle language to automatically select when a video is loaded if it exists. This won't find sources with this language automatically. If not found defaults to English.">
   <select class='form-control bg-dark mw-220 w-220 text-truncate' bind:value={settings.subtitleLanguage}>

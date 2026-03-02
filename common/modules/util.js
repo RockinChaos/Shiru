@@ -618,6 +618,7 @@ export const defaults = {
   extensionSources: {},
   disableMiniplayer: false,
   enableExternal: false,
+  jimakuKey: '',
   playerPath: '',
   playerSeek: 2,
   playerSkip: false,
