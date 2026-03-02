@@ -188,6 +188,10 @@ export default class Subtitles {
       }
 
       if (loadedCount > 0) {
+        const jimakuTrack = this.headers.find(h => h && h.number >= 100)
+        if (jimakuTrack) {
+          this.selectCaptions(jimakuTrack.number)
+        }
         toast.success('Jimaku Subtitles', { description: `Loaded ${loadedCount} subtitle(s)` })
       }
     } catch (err) {
