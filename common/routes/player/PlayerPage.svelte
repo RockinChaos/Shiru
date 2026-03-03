@@ -76,12 +76,9 @@
   let immerseTimeout = null
   let bufferTimeout = null
   let subHeaders = null
-  let jimakuResults = []
   let jimakuLoading = false
   let jimakuShow = false
   let jimakuFiles = []
-  let jimakuLoadingFiles = false
-  let selectedJimakuEntry = null
   let pip = false
   // const presentationRequest = null
   // const presentationConnection = null
@@ -180,32 +177,16 @@
     jimakuLoading = true
     jimakuShow = true
     try {
-      const results = await jimakuClient.search({ anilist_id: media.media.id })
-      jimakuResults = results || []
-      if (!jimakuResults.length) {
-        toast.success('No Results', { description: 'No subtitles found on Jimaku for this series' })
-      } else {
-        await loadJimakuFiles(jimakuResults[0])
+      const files = await jimakuClient.getFiles(media.media.id)
+      jimakuFiles = files || []
+      if (!jimakuFiles.length) {
+        toast.success('No Results', { description: 'No subtitles found for this series' })
       }
     } catch (err) {
       toast.error('Jimaku Error', { description: err.message })
-      jimakuResults = []
+      jimakuFiles = []
     } finally {
       jimakuLoading = false
-    }
-  }
-
-  async function loadJimakuFiles (entry) {
-    selectedJimakuEntry = entry
-    jimakuLoadingFiles = true
-    jimakuFiles = []
-    try {
-      const files = await jimakuClient.getFiles(entry.id)
-      jimakuFiles = files || []
-    } catch (err) {
-      toast.error('Error', { description: err.message })
-    } finally {
-      jimakuLoadingFiles = false
     }
   }
 
@@ -226,9 +207,7 @@
 
   function closeJimaku () {
     jimakuShow = false
-    jimakuResults = []
     jimakuFiles = []
-    selectedJimakuEntry = null
   }
 
   // if ('PresentationRequest' in window) {
@@ -1957,17 +1936,10 @@
 
   <SoftModal class='p-20 w-450 mw-full bg-dark rounded' bind:showModal={jimakuShow} {closeJimaku} id='jimaku'>
     <div class='d-flex justify-content-between align-items-center mb-20'>
-      <div>
-        <h5 class='m-0'>Jimaku Subtitles</h5>
-        {#if selectedJimakuEntry}
-          <div class='text-muted small'>{selectedJimakuEntry.name}</div>
-        {:else}
-          <div class='text-muted small'>Episode {media?.episode || 1}</div>
-        {/if}
-      </div>
+      <h5 class='m-0'>Jimaku Subtitles</h5>
       <button class='btn btn-sm btn-secondary' on:click={closeJimaku}>Close</button>
     </div>
-    {#if jimakuLoading || jimakuLoadingFiles}
+    {#if jimakuLoading}
       <div class='text-center p-20'>Loading...</div>
     {:else if jimakuFiles.length}
       <div class='overflow-y-auto' style='max-height: 60vh'>
