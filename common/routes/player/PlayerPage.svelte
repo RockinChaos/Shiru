@@ -184,6 +184,8 @@
       jimakuResults = results || []
       if (!jimakuResults.length) {
         toast.success('No Results', { description: 'No subtitles found on Jimaku for this series' })
+      } else {
+        await loadJimakuFiles(jimakuResults[0])
       }
     } catch (err) {
       toast.error('Jimaku Error', { description: err.message })
@@ -1969,9 +1971,6 @@
       <div class='text-center p-20'>Loading...</div>
     {:else if jimakuFiles.length}
       <div class='overflow-y-auto' style='max-height: 60vh'>
-        <button class='btn btn-sm btn-secondary mb-10' on:click={() => { jimakuFiles = []; selectedJimakuEntry = null }}>
-          &larr; Back to entries
-        </button>
         {#each jimakuFiles as file}
           <div class='d-flex justify-content-between align-items-center p-10 border-bottom border-secondary'>
             <div class='overflow-hidden'>
@@ -1980,20 +1979,6 @@
             </div>
             <button class='btn btn-sm btn-primary' on:click={() => downloadJimakuFile(file)}>
               <Download size='1rem' />
-            </button>
-          </div>
-        {/each}
-      </div>
-    {:else if jimakuResults.length}
-      <div class='overflow-y-auto' style='max-height: 60vh'>
-        {#each jimakuResults as result}
-          <div class='d-flex justify-content-between align-items-center p-10 border-bottom border-secondary'>
-            <div>
-              <div class='font-weight-bold'>{result.name}</div>
-              <div class='text-muted small'>{result.english_name || result.japanese_name}</div>
-            </div>
-            <button class='btn btn-sm btn-primary' on:click={() => loadJimakuFiles(result)}>
-              <FolderOpen size='1rem' />
             </button>
           </div>
         {/each}
