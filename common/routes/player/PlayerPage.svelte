@@ -76,7 +76,6 @@
   let immerseTimeout = null
   let bufferTimeout = null
   let subHeaders = null
-  let jimakuLoading = false
   let jimakuShow = false
   let jimakuFiles = []
   let pip = false
@@ -174,19 +173,16 @@
       toast.error('No API Key', { description: 'Please configure your Jimaku API key in Settings' })
       return
     }
-    jimakuLoading = true
     jimakuShow = true
     try {
-      const files = await jimakuClient.getFiles(media.media.id)
+      const files = await jimakuClient.getFiles(media.media.id, { episode: media.episode })
       jimakuFiles = files || []
       if (!jimakuFiles.length) {
-        toast.success('No Results', { description: 'No subtitles found for this series' })
+        toast.success('No Results', { description: 'No subtitles found for this episode' })
       }
     } catch (err) {
       toast.error('Jimaku Error', { description: err.message })
       jimakuFiles = []
-    } finally {
-      jimakuLoading = false
     }
   }
 
@@ -1939,9 +1935,7 @@
       <h5 class='m-0'>Jimaku Subtitles</h5>
       <button class='btn btn-sm btn-secondary' on:click={closeJimaku}>Close</button>
     </div>
-    {#if jimakuLoading}
-      <div class='text-center p-20'>Loading...</div>
-    {:else if jimakuFiles.length}
+    {#if jimakuFiles.length}
       <div class='overflow-y-auto' style='max-height: 60vh'>
         {#each jimakuFiles as file}
           <div class='d-flex justify-content-between align-items-center p-10 border-bottom border-secondary'>
