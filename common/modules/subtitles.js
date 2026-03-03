@@ -6,7 +6,6 @@ import { client } from '@/modules/torrent.js'
 import { jimakuClient } from '@/modules/jimaku.js'
 import clipboard from '@/modules/clipboard.js'
 import { SUPPORTS } from '@/modules/support.js'
-import { toast } from 'svelte-sonner'
 
 const defaultHeader = `[Script Info]
 Title: English (US)
@@ -195,7 +194,7 @@ export default class Subtitles {
       }
 
       if (loadedCount > 0) {
-        toast.success('Jimaku Subtitles', { description: `Loaded ${loadedCount} subtitle(s)` })
+        console.log(`Jimaku: Loaded ${loadedCount} subtitle(s)`)
       }
     } catch (err) {
       console.error('Jimaku search failed:', err)
