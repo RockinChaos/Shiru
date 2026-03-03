@@ -150,12 +150,19 @@ export default class Subtitles {
           let score = 0
           const name = file.name.toLowerCase()
 
+          if (name.includes('haruhana')) score += 50
+          if (name.includes('nekomoe kissaten')) score += 50
+          if (name.includes('loliHouse')) score += 50
+          if (name.includes('retimed')) score += 50
           if (name.includes('netflix')) score += 50
+          if (name.includes('amzn')) score += 50
           if (name.includes('amazon')) score += 50
-          if (name.includes('webrip') || name.includes('web-dl')) score += 40
-          if (name.includes('crunchyroll')) score += 30
-          if (name.includes('disney')) score += 30
+          if (name.includes('webrip')) score += 40
+          if (name.includes('web-dl')) score += 40
+          if (name.includes('web')) score += 30
           if (name.includes('[sdh]') || name.includes('[cc]')) score += 10
+          if (name.includes('chs')) score -= 70
+          if (name.includes('cht')) score -= 70
           if (name.includes('shincaps')) score -= 60
           if (name.includes('nanakoraws')) score -= 60
           if (name.includes('at-x') || name.includes('bs11') || name.includes('tokyo mx')) score -= 30
@@ -179,7 +186,7 @@ export default class Subtitles {
           if (res.ok) {
             const data = await res.arrayBuffer()
             const name = `[Jimaku] ${file.name}`
-            this.addSingleSubtitleFile(new File([data], name), 'jpn')
+            this.addSingleSubtitleFile(new File([data], name))
             loadedCount++
           }
         } catch (e) {
@@ -188,10 +195,6 @@ export default class Subtitles {
       }
 
       if (loadedCount > 0) {
-        const jimakuTrack = this.headers.find(h => h && h.number >= 100)
-        if (jimakuTrack) {
-          this.selectCaptions(jimakuTrack.number)
-        }
         toast.success('Jimaku Subtitles', { description: `Loaded ${loadedCount} subtitle(s)` })
       }
     } catch (err) {
