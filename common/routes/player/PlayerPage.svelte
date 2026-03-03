@@ -177,9 +177,6 @@
     try {
       const files = await jimakuClient.getFiles(media.media.id, { episode: media.episode })
       jimakuFiles = files || []
-      if (!jimakuFiles.length) {
-        toast.success('No Results', { description: 'No subtitles found for this episode' })
-      }
     } catch (err) {
       toast.error('Jimaku Error', { description: err.message })
       jimakuFiles = []
@@ -317,7 +314,7 @@
   async function setCurrent(file, launchExternal = false) {
     if (!externalPlayback) {
       src = file.url
-      subs = new Subtitles(video, files, file, handleHeaders)
+      subs = new Subtitles(video, files, current, handleHeaders)
       video.load()
       await loadAnimeProgress()
     } else externalPlaying = false
@@ -1930,18 +1927,14 @@
     </div>
   </div>
 
-  <SoftModal class='p-20 w-450 mw-full bg-dark rounded' bind:showModal={jimakuShow} {closeJimaku} id='jimaku'>
-    <div class='d-flex justify-content-between align-items-center mb-20'>
-      <h5 class='m-0'>Jimaku Subtitles</h5>
-      <button class='btn btn-sm btn-secondary' on:click={closeJimaku}>Close</button>
-    </div>
+  <SoftModal class='p-20 w-700 mw-full bg-dark rounded' bind:showModal={jimakuShow} {closeJimaku} id='jimaku'>
+    <h5 class='mb-20'>Jimaku Subtitles</h5>
     {#if jimakuFiles.length}
       <div class='overflow-y-auto' style='max-height: 60vh'>
         {#each jimakuFiles as file}
           <div class='d-flex justify-content-between align-items-center p-10 border-bottom border-secondary'>
             <div class='overflow-hidden'>
-              <div class='text-truncate' style='max-width: 280px'>{file.name}</div>
-              <div class='text-muted small'>{Math.round(file.size / 1024)} KB</div>
+              <div class='text-truncate' style='max-width: 600px'>{file.name}</div>
             </div>
             <button class='btn btn-sm btn-primary' on:click={() => downloadJimakuFile(file)}>
               <Download size='1rem' />

@@ -143,6 +143,7 @@ export default class Subtitles {
       let files = await jimakuClient.getFiles(entry.id, { episode })
       if (!files?.length) return
 
+      // prefer groups with proper timing; live‑TV uploads often have offset due to ad-breaks
       files = files
         .filter(file => subRx.test(file.name))
         .map(file => {
