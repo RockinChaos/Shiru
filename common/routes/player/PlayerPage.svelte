@@ -27,7 +27,7 @@
   import 'rvfc-polyfill'
   import { IPC, ELECTRON, ANDROID } from '@/modules/bridge.js'
   import WPC from '@/modules/wpc.js'
-  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone } from 'lucide-svelte'
+  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone, ClockArrowDown, ClockArrowUp } from 'lucide-svelte'
   import Debug from 'debug'
   const debug = Debug('ui:player')
 
@@ -864,14 +864,14 @@
     Comma: {
       fn: (e) => { if (!viewAnime && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') { subDelay = Number((Number(subDelay) + (e.shiftKey ? -1.0 : -0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 600) } },
       id: 'sub_delay_decrease',
-      icon: Captions,
+      icon: ClockArrowDown,
       type: 'icon',
       desc: 'Subtitle Delay -0.1s / -1.0s'
     },
     Period: {
       fn: (e) => { if (!viewAnime && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') { subDelay = Number((Number(subDelay) + (e.shiftKey ? 1.0 : 0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 600) } },
       id: 'sub_delay_increase',
-      icon: Captions,
+      icon: ClockArrowUp,
       type: 'icon',
       desc: 'Subtitle Delay +0.1s / +1.0s'
     }
