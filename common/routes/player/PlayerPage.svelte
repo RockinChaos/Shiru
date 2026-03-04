@@ -855,6 +855,20 @@
       id: 'schedule',
       type: 'icon',
       desc: 'Reset Playback Rate'
+    },
+    Comma: {
+      fn: (e) => !viewAnime && (subDelay = Number((subDelay + (e.shiftKey ? -1.0 : -0.1)).toFixed(1))),
+      id: 'sub_delay_decrease',
+      icon: Captions,
+      type: 'icon',
+      desc: 'Subtitle Delay -0.1s / -1.0s'
+    },
+    Period: {
+      fn: (e) => !viewAnime && (subDelay = Number((subDelay + (e.shiftKey ? 1.0 : 0.1)).toFixed(1))),
+      id: 'sub_delay_increase',
+      icon: Captions,
+      type: 'icon',
+      desc: 'Subtitle Delay +0.1s / +1.0s'
     }
   })
 
