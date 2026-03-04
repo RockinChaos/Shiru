@@ -526,7 +526,7 @@ function handleWheel(e) {
   const delta = e.deltaY < 0 ? 0.05 : -0.05
   const combined = volumeBoosted ? gain : volume
 
-  const next = Math.max(0, Math.min(2, combined + delta))
+  const next = Math.max(0, Math.min(3, combined + delta))
 
   if (next <= 1) {
     volume = next
@@ -1728,7 +1728,7 @@ function showVolumeTemporarily() {
         <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
       </button>
     {/if}
-    {#if volumeText}<span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out; color: {volumeText === 'Muted' ? 'var(--paused-color)' : 'white'}'>{volumeText}</span>{/if}
+    <span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out, color 1.0s ease-in-out; color: {volumeText === 'Muted' ? 'var(--paused-color)' : 'white'}'>{volumeText}</span>
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
