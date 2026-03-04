@@ -259,6 +259,8 @@
       embeddedChapters = []
       currentSkippable = null
       completed = false
+      subDelay = 0
+      subDelayText = ''
       if (subs) {
         subs.destroy()
         subs = null
@@ -860,14 +862,14 @@
       desc: 'Reset Playback Rate'
     },
     Comma: {
-      fn: (e) => { if (!viewAnime) { subDelay = Number((subDelay + (e.shiftKey ? -1.0 : -0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 300) } },
+      fn: (e) => { if (!viewAnime && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') { subDelay = Number((Number(subDelay) + (e.shiftKey ? -1.0 : -0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 300) } },
       id: 'sub_delay_decrease',
       icon: Captions,
       type: 'icon',
       desc: 'Subtitle Delay -0.1s / -1.0s'
     },
     Period: {
-      fn: (e) => { if (!viewAnime) { subDelay = Number((subDelay + (e.shiftKey ? 1.0 : 0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 300) } },
+      fn: (e) => { if (!viewAnime && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') { subDelay = Number((Number(subDelay) + (e.shiftKey ? 1.0 : 0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 300) } },
       id: 'sub_delay_increase',
       icon: Captions,
       type: 'icon',
