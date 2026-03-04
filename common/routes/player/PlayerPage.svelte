@@ -337,6 +337,9 @@
   }
 
   let subDelay = 0
+  let subDelayText = ''
+  let subDelayVisible = false
+  let subDelayTimeout
   $: updateDelay(subDelay)
   function updateDelay (delay) {
     if (subs?.renderer) subs.renderer.timeOffset = Number(delay)
@@ -857,14 +860,14 @@
       desc: 'Reset Playback Rate'
     },
     Comma: {
-      fn: (e) => !viewAnime && (subDelay = Number((subDelay + (e.shiftKey ? -1.0 : -0.1)).toFixed(1))),
+      fn: (e) => { if (!viewAnime) { subDelay = Number((subDelay + (e.shiftKey ? -1.0 : -0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 300) } },
       id: 'sub_delay_decrease',
       icon: Captions,
       type: 'icon',
       desc: 'Subtitle Delay -0.1s / -1.0s'
     },
     Period: {
-      fn: (e) => !viewAnime && (subDelay = Number((subDelay + (e.shiftKey ? 1.0 : 0.1)).toFixed(1))),
+      fn: (e) => { if (!viewAnime) { subDelay = Number((subDelay + (e.shiftKey ? 1.0 : 0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 300) } },
       id: 'sub_delay_increase',
       icon: Captions,
       type: 'icon',
@@ -1706,6 +1709,7 @@
         <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
       </button>
     {/if}
+    {#if subDelayText}<span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40 text-white' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {subDelayVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out'>{subDelayText}</span>{/if}
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
