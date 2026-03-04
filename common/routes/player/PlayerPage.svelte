@@ -83,6 +83,9 @@
   let gain = 0
   let volume = Number(cache.getEntry(caches.GENERAL, 'volume')) || 1
   let volumeBoosted = false
+  let volumeText = ''
+  let volumeVisible = false
+  let volumeTimeout
   let audioCtx = null
   let source = null
   let gainNode = null
@@ -516,6 +519,38 @@
   function toggleMute () {
     muted = !muted
   }
+function handleWheel(e) {
+  if (viewAnime) return
+  e.preventDefault()
+
+  const delta = e.deltaY < 0 ? 0.05 : -0.05
+  const combined = volumeBoosted ? gain : volume
+
+  const next = Math.max(0, Math.min(2, combined + delta))
+
+  if (next <= 1) {
+    volume = next
+    gain = 1
+    volumeBoosted = false
+    volumeText = volume === 0 ? 'Muted' : `${(volume * 100).toFixed(0)}%`
+    if (audioCtx) gainNode.gain.value = volume
+  } else {
+    volume = 1
+    gain = next
+    volumeBoosted = true
+    volumeText = `${(gain * 100).toFixed(0)}%`
+    setupAudio()
+    if (audioCtx) gainNode.gain.value = gain
+  }
+
+  showVolumeTemporarily()
+}
+
+function showVolumeTemporarily() {
+  volumeVisible = true
+  clearTimeout(volumeTimeout)
+  volumeTimeout = setTimeout(() => volumeVisible = false, 500)
+}
   function toggleFullscreen () {
     if (!externalPlayback) document.fullscreenElement ? document.exitFullscreen() : document.querySelector('.content-wrapper').requestFullscreen()
   }
@@ -1505,7 +1540,8 @@
   on:touchmove={resetImmerse}
   on:keypress={resetImmerse}
   on:keydown={resetImmerse}
-  on:mouseleave={immersePlayer}>
+  on:mouseleave={immersePlayer}
+  on:wheel={handleWheel}>
   {#if showKeybinds && !miniplayer}
     <div class='position-absolute bg-tp w-full h-full z-50 font-size-12 p-20 d-flex align-items-center justify-content-center pointer' on:pointerup|self={() => (showKeybinds = false)} tabindex='-1' role='button'>
       <Keybinds let:prop={item} autosave={true} clickable={true}>
@@ -1692,6 +1728,7 @@
         <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
       </button>
     {/if}
+    {#if volumeText}<span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out; color: {volumeText === 'Muted' ? 'var(--paused-color)' : 'white'}'>{volumeText}</span>{/if}
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
