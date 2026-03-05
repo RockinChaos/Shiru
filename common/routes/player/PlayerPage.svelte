@@ -554,7 +554,8 @@
     volume = 1
     gain = next
     volumeBoosted = true
-    volumeText = `${(gain * 100).toFixed(0)}%${gain > 1.5 ? '!'.repeat(Math.max(1, boostScrollCount)) : ''}`
+    const excessBoost = Math.floor(Math.max(0, (gain - 1.5) * 10))
+    volumeText = `${(gain * 100).toFixed(0)}%${excessBoost > 0 ? '!'.repeat(excessBoost) : ''}`
   }
 
   if (audioCtx) gainNode.gain.value = volumeBoosted ? gain : volume
