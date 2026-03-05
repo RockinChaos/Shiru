@@ -87,7 +87,6 @@
   let volumeVisible = false
   let volumeTimeout
   let wheelAccumulator = 0
-  let volumeAtBoundary = false
   let audioCtx = null
   let source = null
   let gainNode = null
@@ -1739,7 +1738,7 @@ function showVolumeTemporarily() {
         <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
       </button>
     {/if}
-    <span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out, color 0.7s ease-in-out; color: {volumeText === 'Muted' ? 'var(--paused-color)' : wheelAccumulator > 0 && combined >= 1 ? 'var(--accent-color)' : 'white'}'>{volumeText}</span>
+    <span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out, color 0.7s ease-in-out; color: {volumeText === 'Muted' || wheelAccumulator > 0 ? 'var(--paused-color)' : 'white'}'>{volumeText}</span>
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
