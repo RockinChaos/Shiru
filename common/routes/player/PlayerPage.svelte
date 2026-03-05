@@ -528,13 +528,13 @@
   const combined = volumeBoosted ? gain : volume
   const next = Math.max(0, Math.min(3, combined + delta))
 
-  if (!volumeBoosted && combined < 1 && next > 1) {
+  if (!volumeBoosted && combined <= 1 && next > 1) {
     wheelAccumulator++
     volumeText = '100%'
     showVolumeTemporarily()
     if (wheelAccumulator < 5) return
     wheelAccumulator = 0
-  }  else {
+  } else if (!volumeBoosted && combined > 1) {
     wheelAccumulator = 0
   }
 
