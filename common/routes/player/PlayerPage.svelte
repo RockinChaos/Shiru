@@ -522,44 +522,44 @@
     muted = !muted
   }
   function handleWheel(e) {
-  if (viewAnime) return
-  e.preventDefault()
-  // make trackpad type device scroll more gradual
-  wheelAccumulator += e.deltaY
-  if (Math.abs(wheelAccumulator) < 100) return
+    if (viewAnime) return
+    e.preventDefault()
+    // make trackpad type device scroll more gradual
+    wheelAccumulator += e.deltaY
+    if (Math.abs(wheelAccumulator) < 100) return
 
-  const direction = wheelAccumulator < 0 ? 'up' : 'down'
-  const delta = direction === 'up' ? 0.05 : -0.05
-  wheelAccumulator = 0
+    const direction = wheelAccumulator < 0 ? 'up' : 'down'
+    const delta = direction === 'up' ? 0.05 : -0.05
+    wheelAccumulator = 0
 
-  const combined = (volumeBoosted && gain > 1) ? gain : volume
-  let next = Math.max(0, Math.min(3, combined + delta))
-  // limit guard
-  if (next > 1.5 && direction === 'up' && boostScrollCount < 5) {    
-    boostScrollCount++
-    volumeText = `${(next * 100).toFixed(0)}%` + '!'.repeat(boostScrollCount)
+    const combined = (volumeBoosted && gain > 1) ? gain : volume
+    let next = Math.max(0, Math.min(3, combined + delta))
+    // limit guard
+    if (next >= 1.5 && direction === 'up' && boostScrollCount < 5) {
+      boostScrollCount++
+      const superscripts = ['⁵','⁴','³','²','¹','⁰']
+      volumeText = `${(next * 100).toFixed(0)}%${superscripts[boostScrollCount - 1]}`
+      showVolumeTemporarily()
+      return
+    }
+    // Reset guard if we go back down
+    if (next <= 1.5) boostScrollCount = 0
+    // --- STATE APPLICATION ---
+    if (next <= 1) {
+      volume = next
+      gain = 1
+      volumeBoosted = false
+      volumeText = volume === 0 ? 'Muted' : `${(volume * 100).toFixed(0)}%`
+    } else {
+      setupAudio()
+      volume = 1
+      gain = next
+      volumeBoosted = true
+      volumeText = `${(gain * 100).toFixed(0)}%`
+    }
+
+    if (audioCtx) gainNode.gain.value = volumeBoosted ? gain : volume
     showVolumeTemporarily()
-    return
-  } 
-  // Reset guard if we go back down
-  if (next <= 1.5) boostScrollCount = 0
-  // --- STATE APPLICATION ---
-  if (next <= 1) {
-    volume = next
-    gain = 1
-    volumeBoosted = false
-    volumeText = volume === 0 ? 'Muted' : `${(volume * 100).toFixed(0)}%`
-  } else {
-    setupAudio()
-    volume = 1
-    gain = next
-    volumeBoosted = true
-    const excessBoost = Math.floor(Math.max(0, (gain - 1.5) * 10))
-    volumeText = `${(gain * 100).toFixed(0)}%${excessBoost > 0 ? '!'.repeat(excessBoost) : ''}`
-  }
-
-  if (audioCtx) gainNode.gain.value = volumeBoosted ? gain : volume
-  showVolumeTemporarily()
   }
   function showVolumeTemporarily() {
     volumeVisible = true
