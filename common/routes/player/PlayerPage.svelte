@@ -87,6 +87,7 @@
   let volumeVisible = false
   let volumeTimeout
   let wheelAccumulator = 0
+  let boostScrollCount = 0
   let audioCtx = null
   let source = null
   let gainNode = null
@@ -520,24 +521,50 @@
   function toggleMute () {
     muted = !muted
   }
-  function handleWheel(e) {
+
+
+function handleWheel(e) {
   if (viewAnime) return
   e.preventDefault()
 
-  const delta = e.deltaY < 0 ? 0.05 : -0.05
-  const combined = volumeBoosted ? gain : volume
-  const next = Math.max(0, Math.min(3, combined + delta))
+  // avoid overly sensitive volume changes for trackpad
+  wheelAccumulator += e.deltaY
+  if (Math.abs(wheelAccumulator) < 100) return
 
-  if (!volumeBoosted && combined <= 1 && next > 1) {
-    wheelAccumulator++
+  const direction = wheelAccumulator < 0 ? 'up' : 'down'
+  const delta = direction === 'up' ? 0.05 : -0.05
+  wheelAccumulator = 0
+
+  const combined = (volumeBoosted && gain > 1) ? gain : volume
+  let next = Math.max(0, Math.min(3, combined + delta))
+
+  // --- GUARDS ---
+  // Normal mode: never exceed 1.0
+const unlockingBoost = (combined === 1 && direction === 'up' && !volumeBoosted)
+
+// Normal mode: never exceed 1.0 unless unlocking boost
+if (!volumeBoosted && !unlockingBoost && next > 1) next = 1
+
+// Boost mode: enforce 150% guard
+if (volumeBoosted && next > 1.5) next = 1.5
+
+// Boost mode: don't drop below 1.0 unless scrolling down
+if (volumeBoosted && next < 1) next = 1
+
+  // --- END GUARDS ---
+
+  // require 5 scrolls to enter boost
+  if (combined === 1 && direction === 'up' && !volumeBoosted) {
+    boostScrollCount++
     volumeText = '100%'
     showVolumeTemporarily()
-    if (wheelAccumulator < 5) return
-    wheelAccumulator = 0
-  } else if (!volumeBoosted && combined > 1) {
-    wheelAccumulator = 0
+    if (boostScrollCount < 5) return
+    boostScrollCount = 0
+  } else {
+    boostScrollCount = 0
   }
 
+  // State Application
   if (next <= 1) {
     volume = next
     gain = 1
@@ -545,22 +572,24 @@
     volumeText = volume === 0 ? 'Muted' : `${(volume * 100).toFixed(0)}%`
     if (audioCtx) gainNode.gain.value = volume
   } else {
+    setupAudio()
     volume = 1
     gain = next
     volumeBoosted = true
     volumeText = `${(gain * 100).toFixed(0)}%`
-    setupAudio()
     if (audioCtx) gainNode.gain.value = gain
   }
 
   showVolumeTemporarily()
 }
 
-function showVolumeTemporarily() {
-  volumeVisible = true
-  clearTimeout(volumeTimeout)
-  volumeTimeout = setTimeout(() => volumeVisible = false, 500)
-}
+
+  function showVolumeTemporarily() {
+    volumeVisible = true
+    clearTimeout(volumeTimeout)
+    volumeTimeout = setTimeout(() => volumeVisible = false, 600)
+  }
+
   function toggleFullscreen () {
     if (!externalPlayback) document.fullscreenElement ? document.exitFullscreen() : document.querySelector('.content-wrapper').requestFullscreen()
   }
