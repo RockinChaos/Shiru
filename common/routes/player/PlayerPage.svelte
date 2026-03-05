@@ -534,10 +534,8 @@
 
   const combined = (volumeBoosted && gain > 1) ? gain : volume
   let next = Math.max(0, Math.min(3, combined + delta))
-  // --- BOOST LIMIT GUARD ---
-  if (next > 1.5 && direction === 'up' && boostScrollCount < 8) {
-    boostScrollCount++
-    
+  // limit guard
+  if (next > 1.5 && direction === 'up' && boostScrollCount < 5) {    
     boostScrollCount++
     volumeText = '150%'
     showVolumeTemporarily()
@@ -1744,7 +1742,7 @@
         <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
       </button>
     {/if}
-    <span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out, color 0.7s ease-in-out; color: {volumeText === 'Muted' ? 'var(--dropped-color)' : (volumeText === '150%' && boostScrollCount >= 4) ? 'rgb(170, 170, 170)' : 'white'}'>{volumeText}</span>
+    <span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out, color 0.7s ease-in-out; color: {volumeText === 'Muted' ? 'var(--paused-color)' : (volumeText === '150%' && boostScrollCount >= 2) ? 'rgb(30,30,30)' : 'white'}'>{volumeText}</span>
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
