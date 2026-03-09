@@ -743,7 +743,7 @@ export async function playMedia (media) {
       if (status === 'COMPLETED') {
         await setStatus('REPEATING', { episode: 0 }, media)
       } else {
-        ep = Math.min(getMediaMaxEp(media, true) || (progress + (zeroEpisode ? 0 : 1)), progress + (zeroEpisode ? 0 : 1)) - (zeroEpisode ? 1 : 0)
+        ep = Math.min(getMediaMaxEp(media, true) || (progress + (zeroEpisode ? 0 : 1)), progress + (zeroEpisode ? 0 : 1))
       }
     }
   }

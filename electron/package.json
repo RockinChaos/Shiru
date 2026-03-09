@@ -1,10 +1,10 @@
 {
   "name": "shiru",
-  "version": "6.5.0",
+  "version": "6.5.1",
   "license": "GPL-3.0-or-later",
   "private": true,
   "author": "RockinChaos <RockinChaos@users.noreply.github.com>",
-  "description": "Manage your personal media library, organize your collection, and stream your content in real time, no waiting required!",
+  "description": "A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!",
   "main": "build/main.js",
   "homepage": "https://github.com/RockinChaos/Shiru#readme",
   "scripts": {
@@ -23,7 +23,7 @@
     "electron": "39.2.7",
     "electron-builder": "^26.0.12",
     "electron-log": "^5.4.3",
-    "electron-updater": "^6.8.2"
+    "electron-updater": "^6.8.3"
   },
   "dependencies": {
     "@paymoapp/electron-shutdown-handler": "^1.1.2",
@@ -108,11 +108,11 @@
       "artifactName": "${os}-${productName}-v${version}.${ext}",
       "icon": "buildResources/icon.png",
       "category": "AudioVideo;Video",
-      "description": "Manage your personal media library, organize your collection, and stream your content in real time, no waiting required!",
+      "description": "A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!",
       "maintainer": "RockinChaos <RockinChaos@users.noreply.github.com>",
       "desktop": {
         "entry": {
-          "Comment": "Manage your personal media library, organize your collection, and stream your content in real time, no waiting required!",
+          "Comment": "A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!",
           "Keywords": "anime",
           "MimeType": "x-scheme-handler/shiru;"
         }

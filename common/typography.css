@@ -151,12 +151,12 @@
     padding-left: 5rem !important;
     padding-right: 5rem !important;
   }
+  .pt-md-50 {
+    padding-top: 5rem !important;
+  }
 }
 
 @media (min-width: 993px) {
-  .ml-lg-280 {
-    margin-left: 28rem !important;
-  }
   .px-lg-30 {
     padding-left: 3rem !important;
     padding-right: 3rem !important;

@@ -40,28 +40,29 @@
   </div>
   <div class='pointer-events-auto ratio-16-9 position-relative w-full wm-calc overflow-hidden rounded-bottom-5'>
 <!--    < css='h-full' bind:hide={$hide} loop={false} bind:autoPause={$modal[modal.TRAILER]} autoPlay={false} autoMute={false} controls={true} fullScreen={true} ids={[staticMedia.trailer?.id, () => episodesList.getMedia(staticMedia.idMal).then(metadata => [metadata?.data?.trailer?.youtube_id])]} title={staticMedia.title.userPreferred}/>-->
-    {#await (staticMedia.trailer?.id && staticMedia) || episodesList.getMedia(staticMedia.idMal) then trailerUrl}
-      {@const trailerId = trailerUrl?.trailer?.id || trailerUrl?.data?.trailer?.youtube_id}
-      {#if trailerId}
-        {show()}
-        {#if $modal[modal.TRAILER]}
-          {#await ELECTRON.getYouTube() then youtubeServer}
-            <div class='pointer-events-auto ratio-16-9 position-relative w-full wm-calc'>
-              <SmartImage class='ratio-16-9 img-cover w-full h-full rounded-bottom-6' images={[...(trailerId ? [`https://i.ytimg.com/vi/${trailerId}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${trailerId}/hqdefault.jpg`] : []), staticMedia.bannerImage, staticMedia.coverImage?.extraLarge ]} hidden={!loading}/>
-              <iframe
+    {#key staticMedia?.id}
+      {#await (staticMedia.trailer?.id && staticMedia) || episodesList.getMedia(staticMedia.idMal) then trailerUrl}
+        {@const trailerId = trailerUrl?.trailer?.id || trailerUrl?.data?.trailer?.youtube_id}
+        {#if trailerId}
+          {show()}
+          {#if $modal[modal.TRAILER]}
+            {#await ELECTRON.getYouTube() then youtubeServer}
+              <div class='pointer-events-auto ratio-16-9 position-relative w-full wm-calc'>
+                <SmartImage class='ratio-16-9 img-cover w-full h-full rounded-bottom-6' images={[...(trailerId ? [`https://i.ytimg.com/vi/${trailerId}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${trailerId}/hqdefault.jpg`] : []), staticMedia.bannerImage, staticMedia.coverImage?.extraLarge ]} hidden={!loading}/>
+                <iframe
                   class='position-absolute w-full h-full top-0 left-0 border-0 rounded-bottom-5'
                   class:d-none={loading}
                   title={staticMedia.title.userPreferred}
                   allow='autoplay'
                   allowfullscreen
                   on:load={() => { loading = false }}
-                  src={`${youtubeServer}/embed/${trailerId}?autoplay=1&vq=medium&cc_lang_pref=ja`}
-              />
-            </div>
-          {/await}
+                  src={`${youtubeServer}/embed/${trailerId}?autoplay=1&vq=medium&cc_lang_pref=ja`}/>
+              </div>
+            {/await}
+          {/if}
         {/if}
-      {/if}
-    {/await}
+      {/await}
+    {/key}
   </div>
 </SoftModal>
 

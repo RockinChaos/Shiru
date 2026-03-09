@@ -29,7 +29,7 @@ export default class Debug {
         const blob = await SecureLogger.getCacheBlob()
         IPC.emit('log-contents', new TextDecoder().decode(blob))
       } catch (error) {
-        console.error('Failed to fetch logs:', error)
+        console.debug('Failed to fetch logs', error)
         IPC.emit('log-contents', `Failed to fetch logs... ${JSON.stringify(error)}`)
       }
     })

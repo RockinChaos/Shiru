@@ -15,7 +15,7 @@
   import { anilistClient } from '@/modules/anilist.js'
   import { click } from '@/modules/click.js'
   import { toast } from 'svelte-sonner'
-  import { X, Search, EllipsisVertical, Timer, Clapperboard, MonitorCog, ArrowDownWideNarrow, ChevronLeft, ChevronUp, ChevronDown, RefreshCw } from 'lucide-svelte'
+  import { X, Search, EllipsisVertical, Timer, Clapperboard, MonitorCog, ArrowDownWideNarrow, ChevronLeft, ChevronUp, ChevronDown, Radio, RefreshCw } from 'lucide-svelte'
   import Debug from 'debug'
   const debug = Debug('ui:torrents')
 
@@ -132,6 +132,19 @@
     { value: 'ara', label: 'Arabic' },
     { value: 'idn', label: 'Indonesian' }
   ]
+
+  /**
+   * Clean error messages by removing extension path prefixes and getting the correct error line(s)
+   * @param {string} errorMessage The error message to clean
+   * @return {string} The clean error message
+   */
+  function cleanErrorMessage(errorMessage) {
+    if (!errorMessage) return 'Unknown error occurred'
+    let cleaned = errorMessage.replace(/^Source\s+[a-z]+(?::\/\/|:)\S*\s+/i, '')
+    const failedMatch = cleaned.match(/failed to load results:\s*(.+)/i)
+    if (failedMatch) cleaned = failedMatch[1]
+    return cleaned.replace(/\\n/g, ' ').trim() || 'Unknown error occurred'
+  }
 </script>
 
 <script>
@@ -185,6 +198,12 @@
   function addResults(newItems, source) {
     if (!newItems?.length) return ''
     results.update(r => ({ ...r, torrents: [...(r?.torrents ?? []), ...newItems.map(item => ({ ...item, source }))] }))
+    return ''
+  }
+
+  $: errorCardOnly = search && false
+  function hideErrors() {
+    errorCardOnly = true
     return ''
   }
 
@@ -260,7 +279,11 @@
     if (search == null || search.media?.id !== request?.media?.id || search.episode !== request?.episode) return null
     results.update(r => ({ ...r, resolved: true }))
     debug(`All query promises have successfully been resolved for ${search?.media?.id}:E${search?.episode}`, JSON.stringify(Array.from(uniqueErrors)))
-    if ($status !== 'offline' && JSON.stringify(Array.from(uniqueErrors)).match(/found no results/i) && (search?.media?.status !== 'FINISHED' || !search?.media?.episodes) && (getMediaMaxEp(search?.media, true) < search?.episode)) return { errors: [ { message: `${anilistClient.title(search.media)} ${search.media?.format !== 'MOVIE' || (getMediaMaxEp(search?.media, false) > 1) ? `Episode ${search.media.nextAiringEpisode?.episode || search.episode}` : ``} hasn't released yet! ${search?.media?.nextAiringEpisode?.timeUntilAiring ? `\n${search.media?.format !== 'MOVIE' || (getMediaMaxEp(search?.media, false) > 1) ? `This episode` : `This movie`} will be released on ${new Date(Date.now() + search.media.nextAiringEpisode?.timeUntilAiring * 1000).toDateString()}` : ''}` }]}
+    const errorsArray = Array.from(uniqueErrors)
+    if (errorsArray.some(msg => msg?.includes('No torrent sources configured') || msg?.includes('Sources are inactive'))) return { errors: errorsArray.map((message) => ({ message })), errorCardOnly: true }
+    if ($status !== 'offline' && JSON.stringify(Array.from(uniqueErrors)).match(/found no results/i) && (search?.media?.status !== 'FINISHED' || !search?.media?.episodes) && (getMediaMaxEp(search?.media, true) < search?.episode)) {
+      return { errors: [ { message: `${anilistClient.title(search.media)} ${search.media?.format !== 'MOVIE' || (getMediaMaxEp(search?.media, false) > 1) ? `Episode ${search.media.nextAiringEpisode?.episode || search.episode}` : ``} hasn't released yet! ${search?.media?.nextAiringEpisode?.timeUntilAiring ? `\n${search.media?.format !== 'MOVIE' || (getMediaMaxEp(search?.media, false) > 1) ? `This episode` : `This movie`} will be released on ${new Date(Date.now() + search.media.nextAiringEpisode?.timeUntilAiring * 1000).toDateString()}` : ''}` }], errorCardOnly: true }
+    }
     return { errors: Array.from(uniqueErrors).map((message) => ({ message })) }
   }
 
@@ -380,6 +403,7 @@
     current = 0
     bestPromiseId = 0
     scraping = false
+    errorCardOnly = false
   })
 </script>
 
@@ -466,7 +490,10 @@
     </div>
     <div class='col-12 col-sm-6 d-flex align-items-center mt-5 justify-content-center mt-sm-0 justify-content-sm-end'>
       <div class='d-flex align-items-center mr-5' data-toggle='tooltip' data-placement='top' data-title='Scrape Peer Data'>
-        <button type='button' class='btn btn-square bg-dark-very-light ml-auto d-flex align-items-center justify-content-center rounded-2 flex-shrink-0' use:click={handleScrape} disabled={!$results?.resolved || !$results?.torrents?.length || scraping}><RefreshCw size='1.8rem' class={scraping ? 'spinning' : ''} /></button>
+        <button type='button' class='btn btn-square bg-dark-very-light ml-auto d-flex align-items-center justify-content-center rounded-2 flex-shrink-0' use:click={handleScrape} disabled={!$results?.resolved || !$results?.torrents?.length || scraping}><Radio size='1.8rem' class={scraping ? 'pulsing' : ''} /></button>
+      </div>
+      <div class='d-flex align-items-center mr-5' data-toggle='tooltip' data-placement='top' data-title='Refresh Search Results'>
+        <button type='button' class='btn btn-square bg-dark-very-light ml-auto d-flex align-items-center justify-content-center rounded-2 flex-shrink-0' use:click={() => queries = queryExtensions({...search}, resolution)} disabled={!$results?.resolved}><RefreshCw size='1.8rem' class={!$results?.resolved ? 'spinning' : ''} /></button>
       </div>
       <div class='d-flex align-items-center pr-5' title='Sorting Preference'>
         <ArrowDownWideNarrow size='2.75rem' class='position-absolute z-10 text-dark-light pl-10 pointer-events-none' />
@@ -493,57 +520,74 @@
   </div>
 </div>
 <div class='mt-10 mb-sm-10 px-30'>
-  {#if $results?.resolved && !$results?.torrents?.length}
-    <div class='mt-80'>
-      <ErrorCard promise={errors} />
-    </div>
-  {:else}
-    {#if $results?.torrents?.length && !$results?.resolved && (!best || !Object.values(best)?.length)}
-      <TorrentCardSk />
-    {:else if $results?.torrents?.length}
-      {#if best}<TorrentCard type='best' countdown={$settings.rssAutoplay && $results?.resolved ? countdown : -1} result={best} {play} media={search.media} episode={search.episode} />{/if}
-      {#if lastMagnet}
-        {#each filterResults(lookup, searchText) as result}
-          {#if ((result.link === lastMagnet.link) || (result.hash === lastMagnet.hash)) && (result.seeders ?? 0) > 1 && ((best?.link !== lastMagnet.link) && (best?.hash !== lastMagnet.hash)) }
-            <TorrentCard type='magnet' result={result} {play} media={search.media} episode={search.episode} />
-          {/if}
-        {/each}
-      {/if}
+  {#await errors then errorResult}
+    {#if errorResult?.errorCardOnly && $results?.resolved && !$results?.torrents?.length}
+      <div class='mt-80'>
+        {hideErrors()}
+        <ErrorCard promise={Promise.resolve(errorResult)} />
+      </div>
     {/if}
-    {#each filterResults(lookup, searchText) as result}
-      {#if ((best?.link !== result.link) && (best?.hash !== result.hash)) && (!lastMagnet || (((result.link !== lastMagnet.link) || (result.hash !== lastMagnet.hash)) || (result.seeders ?? 0) <= 1))}
-        <TorrentCard {result} {play} media={search.media} episode={search.episode} />
-      {/if}
-    {/each}
-    {#if lookupHidden?.length && $results?.resolved && filterResults(lookupHidden, searchText)?.length}
-      <button type='button' class='mb-10 control bd-highlight h-50 btn w-full p-5 rounded-3 d-flex align-items-center font-size-16 font-weight-semi-bold overflow-hidden' class:bg-dark={!viewHidden} class:bg-primary={viewHidden} use:click={()=> { viewHidden = !viewHidden }}>
-        <span class='ml-20'>{lookupHidden?.length} Unseeded Result{lookupHidden?.length > 1 ? 's' : ''} (Unavailable)</span>
-        <svelte:component this={ viewHidden ? ChevronUp : ChevronDown } class='ml-auto mr-10' size='2.2rem' />
-      </button>
-      {#if viewHidden}
-        {#each filterResults(lookupHidden, searchText) as result}
-          {#if (!best || ((best.link !== result.link) && (best.hash !== result.hash))) && (!lastMagnet || (((result.link !== lastMagnet.link) || (result.hash !== lastMagnet.hash)) || (result.seeders ?? 0) <= 1))}
-            <div class='unavailable'><TorrentCard {result} {play} media={search.media} episode={search.episode} /></div>
-          {/if}
-        {/each}
-      {/if}
-    {/if}
-    {#if queries}
-      {#await queries then queries}
-        {#each queries as [key, extension] (key)}
-          {#await extension.promise}
-            <TorrentCardSk name={extension.name} icon={extension.icon || 'none'} />
-          {:then resolved}
-            {addResults(resolved, { name: extension.name, icon: extension.icon })}
-          {/await}
-        {/each}
-      {/await}
-    {/if}
-    {#if !$results?.resolved}
-      {#each Array.from({ length: $results?.torrents?.length ? Math.max(15 - $results.torrents.length, 0) : 15 }) as _}
-        <TorrentCardSk />
+  {/await}
+  {#if $results?.torrents?.length && !$results?.resolved && ($results?.torrents?.length !== lookupHidden?.length) && (!best || !Object.values(best)?.length)}
+    <TorrentCardSk />
+  {:else if $results?.torrents?.length}
+    {#if best}<TorrentCard type='best' countdown={$settings.rssAutoplay && $results?.resolved ? countdown : -1} result={best} {play} media={search.media} episode={search.episode} />{/if}
+    {#if lastMagnet}
+      {#each filterResults(lookup, searchText) as result}
+        {#if ((result.link === lastMagnet.link) || (result.hash === lastMagnet.hash)) && (result.seeders ?? 0) > 1 && ((best?.link !== lastMagnet.link) && (best?.hash !== lastMagnet.hash)) }
+          <TorrentCard type='magnet' result={result} {play} media={search.media} episode={search.episode} />
+        {/if}
       {/each}
     {/if}
+  {/if}
+  {#each filterResults(lookup, searchText) as result}
+    {#if ((best?.link !== result.link) && (best?.hash !== result.hash)) && (!lastMagnet || (((result.link !== lastMagnet.link) || (result.hash !== lastMagnet.hash)) || (result.seeders ?? 0) <= 1))}
+      <TorrentCard {result} {play} media={search.media} episode={search.episode} />
+    {/if}
+  {/each}
+  {#if queries}
+    {#await queries then queries}
+      {#each queries as [key, extension] (key)}
+        {#await extension.promise}
+          <TorrentCardSk name={extension.name} icon={extension.icon || 'none'} />
+        {:then resolved}
+          {#if !resolved?.errors?.length}
+            {addResults(resolved, { name: extension.name, icon: extension.icon })}
+          {/if}
+        {/await}
+      {/each}
+    {/await}
+  {/if}
+  {#if !$results?.resolved}
+    {#each Array.from({ length: $results?.torrents?.length ? Math.max(15 - $results.torrents.length, 0) : 15 }) as _}
+      <TorrentCardSk />
+    {/each}
+  {/if}
+  {#if lookupHidden?.length && $results?.torrents?.length && filterResults(lookupHidden, searchText)?.length}
+    <button type='button' class='long-button mb-10 control bd-highlight h-50 btn w-full p-5 rounded-3 d-flex align-items-center font-size-16 font-weight-semi-bold overflow-hidden' class:bg-dark={!viewHidden} class:bg-primary={viewHidden} use:click={()=> { viewHidden = !viewHidden }}>
+      <span class='ml-20'>{lookupHidden?.length} Unseeded Result{lookupHidden?.length > 1 ? 's' : ''} (Unavailable)</span>
+      <svelte:component this={ viewHidden ? ChevronUp : ChevronDown } class='ml-auto mr-10' size='2.2rem' />
+    </button>
+    {#if viewHidden}
+      {#each filterResults(lookupHidden, searchText) as result}
+        {#if (!best || ((best.link !== result.link) && (best.hash !== result.hash))) && (!lastMagnet || (((result.link !== lastMagnet.link) || (result.hash !== lastMagnet.hash)) || (result.seeders ?? 0) <= 1))}
+          <div class='unavailable'><TorrentCard {result} {play} media={search.media} episode={search.episode} /></div>
+        {/if}
+      {/each}
+    {/if}
+  {/if}
+  {#if queries && !errorCardOnly}
+    {#await queries then queries}
+      {#each queries as [key, extension] (key)}
+        {#await extension.promise then resolved}
+          {#if resolved?.errors?.length}
+            <TorrentCard type='error' result={{ title: cleanErrorMessage(resolved.errors[0].message), source: { name: extension.name, icon: extension.icon } }} media={search.media} episode={search.episode} />
+          {/if}
+        {:catch error}
+          <TorrentCard type='error' result={{ title: cleanErrorMessage(error?.message), source: { name: extension.name, icon: extension.icon } }} media={search.media} episode={search.episode} />
+        {/await}
+      {/each}
+    {/await}
   {/if}
 </div>
 
@@ -574,6 +618,13 @@
   .px-25 {
     padding-left: 2.5rem;
     padding-right: 2rem;
+  }
+  :global(.pulsing) {
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
   }
   :global(.spinning) {
     animation: spin 1s linear infinite;

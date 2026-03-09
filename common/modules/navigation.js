@@ -337,6 +337,10 @@ class HistoryManager {
       }
       this.lockNavigation()
     }
+    if (modal.exists(modal.UPDATE_PROMPT) || modal.exists(modal.MINIMIZE_PROMPT)) {
+      debug('goBack ignored, fixed modal prompts are open')
+      return
+    }
     const current = this.history[this.currentIndex]
     let skipNavigation = false
     if (current) {

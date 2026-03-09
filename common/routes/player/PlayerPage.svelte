@@ -15,7 +15,7 @@
   import { toast } from 'svelte-sonner'
   import { getChaptersAniSkip } from '@/modules/anime/anime.js'
   import { mediaCache } from '@/modules/cache.js'
-  import Seekbar from 'perfect-seekbar'
+  import Seekbar from '@/routes/player/components/Seekbar.svelte'
   import { click } from '@/modules/click.js'
   import VideoDeband from 'video-deband'
   import Helper from '@/modules/helper.js'
@@ -27,7 +27,7 @@
   import 'rvfc-polyfill'
   import { IPC, ELECTRON, ANDROID } from '@/modules/bridge.js'
   import WPC from '@/modules/wpc.js'
-  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone } from 'lucide-svelte'
+  import { X, Minus, ArrowDown, ArrowUp, Captions, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone, ClockArrowDown, ClockArrowUp } from 'lucide-svelte'
   import Debug from 'debug'
   const debug = Debug('ui:player')
 
@@ -58,6 +58,8 @@
   export let files = []
   export let playableFiles = []
   export let updateCurrent
+  export let paused = true
+  export let miniplayerShelved = false
   $: updateFiles(files)
   let src = null
   let video = null
@@ -65,7 +67,6 @@
   let current = null
   let subs = null
   let duration = 0.1
-  let paused = true
   let muted = false
   let wasPaused = null
   let videos = []
@@ -264,6 +265,8 @@
       embeddedChapters = []
       currentSkippable = null
       completed = false
+      subDelay = 0
+      subDelayText = ''
       if (subs) {
         subs.destroy()
         subs = null
@@ -292,6 +295,9 @@
       }
       WPC.listen('externalReady', externalReadyListener)
     }
+    paused = true
+    currentTime = 0
+    targetTime = 0
     launchedExternal = launchExternal
     WPC.send('current', { current: file, external: settings.value.enableExternal || launchExternal })
   }
@@ -342,6 +348,9 @@
   }
 
   let subDelay = 0
+  let subDelayText = ''
+  let subDelayVisible = false
+  let subDelayTimeout
   $: updateDelay(subDelay)
   function updateDelay (delay) {
     if (subs?.renderer) subs.renderer.timeOffset = Number(delay)
@@ -905,6 +914,20 @@
       id: 'schedule',
       type: 'icon',
       desc: 'Reset Playback Rate'
+    },
+    Comma: {
+      fn: (e) => { if (!viewAnime && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') { subDelay = Number((Number(subDelay) + (e.shiftKey ? -1.0 : -0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 600) } },
+      id: 'sub_delay_decrease',
+      icon: ClockArrowDown,
+      type: 'icon',
+      desc: 'Subtitle Delay -0.1s / -1.0s'
+    },
+    Period: {
+      fn: (e) => { if (!viewAnime && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') { subDelay = Number((Number(subDelay) + (e.shiftKey ? 1.0 : 0.1)).toFixed(1)); subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`; subDelayVisible = true; clearTimeout(subDelayTimeout); subDelayTimeout = setTimeout(() => subDelayVisible = false, 600) } },
+      id: 'sub_delay_increase',
+      icon: ClockArrowUp,
+      type: 'icon',
+      desc: 'Subtitle Delay +0.1s / +1.0s'
     }
   })
 
@@ -1187,7 +1210,7 @@
     return _chapters
   }
 
-  // remaps chapters to what perfect-seekbar uses and adds potentially missing chapters
+  // remaps chapters to what the seekbar uses and adds potentially missing chapters
   function sanitiseChapters (_chapters, safeduration) {
     if (!_chapters?.length) return []
     const first = _chapters[0]
@@ -1558,7 +1581,7 @@
   on:mouseleave={immersePlayer}
   on:wheel={handleWheel}>
   {#if showKeybinds && !miniplayer}
-    <div class='position-absolute bg-tp w-full h-full z-50 font-size-12 p-20 d-flex align-items-center justify-content-center pointer' on:pointerup|self={() => (showKeybinds = false)} tabindex='-1' role='button'>
+    <div class='position-absolute bg-tp w-full h-full z-10 font-size-12 p-20 d-flex align-items-center justify-content-center' on:pointerup|self={() => (showKeybinds = false)} tabindex='-1' role='button'>
       <Keybinds let:prop={item} autosave={true} clickable={true}>
         {#if item?.type}
           <div class='bind icon' title={item?.desc} style='pointer-events: all !important;'>
@@ -1650,14 +1673,14 @@
         {/if}
       </div>
       <div class='font-weight-normal overflow-hidden text-truncate text-muted font-scale-16'>
-        {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (!media?.episodeTitle || !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle))}
+        {#if (media?.episode === 0 || media?.episode) && media?.media?.episodes !== 1 && media?.media?.format !== 'MOVIE' && (!media?.episodeTitle || !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle))}
           {@const maxEpisodes = getMediaMaxEp(media.media) - (media.zeroEpisode ? 1 : 0)}
           Episode {media.episodeRange ? `${media.episodeRange.first} ~ ${media.episodeRange.last}` : media.episode}
           {#if maxEpisodes && (Number(maxEpisodes) > 1)} of {maxEpisodes}{:else if !maxEpisodes && videos && (videos.length > 1)} of {videos.length}{/if} <!-- for when the media fails to resolve, we can predict that the file length is likely the episode count. -->
         {:else if current && (videos?.length > 1)}
           Episode {videos.indexOf(current) + 1} of {videos.length} <!-- fallback for when the media fails to resolve and we also fail to resolve the episode numbers, best to indicate what file we are currently on. -->
         {/if}
-        {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle))}{' - '}{/if}
+        {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle) && media?.media?.episodes !== 1)}{' - '}{/if}
         {#if media?.episodeTitle}{media.episodeTitle}{/if}
       </div>
     </div>
@@ -1700,12 +1723,12 @@
     </div>
   </div>
   <div class='middle d-flex align-items-center justify-content-center flex-grow-1 position-relative'>
-    <div aria-hidden='true' class='w-full h-full position-absolute toggle-fullscreen' on:dblclick={toggleFullscreen} on:click|self={() => { if ($page === page.PLAYER && modal.length === 0) { playPause(); } else { page.navigateTo(page.PLAYER) } }} />
+    <div aria-hidden='true' class='w-full h-full position-absolute toggle-fullscreen' on:dblclick={toggleFullscreen} on:click|self={() => { if ($page === page.PLAYER && modal.length === 0) { playPause(); } else if (!miniplayerShelved) { page.navigateTo(page.PLAYER) } }} />
     <div aria-hidden='true' class='w-full h-full position-absolute toggle-immerse d-none' on:dblclick={toggleFullscreen} on:click|self={toggleImmerse} />
     <div class='w-full h-full position-absolute mobile-focus-target d-none' use:click={() => { page.navigateTo(page.PLAYER) }} />
     <span aria-hidden='true' class='icon ctrl align-items-center justify-content-end w-150 mw-full mr-auto' class:hidden={externalPlayback} class:mb-50={!miniplayer} on:click={rewind}><Rewind size='3rem' /></span>
     <!-- miniplayer buttons -->
-    {#if miniplayer}
+    {#if miniplayer && !miniplayerShelved}
       <span class='position-absolute rounded-10 top-0 right-0 m-10 btn-shadow button' class:ctrl={!SUPPORTS.isAndroid} class:mr-40={!SUPPORTS.isAndroid} class:mr-50={SUPPORTS.isAndroid} title='Minimize' data-name='playPause' use:click={() => (playPage.set(!playPage.value))}>
         <Minus size='1.9rem' strokeWidth='3'/>
       </span>
@@ -1713,42 +1736,45 @@
         <X size='1.9rem' strokeWidth='3'/>
       </span>
     {/if}
-    <div class='d-flex align-items-center position-relative' class:mb-50={!miniplayer} style='width: 100%;' title='Play/Pause'>
-      {#if hasLast}
-        <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `left: 5%` : `left: 15%`} title='Last' data-name='playPause' use:click={playLast}>
-          <SkipBack size='3rem' fill='currentColor' />
-        </span>
-      {/if}
-        <span class='icon ctrl position-absolute rounded-10 text-white' data-name='playPause' style='left: 50%; margin-left: -3rem;' use:click={playPause}>
-          {#if ended}
-            <RotateCw size='3rem' />
-          {:else}
-            {#if paused}
-              <Play size='3rem' fill='currentColor' />
+    {#if !miniplayer || !miniplayerShelved}
+      <div class='d-flex align-items-center position-relative' class:mb-50={!miniplayer} style='width: 100%;' title='Play/Pause'>
+        {#if hasLast}
+          <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `left: 5%` : `left: 15%`} title='Last' data-name='playPause' use:click={playLast}>
+            <SkipBack size='3rem' fill='currentColor' />
+          </span>
+        {/if}
+          <span class='icon ctrl position-absolute rounded-10 text-white' data-name='playPause' style='left: 50%; margin-left: -3rem;' use:click={playPause}>
+            {#if ended}
+              <RotateCw size='3rem' />
             {:else}
-              <Pause size='3rem' fill='currentColor' />
+              {#if paused}
+                <Play size='3rem' fill='currentColor' />
+              {:else}
+                <Pause size='3rem' fill='currentColor' />
+              {/if}
             {/if}
-          {/if}
-        </span>
-      {#if hasNext}
-        <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `right: 5%` : `right: 15%`} title='Next' data-name='playPause' use:click={playNext}>
-          <SkipForward size='3rem' fill='currentColor' />
-        </span>
+          </span>
+        {#if hasNext}
+          <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `right: 5%` : `right: 15%`} title='Next' data-name='playPause' use:click={playNext}>
+            <SkipForward size='3rem' fill='currentColor' />
+          </span>
+        {/if}
+      </div>
+      <span aria-hidden='true' class='icon ctrl align-items-center w-150 mw-full ml-auto' class:hidden={externalPlayback} class:mb-50={!miniplayer} on:click={forward}><FastForward size='3rem' /></span>
+      <div class='position-absolute bufferingDisplay' class:bufferingPos={SUPPORTS.isAndroid && !miniplayer}/>
+      {#if currentSkippable}
+        <button class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold z-30 d-flex align-items-center justify-content-center' use:click={skip}>
+          <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
+        </button>
       {/if}
-    </div>
-    <span aria-hidden='true' class='icon ctrl align-items-center w-150 mw-full ml-auto' class:hidden={externalPlayback} class:mb-50={!miniplayer} on:click={forward}><FastForward size='3rem' /></span>
-    <div class='position-absolute bufferingDisplay' class:bufferingPos={SUPPORTS.isAndroid && !miniplayer}/>
-    {#if currentSkippable}
-      <button class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold z-30 d-flex align-items-center justify-content-center' use:click={skip}>
-        <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
-      </button>
     {/if}
     <span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {volumeVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out, color 0.7s ease-in-out; color: {volumeText === 'Muted' ? 'var(--paused-color)' : 'white'}'>{volumeText}</span>
+    {#if subDelayText}<span class='position-absolute top-auto bottom-30 left-0 w-full text-center mb-20 z-30 font-weight-bold font-scale-40 text-white' style='text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: {subDelayVisible ? 0.9 : 0}; transition: opacity 0.3s ease-in-out'>{subDelayText}</span>{/if}
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
       <Seekbar
-        accentColor='{completed || (media?.media && (($mediaCache[media.media.id] || media.media)?.mediaListEntry?.progress === (media.episodeRange ? media.episodeRange.last : media.episode))) ? `var(--completed-color-dim)` : `var(--accent-color)`}'
+        accentColor='{completed || (media?.media && ((($mediaCache[media.media.id] || media.media)?.mediaListEntry?.progress - (media?.zeroEpisode ? 1 : 0)) >= (media.episodeRange ? media.episodeRange.last : media.episode))) ? `var(--completed-color-dim)` : `var(--accent-color)`}'
         class='font-size-20'
         length={safeduration}
         {buffer}

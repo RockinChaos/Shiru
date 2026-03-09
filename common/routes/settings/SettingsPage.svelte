@@ -60,10 +60,10 @@
   import TorrentPage from '@/routes/torrentManager/TorrentPage.svelte'
   import { status } from '@/modules/networking.js'
   import { modal } from '@/modules/navigation.js'
+  import semver from 'semver'
   import { AppWindow, Puzzle, User, Heart, Logs, Play, Rss, Download, LayoutDashboard } from 'lucide-svelte'
 
   export let statusTransition = false
-  export let miniplayerPadding = ''
 
   const groups = {
     player: {
@@ -127,8 +127,8 @@
 </script>
 
 <Tabs>
-  <div class='d-flex w-full h-full position-relative settings root flex-md-row flex-column' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-lg-28px={SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-safe-area={SUPPORTS.isAndroid && !$status.match(/offline/i)}>
-    <div class='d-flex flex-column h-lg-full bg-dark position-absolute position-lg-relative bb-10 w-full w-lg-300 z-10 flex-lg-shrink-0'>
+  <div class='d-flex w-full h-full position-relative settings root flex-md-row flex-column'>
+    <div class='d-flex flex-column h-lg-full bg-dark position-absolute position-lg-relative bb-10 w-full w-lg-300 z-10 flex-lg-shrink-0 br-10' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-lg-28px={SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-safe-area={SUPPORTS.isAndroid && !$status.match(/offline/i)}>
       <div class='px-20 py-5 font-size-24 font-weight-semi-bold position-absolute d-none d-lg-block'>Settings</div>
       <div class='mt-lg-20 py-lg-20 py-10 d-flex flex-lg-column flex-row justify-content-center justify-content-lg-start align-items-center align-items-lg-start'>
         {#each Object.values(groups) as group}
@@ -142,15 +142,15 @@
       <div class='d-none d-lg-block mt-auto'>
         <p class='text-muted px-20 py-10 m-0'>Restart may be required for some settings to take effect.</p>
         <p class='text-muted px-20 pb-10 m-0'>If you don't know what settings do what, use defaults.</p>
-        <p class='text-muted px-20 m-0 mb-lg-20'>{version ? `v${version}` : ``} {platformMap[VERSION.platform] || 'dev'} {VERSION.arch || 'dev'} {capitalize(VERSION.session) || ''}</p>
+        <p class='text-muted px-20 m-0 mb-lg-20'>{version ? `v${version} ${semver.prerelease(version) ? `(Nightly)` : ``}` : ``} {platformMap[VERSION.platform] || 'dev'} {VERSION.arch || 'dev'} {capitalize(VERSION.session) || ''}</p>
       </div>
     </div>
-    <div class='mt-75 mt-lg-0 w-full overflow-y-auto overflow-y-md-hidden'>
+    <div class='mt-75 mt-lg-0 w-full overflow-y-auto overflow-y-md-hidden' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-lg-28px={SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-safe-area={SUPPORTS.isAndroid && !$status.match(/offline/i)}>
       <div class='shadow-overlay d-lg-none' />
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='scroll-container'>
-            <div class='page pb-100' style={miniplayerPadding}>
+            <div class='page pb-100'>
               <PlayerTab bind:settings={$settings} />
             </div>
           </div>
@@ -159,7 +159,7 @@
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='scroll-container'>
-            <div class='page pb-100' style={miniplayerPadding}>
+            <div class='page pb-100'>
               <ClientTab bind:settings={$settings} />
             </div>
           </div>
@@ -168,7 +168,7 @@
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-15'>
           <div class='scroll-container'>
-            <div class='page pb-100' style={miniplayerPadding}>
+            <div class='page pb-100'>
               <TorrentPage />
             </div>
           </div>
@@ -177,7 +177,7 @@
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='scroll-container'>
-            <div class='page pb-100' style={miniplayerPadding}>
+            <div class='page pb-100'>
               <InterfaceTab bind:settings={$settings} />
             </div>
           </div>
@@ -186,7 +186,7 @@
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='scroll-container'>
-            <div class='page pb-100' style={miniplayerPadding}>
+            <div class='page pb-100'>
               <ExtensionTab bind:settings={$settings} />
             </div>
           </div>
@@ -196,7 +196,7 @@
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='scroll-container'>
-            <div class='page pb-100' style={miniplayerPadding}>
+            <div class='page pb-100'>
               <AppTab {version} bind:settings={$settings} />
             </div>
           </div>
@@ -205,7 +205,7 @@
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='scroll-container'>
-            <div class='page pb-100' style={miniplayerPadding}>
+            <div class='page pb-100'>
               <ChangelogTab {version} />
             </div>
           </div>

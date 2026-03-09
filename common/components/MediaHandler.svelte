@@ -66,7 +66,7 @@
                 description: e?.message || String(e),
                 duration: 30000
             })
-          console.error(e)
+          debug(e)
         }) // targetFile is defined to force the targetFile media to load instead of the lowestUnwatched, lowestPlanning, or lowestCurrent
     } else {
       playFile(targetFile)
@@ -168,12 +168,13 @@
         streamingEpisode.title = (titleParts?.[0]?.trim() === titleParts?.[1]?.trim()) ? titleParts?.[0]?.trim() : streamingEpisode.title
       }
 
+      const foundEpisodeTitle = (streamingEpisode && (episodeRx.exec(streamingEpisode.title)?.[2] || episodeRx.exec(streamingEpisode.title))) || ((media?.format === 'MOVIE' && (media?.episodes ?? 0) <= 1) ? 'The Movie' : '')
       const details = {
         title: anilistClient.title(media) || parseObject?.anime_title || parseObject?.file_name,
         zeroEpisode,
         episode: ep,
         episodeRange,
-        episodeTitle: (streamingEpisode && (episodeRx.exec(streamingEpisode.title)?.[2] || episodeRx.exec(streamingEpisode.title))) || ((media?.format === 'MOVIE' && (media?.episodes ?? 0) <= 1) ? 'The Movie' : ''),
+        episodeTitle: foundEpisodeTitle && media?.episodes === 1 && (foundEpisodeTitle.match(/ web|web |movie/i) || foundEpisodeTitle.toLowerCase() === 'web') ? 'The Movie' : foundEpisodeTitle,
         thumbnail: media?.coverImage?.extraLarge
       }
 
@@ -353,7 +354,7 @@
       let resolvedByName = []
       try {
         resolvedByName = await AnimeResolver.resolveFileAnime(failedToResolve.map(file => `${torrentName} ${file.name}`))
-      } catch (e) { console.error(e) }
+      } catch (e) { debug(e) }
       failedToResolve.forEach((file) => {
         const parseObject = resolvedByName.find(({ parseObject }) => AnimeResolver.cleanFileName(`${torrentName} ${file.name}`).includes(parseObject.file_name))
         if (Object.keys(parseObject ?? {}).length) {
@@ -499,7 +500,7 @@
               description: e?.message || String(e),
               duration: 30000
           })
-          console.error(e)
+        debug(e)
       })
     return noop
   })
@@ -527,6 +528,8 @@
   import PlayerPage from '@/routes/player/PlayerPage.svelte'
 
   export let miniplayer = false
+  export let miniplayerShelved = false
+  export let playbackPaused = true
 </script>
 
-<PlayerPage files={$processed} playableFiles={$processedFiles} {miniplayer} media={$nowPlaying} bind:playFile on:current={handleCurrent} {updateCurrent} on:duration={handleRanged} />
+<PlayerPage files={$processed} playableFiles={$processedFiles} {miniplayer} bind:paused={playbackPaused} bind:miniplayerShelved media={$nowPlaying} bind:playFile on:current={handleCurrent} {updateCurrent} on:duration={handleRanged} />

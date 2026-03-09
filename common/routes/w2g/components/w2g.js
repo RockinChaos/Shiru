@@ -205,7 +205,7 @@ export class W2GClient extends EventEmitter {
         break
       }
       default:
-        console.error('Invalid message type', data)
+        debug('Invalid message type', data)
     }
   }
 

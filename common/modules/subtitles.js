@@ -152,7 +152,7 @@ export default class Subtitles {
         this.selectCaptions(this.current)
         this.onHeader()
       }
-    } else console.error(`Failed to load the file ${file.name} as it is not a subtitle file.`)
+    } else console.debug(`Failed to load the file ${file.name} as it is not a subtitle file.`)
   }
 
   initSubtitleRenderer () {

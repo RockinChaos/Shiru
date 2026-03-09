@@ -229,18 +229,18 @@ export default new class AnimeResolver {
     const cleanName = (name) => {
       // Preserve specific patterns
       name = name
-          .replace(/\b([A-Za-z]{3}\d)\.(\d)\b/g, '<<AUDIO_$1_$2>>')     // For AAC2.0, DDP2.0, etc.
-          .replace(/\b(H|X)\.(\d{3})\b/g, '<<RES_$1_$2>>')              // For H.264, H.265, X.265, etc.
-          .replace(/\b5\.1\b/g, '<<CHANNEL_5_1>>')                      // For 5.1 channels
-          .replace(/\bFLAC5\.1\b/g, '<<AUDIO_FLAC_5_1>>')               // For FLAC5.1
-          .replace(/\bVol\.(\d+)\b/g, '<<VOL_$1>>')                     // For Vol. followed by any digits
+          .replace(/\b([A-Za-z]{3,4}\d)\.(\d)\b/g, '<<AUDIO-$1-$2>>')   // For AAC2.0, DDP2.0, etc.
+          .replace(/\b(H|X)\.(\d{3})\b/g, '<<RES-$1-$2>>')              // For H.264, H.265, X.265, etc.
+          .replace(/\b5\.1\b/g, '<<CHANNEL-5-1>>')                      // For 5.1 channels
+          .replace(/\bFLAC5\.1\b/g, '<<AUDIO-FLAC-5-1>>')               // For FLAC5.1
+          .replace(/\bVol\.(\d+)\b/g, '<<VOL-$1>>')                     // For Vol. followed by any digits
 
       // Remove file extensions and replace all remaining periods with spaces
-      name = name.replace(/\.(mkv|mp4|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp|ogg|ogv)$/i, '').replace(/\./g, ' ')
+      name = name.replace(/\.(mkv|mp4|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp|ogg|ogv)$/i, '').replace(/[._]/g, ' ')
 
       // Fix common naming issues, the unfortunate depression of horribly named releases. Please don't be like them, do better.
       name = name
-          .replace('1-2', '1/2').replace('1_2', '1/2').replace('½', '1/2') // Ranma 1/2 fix.
+          .replace('1-2', '1/2').replace('1_2', '1/2').replace('1 2', '1/2').replace('½', '1/2') // Ranma 1/2 fix.
           .replace(/\s*part\s*1\+2/i, '') // Primary Misfit of Demon King fix.
           .replace(/PANTY AND STOCKING/i, 'PANTY & STOCKING') // PANTY & STOCKING fix.
           .replace(/Link Click (Season\s*3|S\s*3|\s*03)/i, 'Link Click: Bridon Arc') // Link Click S3 fix.
@@ -282,11 +282,11 @@ export default new class AnimeResolver {
 
       // Restore preserved patterns by converting markers back
       name = name
-          .replace(/<<AUDIO_([A-Za-z]{3}\d)_(\d)>>/g, '$1.$2')          // For AAC2.0, DDP2.0, etc.
-          .replace(/<<RES_([HX])_(\d{3})>>/g, '$1.$2')                  // For H.264, H.265, X.265, etc.
-          .replace(/<<CHANNEL_5_1>>/g, '5.1')                           // For 5.1 channels
-          .replace(/<<AUDIO_FLAC_5_1>>/g, 'FLAC5.1')                    // For FLAC5.1
-          .replace(/<<VOL_(\d+)>>/g, 'Vol.$1')                          // For Vol. followed by any digits
+          .replace(/<<AUDIO-([A-Za-z]{3,4}\d)-(\d)>>/g, '$1.$2')        // For AAC2.0, DDP2.0, etc.
+          .replace(/<<RES-([HX])-(\d{3})>>/g, '$1.$2')                  // For H.264, H.265, X.265, etc.
+          .replace(/<<CHANNEL-5-1>>/g, '5.1')                           // For 5.1 channels
+          .replace(/<<AUDIO-FLAC-5-1>>/g, 'FLAC5.1')                    // For FLAC5.1
+          .replace(/<<VOL-(\d+)>>/g, 'Vol.$1')                          // For Vol. followed by any digits
 
       // Remove extra spaces (collapse multiple spaces into one)
       return name.replace(/\s+/g, ' ').trim()
@@ -435,8 +435,8 @@ export default new class AnimeResolver {
       debug(`${failed || !(media?.title?.userPreferred) ? `Failed to resolve` : `Resolved`} ${parseObj.anime_title} ${parseObj.episode_number} ${episode} ${media?.id}:${media?.title?.userPreferred}`)
       const guessedEpisode = isValidNumber(episode) ? episode : episode ? episode : isValidNumber(parseObj.episode_number) ? parseObj.episode_number : parseObj.episode_number ? parseObj.episode_number : media?.episodes === 1 ? 1 : media?.format === 'MOVIE' && (media?.episodes ?? 0) <= 1 ? 1 : null
       fileAnimes.push({
-        episode: isValidNumber(guessedEpisode) ? Math.abs(guessedEpisode) : guessedEpisode,
-        ...(!media || media?.format !== 'MOVIE' || parseObj?.anime_season ? {season: parseObj?.anime_season ? Number(parseObj.anime_season) : 1} : {}),
+        episode: isValidNumber(guessedEpisode) ? Math.abs(guessedEpisode) === 0 && media?.episodes === 1 ? 1 : Math.abs(guessedEpisode) : guessedEpisode,
+        ...(!media || media?.format !== 'MOVIE' || parseObj?.anime_season ? { season: parseObj?.anime_season ? Number(parseObj.anime_season) : 1 } : {}),
         parseObject: parseObj,
         media,
         failed: failed || !(media?.title?.userPreferred) || (isValidNumber(guessedEpisode) && Number(guessedEpisode) < 0)

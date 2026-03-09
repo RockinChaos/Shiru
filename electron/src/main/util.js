@@ -1,4 +1,7 @@
 import { app, ipcMain, shell, screen } from 'electron'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
 import Store from './store.js'
 
 export const store = new Store(app.getPath('userData'), 'persist.json', { angle: 'default' })
@@ -29,7 +32,7 @@ app.commandLine.appendSwitch('use-angle', store.get('angle') || 'default')
 
 ipcMain.on('open', (event, url) => shell.openExternal(url))
 ipcMain.on('set:angle', (event, data) => store.set('angle', data))
-ipcMain.on('version', ({ sender }) => sender.send('version', app.getVersion()))
+ipcMain.on('version', ({ sender }) => sender.send('version', getAppVersion()))
 ipcMain.handle('get:angle', () => store.get('angle') || 'default')
 ipcMain.on('doh', (event, dns) => {
   try {
@@ -96,5 +99,15 @@ export function getDefaultBounds() {
     height: defaultBounds.height,
     x: Math.floor((screenWidth - defaultBounds.width) / 2),
     y: Math.floor((screenHeight - defaultBounds.height) / 2)
+  }
+}
+
+function getAppVersion() {
+  if (app.isPackaged) return app.getVersion()
+  try {
+    return JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8')).version
+  } catch (error) {
+    console.debug('Failed to read version from package.json', error)
+    return app.getVersion()
   }
 }

@@ -170,12 +170,57 @@ class ExtensionManager {
     if (!inactiveWorker) return
     try {
       delete this.inactiveWorkers[key]
-      if (!(await inactiveWorker.validate())) throw new Error('The content source appears to be unreachable.')
+      let validated
+      try {
+        validated = await inactiveWorker.validate()
+      } catch (err) {
+        validated = false
+      }
+      if (!validated && (await inactiveWorker.hasBadModule())) {
+        await this.getExtensionCode(key, inactiveWorker)
+        if (this.activeWorkers[key]) return
+      }
+      if (!validated) {
+        throw new Error('The content source appears to be unreachable.')
+      }
       this.activeWorkers[key] = inactiveWorker
       settings.set(settings.value)
     } catch (error) {
       if (!this.activeWorkers[key]) this.inactiveWorkers[key] = inactiveWorker
       await printError(`Failed to load extension ${key}`, 'Validation has failed', error)
+    }
+  }
+
+  /**
+   * Fetches, caches, initializes, and validates an extension's source code.
+   * If validation fails, the worker is marked inactive or terminated as needed.
+   *
+   * @param {string} key Unique identifier for the extension.
+   * @param {Object} worker The worker instance responsible for loading the extension.
+   * @returns {Promise<void>} Resolves when the extension is successfully loaded.
+   * @throws {Error} If the extension fails validation or initialization.
+   */
+  async getExtensionCode(key, worker) {
+    const extension = settings.value.sourcesNew[key]
+    let newCode = await getExtension(extension?.name || extension?.id, (extension?.locale || (extension?.update + '/')) + extension?.main)
+    if (newCode && typeof newCode === 'string' && newCode.trim().length > 0) {
+      if (!extension.locale) {
+        await cache.cacheEntry(caches.EXTENSIONS, key, { mappings: true }, newCode, Date.now() + getRandomInt(7, 14) * 24 * 60 * 60 * 1_000)
+        try {
+          const initialize = await worker.initialize(key, newCode, { bypassCORS: SUPPORTS.isAndroid && extension.trusted})
+          if (!initialize.validated) {
+            this.inactiveWorkers[key] = worker
+            settings.set(settings.value)
+            throw new Error(initialize.error)
+          }
+        } catch (error) {
+          if (!this.inactiveWorkers[key]) worker.terminate()
+          settings.set(settings.value)
+          throw new Error(error)
+        }
+        this.activeWorkers[key] = worker
+        settings.set(settings.value)
+      }
     }
   }
 
@@ -242,7 +287,7 @@ class ExtensionManager {
       } else { // extension manifests
         for (const extension of config) {
           if (!this.validateConfig(extension)) {
-            await printError('Invalid extension format', `Invalid extension config: ${url}`, {message: `Invalid extension config: ${url} ${JSON.stringify(extension)}`})
+            await printError('Invalid extension format', `Invalid extension config: ${url}`, { message: `Invalid extension config: ${url} ${JSON.stringify(extension)}` })
             this.pending.delete(url)
             return `Failed to load extension(s) from '${url}': invalid extension format.`
           }
@@ -339,6 +384,10 @@ class ExtensionManager {
               /** @type {comlink.Remote<import('@/modules/extensions/worker.js').Worker>} */
               const remoteWorker = await wrap(worker)
               const initialize = await remoteWorker.initialize(key, modules[key], { bypassCORS: SUPPORTS.isAndroid && extension.trusted})
+              if (!initialize.validated && initialize.stub) {
+                await this.getExtensionCode(key, remoteWorker)
+                if (this.activeWorkers[key]) return
+              }
               if (!initialize.validated) {
                 this.inactiveWorkers[key] = remoteWorker
                 settings.set(settings.value)

@@ -100,7 +100,7 @@
         <CloudDownload size={btnSize} class='flex-shrink-0 p-5 m-5 rounded fill-1' strokeWidth='2.5' color='currentColor' style='--fill-button-color: {hovering ? `var(--gray-color-very-dim)` : `var(--tertiary-color-light)`}' />
       </SidebarLink>
     {:else if $updateState === 'ready' || $updateState === 'ignored' || $updateState === 'aborted'}
-      <SidebarLink click={() => { $updateState = 'ready' }} icon='download' text='Update Available!' css='{!$settings.donate && !SUPPORTS.isAndroid ? `mt-md-h-auto` : ``} d-sm-h-none' _modal={modal.UPDATE_PROMPT} let:active let:hovering>
+      <SidebarLink click={() => { if ($updateState !== 'ready') updateState.set('ready'); else modal.open(modal.UPDATE_PROMPT) }} icon='download' text='Update Available!' css='{!$settings.donate && !SUPPORTS.isAndroid ? `mt-md-h-auto` : ``} d-sm-h-none' _modal={modal.UPDATE_PROMPT} let:active let:hovering>
         <CloudDownload size={btnSize} class='flex-shrink-0 p-5 m-5 rounded fill-1' strokeWidth='2.5' color='currentColor' style='--fill-button-color: {hovering ? `var(--gray-color-very-dim)` : `var(--success-color-light)`}' />
       </SidebarLink>
     {/if}
@@ -154,8 +154,5 @@
   }
   .sidebar.animated:hover .sidebar-overlay {
     width: 63rem
-  }
-  .br-10 {
-    border-right: .10rem var(--border-color-sp) solid !important;
   }
 </style>

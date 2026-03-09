@@ -28,7 +28,7 @@ export default class Dialog {
         await window.cordova.plugins.saveDialog.saveFile(new Blob([log], { type: 'application/octet-stream' }), `shiru-log-${new Date().toISOString().replace(/[:.]/g, '-')}.log`)
         IPC.emit('log-exported', { error: false })
       } catch (error) {
-        console.error('Failed to export logs:', error)
+        console.debug('Failed to export logs', error)
         IPC.emit('log-exported', { error: true })
       }
     })

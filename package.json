@@ -3,7 +3,7 @@
   "license": "GPL-3.0-or-later",
   "private": true,
   "author": "RockinChaos <RockinChaos@users.noreply.github.com>",
-  "description": "Manage your personal media library, organize your collection, and stream your content in real time, no waiting required!",
+  "description": "A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!",
   "main": "build/main.js",
   "homepage": "https://github.com/RockinChaos/Shiru#readme",
   "standard": {
@@ -20,17 +20,18 @@
     "@typescript-eslint/parser": "^8.45.0",
     "copy-webpack-plugin": "^13.0.1",
     "cross-env": "^10.1.0",
-    "eslint": "^9.39.2",
+    "eslint": "^10.0.1",
     "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-svelte": "^3.14.0",
+    "eslint-plugin-svelte": "^3.15.0",
     "html-webpack-plugin": "^5.6.6",
     "mini-css-extract-plugin": "^2.10.0",
-    "webpack": "^5.104.1",
+    "semver": "^7.7.4",
+    "webpack": "^5.105.2",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "5.1.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260131.0",
+    "@cloudflare/workers-types": "^4.20260302.0",
     "npm-run-all": "^4.1.5"
   },
   "pnpm": {
@@ -44,7 +45,8 @@
       "@capacitor/android": "patches/@capacitor__android.patch",
       "lucide-svelte@0.455.0": "patches/lucide-svelte@0.455.0.patch",
       "rfdc": "patches/rfdc.patch",
-      "capacitor-plugin-safe-area": "patches/capacitor-plugin-safe-area.patch"
+      "capacitor-plugin-safe-area": "patches/capacitor-plugin-safe-area.patch",
+      "svelte-keybinds": "patches/svelte-keybinds.patch"
     },
     "onlyBuiltDependencies": [
       "@paymoapp/electron-shutdown-handler",

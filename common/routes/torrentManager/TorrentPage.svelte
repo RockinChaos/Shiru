@@ -13,8 +13,6 @@
   WPC.listen('rescan_done', () => rescanning.value = false)
 </script>
 <script>
-  export let miniplayerPadding = ''
-
   let searchText = ''
   function filterResults(results, searchText) {
     const dedupe = results.filter((torrent, index, arr) => arr.findIndex(_torrent => _torrent.infoHash === torrent.infoHash) === index)
@@ -29,7 +27,7 @@
   $: foundResults = !(searchText?.length && !filteredLoaded && !filteredStaging.length && !filteredSeeding.length && !filteredCompleted.length)
 </script>
 
-<div class='bg-dark h-full w-full root status-transition {$$restProps.class}' class:pt-safe-area={$$restProps.class && !$status.match(/offline/i)} style={miniplayerPadding}>
+<div class='bg-dark h-full w-full root status-transition {$$restProps.class}' class:pt-safe-area={$$restProps.class && !$status.match(/offline/i)}>
   <div class='w-full status-transition' class:pl-20={$$restProps.class} class:pt-28px={$$restProps.class && !$status.match(/offline/i)}>
     <h4 class='font-weight-bold m-0 mb-10'>Manage Torrents</h4>
     <div class='d-flex align-items-center'>

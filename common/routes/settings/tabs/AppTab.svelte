@@ -53,9 +53,11 @@
   import SettingCard from '@/routes/settings/components/SettingCard.svelte'
   import ChangelogTab from '@/routes/settings/tabs/ChangelogTab.svelte'
   import ConfirmButton from '@/components/inputs/ConfirmButton.svelte'
+  import { modal } from '@/modules/navigation.js'
   import WPC from '@/modules/wpc.js'
   import { copyToClipboard } from '@/modules/clipboard.js'
   import { toast } from 'svelte-sonner'
+  import semver from 'semver'
   import Debug from 'debug'
   const debugStore = persisted('debug', '', { serializer: { parse: e => e, stringify: e => e }})
   const debug = Debug('ui:app-settings')
@@ -106,9 +108,17 @@
 <h4 class='mb-10 font-weight-bold'>App Settings</h4>
 <SettingCard title='About This App' description="Restart may be required for some settings to take effect. If you don't know what settings do what, use defaults." class='d-lg-none'>
   <div class='d-flex flex-column'>
-    <span class='text-nowrap'>{version ? `v${version}` : ``} {platformMap[VERSION.platform] || 'dev'} {VERSION.arch || 'dev'} {capitalize(VERSION.session) || ''}</span>
+    <span class='text-nowrap'>{version ? `v${version} ${semver.prerelease(version) ? `(Nightly)` : ``}` : ``} {platformMap[VERSION.platform] || 'dev'} {VERSION.arch || 'dev'} {capitalize(VERSION.session) || ''}</span>
     <button type='button' use:click={() => { toast('Update is downloading...', { description: 'This may take a moment, the update will be ready shortly.' }) }} class='btn btn-primary mt-5 d-none align-items-center justify-content-center' style='background-color: var(--tertiary-color-light);' class:d-flex={$updateState === 'downloading'}><span class='text-truncate'>Update Downloading...</span></button>
-    <button type='button' use:click={() => { $updateState = 'ready' }} class='btn btn-primary mt-5 d-none align-items-center justify-content-center bg-success-light' class:d-flex={$updateState === 'ready' || $updateState === 'ignored' || $updateState === 'aborted'}><span class='text-truncate'>Update Available!</span></button>
+    <button type='button' use:click={() => { if ($updateState !== 'ready') updateState.set('ready'); else modal.open(modal.UPDATE_PROMPT) }} class='btn btn-primary mt-5 d-none align-items-center justify-content-center bg-success-light' class:d-flex={$updateState === 'ready' || $updateState === 'ignored' || $updateState === 'aborted'}><span class='text-truncate'>Update Available!</span></button>
+  </div>
+</SettingCard>
+<SettingCard title='Update Channel' description={'Choose which type of updates you receive. Stable provides tested releases only, while Nightly includes frequent pre-release builds with the latest features and fixes but may include bugs.\n\nOnce you switch to Nightly and update you cannot downgrade back to the previous stable release. Nightly users automatically receive stable updates when available.'}>
+  <div>
+    <select class='form-control bg-dark mw-150 w-150 text-truncate' bind:value={settings.updateChannel}>
+      <option value='stable'>Stable</option>
+      <option value='nightly'>Nightly (Beta)</option>
+    </select>
   </div>
 </SettingCard>
 {#if !SUPPORTS.isAndroid}

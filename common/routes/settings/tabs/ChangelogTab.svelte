@@ -12,7 +12,7 @@
     <div class='font-size-18 text-muted'>New updates and improvements to Shiru.</div>
     <div class='font-size-14 text-muted'>Your current App Version is <b>v{version}</b></div>
   </div>
-  {#await changeLog}
+  {#await $changeLog}
     {#each Array(5) as _}
       <ChangelogSk />
     {/each}

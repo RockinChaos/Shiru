@@ -3,7 +3,7 @@ import WPC from '@/modules/wpc.js'
 import { sleep, isValidNumber } from '@/modules/util.js'
 import { anilistClient } from '@/modules/anilist.js'
 import { anitomyscript, getAniMappings, getMediaMaxEp } from '@/modules/anime/anime.js'
-import { checkForZero } from '@//components/MediaHandler.svelte'
+import { checkForZero } from '@/components/MediaHandler.svelte'
 import { status } from '@/modules/networking.js'
 import { extensionManager } from '@/modules/extensions/manager.js'
 import AnimeResolver from '@/modules/anime/animeresolver.js'
@@ -35,17 +35,26 @@ export async function getResultsFromExtensions({ media, episode, batch, movie, r
   await extensionManager.whenReady.promise
   debug(`Fetching sources for ${media?.id}:${media?.title?.userPreferred} ${episode} ${batch} ${movie} ${resolution}`)
   const aniDBMeta = await ALToAniDB(media)
-  const anidbAid = aniDBMeta?.mappings?.anidb_id
-  const anidbEid = anidbAid && (await ALtoAniDBEpisode({ media, episode }, aniDBMeta))?.anidbEid
+  const { anidb_id: anidbAid, imdb_id: imdbAid, thetvdb_id: tvdbAid, themoviedb_id: mvdbAid } = aniDBMeta?.mappings || {}
+  const mappingsE = ((anidbAid || tvdbAid) && (await ALtoAniDBEpisode({ media, episode }, aniDBMeta))) || {}
+  const anidbEid = anidbAid && mappingsE?.anidbEid
+  const tvdbEid = tvdbAid && mappingsE?.tvdbId
   debug(`AniDB Mapping: ${anidbAid} ${anidbEid}`)
 
   /** @type {Options} */
   const options = {
     anilistId: media.id,
     episodeCount: getMediaMaxEp(media),
+    media,
+    mappingsA: aniDBMeta?.mappings || {},
+    mappingsE,
     episode,
     anidbAid,
     anidbEid,
+    tvdbAid,
+    tvdbEid,
+    imdbAid,
+    mvdbAid,
     titles: createTitles(media),
     resolution,
     exclusions: settings.value.enableExternal ? [] : exclusions
@@ -86,8 +95,7 @@ export async function getResultsFromExtensions({ media, episode, batch, movie, r
           if (!deduped.length) return []
           const parseObjects = await anitomyscript(deduped.map(r => r.title))
           deduped.forEach((r, i) => r.parseObject = parseObjects[i])
-          if (settings.value.torrentAutoScrape) return await updatePeerCounts(deduped)
-          else return deduped
+          return await updatePeerCounts(deduped, !settings.value.torrentAutoScrape)
         } catch (error) {
           debug(`Extension ${key} failed: ${error}`)
           return { results: [], errors: [{ message: error?.[0]?.message || error?.message }] }
@@ -100,41 +108,77 @@ export async function getResultsFromExtensions({ media, episode, batch, movie, r
 }
 
 const peerCache = new Map()
-export async function updatePeerCounts (entries) {
-  const cacheKey = entries.map(({ hash }) => hash).sort().join(',')
-  const cached = peerCache.get(cacheKey)
-  if (cached && (((Date.now() - cached.timestamp) <= 90000) || status.value === 'offline')) {
-    debug(`The previously cached peer counts are less than two minutes old, returning cached entries...`, entries)
-    return cached.scrape
+export async function updatePeerCounts(entries, cacheOnly = false) {
+  const now = Date.now()
+  if (cacheOnly) {
+    let updatedEntries = 0
+    for (const entry of entries) {
+      const cached = peerCache.get(entry.hash)
+      if (cached && ((now - cached.timestamp) < 600_000 || status.value === 'offline')) {
+        entry.downloads = cached.downloads
+        entry.leechers = cached.leechers
+        entry.seeders = cached.seeders
+        updatedEntries++
+      }
+    }
+    debug(`Cache-only mode: applied cached peer counts to ${updatedEntries} entries`)
+    return entries
+  }
+
+  const toScrape = entries.filter(entry => {
+    const cached = peerCache.get(entry.hash)
+    return !cached || ((now - cached.timestamp) > 90_000 && status.value !== 'offline')
+  })
+
+  for (const entry of entries) {
+    const cached = peerCache.get(entry.hash)
+    if (cached) {
+      entry.downloads = cached.downloads
+      entry.leechers = cached.leechers
+      entry.seeders = cached.seeders
+    }
+  }
+
+  if (!toScrape.length) {
+    debug('All peer counts are fresh, returning cached entries...')
+    return entries
   }
 
   const id = Math.trunc(Math.random() * Number.MAX_SAFE_INTEGER).toString()
-  debug(`Updating peer counts for ${entries?.length} entries`)
+  debug(`Updating peer counts for ${toScrape.length} entries (${entries.length - toScrape.length} served from cache)`)
+
   const updated = await Promise.race([
     new Promise(resolve => {
-      function check (detail) {
+      function check(detail) {
         if (detail.id !== id) return
         debug('Got scrape response')
         WPC.clear('scrape_done', check)
         resolve(detail.result)
       }
       WPC.listen('scrape_done', check)
-      WPC.send('scrape', { id, infoHashes: entries.map(({ hash }) => hash) })
+      WPC.send('scrape', { id, infoHashes: toScrape.map(({ hash }) => hash) })
     }),
-    sleep(15000)
+    sleep(15_000)
   ])
   debug('Scrape complete')
 
+  const scrapedHashes = new Set((updated || []).map(entry => entry.hash))
   for (const { hash, complete, downloaded, incomplete } of updated || []) {
-    const found = entries.find(mapped => mapped.hash === hash)
-    found.downloads = downloaded
-    found.leechers = incomplete
-    found.seeders = complete
+    const entry = entries.find(e => e.hash === hash)
+    if (entry) {
+      entry.downloads = downloaded
+      entry.leechers = incomplete
+      entry.seeders = complete
+    }
+    peerCache.set(hash, { downloads: downloaded, leechers: incomplete, seeders: complete, timestamp: Date.now() })
   }
 
-  debug(`Found ${(updated || []).length} entries: ${JSON.stringify(updated)}`)
-  peerCache.set(cacheKey, { scrape: entries, timestamp: Date.now() })
-  return peerCache.get(cacheKey)?.scrape
+  for (const entry of toScrape) {
+    if (!scrapedHashes.has(entry.hash)) peerCache.set(entry.hash, { downloads: entry.downloads ?? 0, leechers: entry.leechers ?? 0, seeders: entry.seeders ?? 0, timestamp: Date.now() })
+  }
+
+  debug(`Scraped ${(updated || []).length} entries, ${entries.length - toScrape.length} from cache`)
+  return entries
 }
 
 /** @param {import('@/modules/al.js').Media} media */
@@ -182,7 +226,7 @@ async function ALtoAniDBEpisode ({ media, episode }, { episodes, episodeCount, s
   const scheduleNode = media?.airingSchedule?.nodes?.find(node => node.episode === (episode + (hasZeroEpisode ? 1 : 0)))
   if (scheduleNode?.airingAt) {
     debug(`Found airdate in cached media for episode ${episode}:${!!hasZeroEpisode}:${media?.id}:${media?.title?.userPreferred}`)
-    alDate = new Date(scheduleNode.airingAt * 1000)
+    alDate = new Date(scheduleNode.airingAt * 1_000)
   } else {
     debug(`No airdate in cached media, querying episodeDate for episode ${episode}:${!!hasZeroEpisode}:${media?.id}:${media?.title?.userPreferred}`)
     let res
@@ -194,7 +238,7 @@ async function ALtoAniDBEpisode ({ media, episode }, { episodes, episodeCount, s
 
     const airingAt = res?.data?.AiringSchedule?.airingAt
     if (airingAt) {
-      alDate = new Date(airingAt * 1000)
+      alDate = new Date(airingAt * 1_000)
     } else {
       debug(`No airing date found for episode ${episode}`)
       // if media only has one episode or , and airdate doesn't exist use start/end dates
@@ -255,12 +299,10 @@ export function episodeByAirDate (alDate, episodes, episode) {
 /** @param {import('@/modules/al.js').Media} media */
 function createTitles (media) {
   // group and de-duplicate
-  const grouped = [...new Set(Object.values(media.title).concat(media.synonyms).filter(name => name != null && name.length > 3))]
+  const groupedTitles = [...new Set(Object.values(media.title).concat(media.synonyms).filter(name => name != null && name.length > 3))]
   const titles = []
   /** @param {string} title */
   const appendTitle = title => {
-    // replace & with encoded
-    // title = title.replace(/&/g, '%26').replace(/\?/g, '%3F').replace(/#/g, '%23')
     titles.push(title)
 
     // replace Season 2 with S2, else replace 2nd Season with S2, but keep the original title
@@ -273,10 +315,9 @@ function createTitles (media) {
       titles.push(title.replace(/(\d)(?:nd|rd|th) Season/i, `S${match1[1]}`))
     }
   }
-  for (const t of grouped) {
-    if (t.includes('-')) appendTitle(t.replaceAll('-', ' '))
-    if (t.includes("'")) appendTitle(t.replaceAll("'", ''))
-    appendTitle(t.replaceAll('-', '').replaceAll('"', ''))
+  for (const title of groupedTitles) {
+    const titleVariants = new Set([title, title.replaceAll('-', ' '), title.replaceAll("'", ''), title.replaceAll('"', ''), title.replaceAll('-', ' ').replaceAll("'", '').replaceAll('"', '')])
+    for (const titleVariant of titleVariants) appendTitle(titleVariant)
   }
   return titles
 }
@@ -291,8 +332,8 @@ export function dedupe (entries) {
       dupe.title = AnimeResolver.cleanFileName(entry.title)
       dupe.link = entry.link
       dupe.id ??= entry.id
-      dupe.seeders ||= entry.seeders >= 30000 ? 0 : entry.seeders
-      dupe.leechers ||= entry.leechers >= 30000 ? 0 : entry.leechers
+      dupe.seeders ||= entry.seeders >= 30_000 ? 0 : entry.seeders
+      dupe.leechers ||= entry.leechers >= 30_000 ? 0 : entry.leechers
       dupe.downloads ||= entry.downloads
       dupe.accuracy ??= entry.accuracy
       dupe.size ||= entry.size
@@ -300,8 +341,8 @@ export function dedupe (entries) {
       dupe.type ??= entry.type
     } else {
       entry.title = AnimeResolver.cleanFileName(entry.title)
-      entry.seeders = entry.seeders && entry.seeders < 30000 ? entry.seeders : 0
-      entry.leechers = entry.leechers && entry.leechers < 30000 ? entry.leechers : 0
+      entry.seeders = entry.seeders && entry.seeders < 30_000 ? entry.seeders : 0
+      entry.leechers = entry.leechers && entry.leechers < 30_000 ? entry.leechers : 0
       entry.downloads ||= 0
       entry.date ||= new Date(Date.now() - 1_000).toUTCString()
       deduped[entry.hash] = entry

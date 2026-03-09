@@ -96,7 +96,7 @@
   --quinary-color: #D7060A !important;
   --senary-color: #FFD600 !important;
   --septenary-color: #8927FF !important;
-  --octonary-color: #FF5E00 !important;
+  --octonary-color: #FF6B35 !important;
   --denary-color: #BC2023 !important;
   --undenary-color-hue: 240deg;
   --undenary-color-saturation: 100%;
@@ -106,6 +106,8 @@
   --undenary-color-dim: hsl(var(--undenary-color-dim-hsl)) !important;
   --duodenary-color: #FFFFF0 !important;
   --quattuordenary-color: #FA68B6 !important;
+  --nonary-color: #F7931E !important;
+  --quindenary-color: #FFB088 !important;
 
   --border-color-sp: hsla(var(--gray-color-dim-hsl), 0.2);
   --dm-input-border-color: none;
@@ -282,6 +284,9 @@
   min-width: 35rem;
 }
 
+.wm-250 {
+  max-width: 25rem;
+}
 .wm-600 {
   max-width: 60rem;
 }
@@ -473,6 +478,9 @@ a[href]:active, button:not([disabled], .not-reactive):active:not([data-sonner-to
 .z-11 {
   z-index: 11 !important;
 }
+.z-45 {
+  z-index: 45;
+}
 .z-55 {
   z-index: 55;
 }
@@ -556,6 +564,9 @@ a[href]:active, button:not([disabled], .not-reactive):active:not([data-sonner-to
 .ml--1 {
   margin-left: -1rem;
 }
+.ml--10 {
+  margin-left: -1rem !important;
+}
 
 .mt--10 {
   margin-top: -1rem !important;
@@ -574,9 +585,6 @@ a[href]:active, button:not([disabled], .not-reactive):active:not([data-sonner-to
 }
 .mt-70 {
   margin-top: 7rem;
-}
-.mt-100 {
-  margin-top: 10rem;
 }
 
 .pt-28px {
@@ -623,6 +631,9 @@ body {
   color: var(--octonary-color) !important;
 }
 
+.text-warning-dim {
+  color: var(--warning-color-dim) !important;
+}
 .text-warning-very-dim {
   color: var(--warning-color-very-dim) !important;
 }
@@ -694,7 +705,7 @@ body {
     min-height: 20rem;
 }
 
-.transparent {
+:not(.svelte-keybinds *).transparent {
   opacity: 0;
   pointer-events: none;
 }
@@ -935,6 +946,9 @@ img[src=''], img[src=' '] {
 .mr--8 {
   margin-right: -.8rem !important;
 }
+.mr--10 {
+  margin-right: -1rem !important;
+}
 .mr-30 {
   margin-right: 3rem !important;
 }
@@ -979,6 +993,10 @@ img[src=''], img[src=' '] {
     border-left-width: 1rem;
     border-left-color: var(--dark-color-dim);
     border-right-width: 0;
+}
+
+.br-10 {
+  border-right: .10rem var(--border-color-sp) solid !important;
 }
 
 .radius-left-0 {

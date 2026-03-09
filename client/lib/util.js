@@ -152,7 +152,7 @@ export async function getInfoHash(input) {
     if (!parsed.infoHash) throw new Error('Invalid torrent data or magnet link')
     return parsed.infoHash.toLowerCase()
   } catch (error) {
-    console.error(error)
+    console.debug(error)
     return null
   }
 }

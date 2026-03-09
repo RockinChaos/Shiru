@@ -21,7 +21,7 @@
       const delayed = isDelayed(entry.episodeDate) || (airingEntry && isDelayed(airingSchedule?.airingAt))
       const numberOfEpisodes = entry.subtractedEpisodeNumber || 1
       if (entry.episodeDate && entry.episodeNumber <= episode) {
-        const airDate = past(new Date(airingSchedule.airingAt), entry.episodeNumber >= episode ? 0 : episode - entry.episodeNumber, true)
+        const airDate = past(new Date(delayed ? entry.delayedUntil : entry.episodeDate), entry.episodeNumber >= episode ? 0 : episode - entry.episodeNumber, true)
         return { airdate: airDate, text: `${entry.delayedIndefinitely ? 'Suspended' : entry.delayedIndefinitely ? 'Not Planned' : ((episode > entry.episodeNumber) && (numberOfEpisodes > 4) && !entry.unaired) ? 'In Production' : since(airDate) + (delayed ? ` (${entry.delayedText || 'Delayed'})` : '')}`, delayed: delayed }
       } else if (airingSchedule && airingSchedule.episode <= episode) {
         return { airdate: airingSchedule.airingAt, text: `${since(new Date(airingSchedule.airingAt))} ${(delayed ? `(${entry.delayedText || 'Delayed'})` : '')}`, delayed: delayed && !entry.delayedIndefinitely }
@@ -199,7 +199,8 @@
       }
 
       const episodeNumber = episode - (zeroAsFirstEpisode ? 1 : 0)
-      episodeList[episodeNumber - (!zeroEpisode ? 1 : 0)] = { zeroEpisode, episode: episodeNumber, image: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? episode === 0 ? zeroEpisode[0]?.thumbnail : episodeList.some((ep) => ep.image === (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) && ep.episode !== episodeNumber) ? null : (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) : null, summary: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= Date.now()) || ((episode === 0 || episode === 1) && !validatedAiringAt && media?.status === 'RELEASING')) ? episode === 0 ? (zeroSummary || summary || overview) : episodeList.some((ep) => ep.summary === (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) && ep.episode !== episodeNumber) ? null : (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) : `This episode ${validatedAiringAt || media?.startDate?.month || media?.season || media?.seasonYear ? `will be released ${validatedAiringAt || media?.startDate?.month ? `${validatedAiringAt ? `on` : `in`} ${monthDay(validatedAiringAt || new Date(media.startDate.year, media.startDate.month, media.startDate.day), !validatedAiringAt)}` : `in ${media?.season ? capitalize(media?.season?.toLowerCase()) : ''} ${media?.seasonYear || ''}`}.` : ` is in production and does not have an estimated release date.`}`, rating, title: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? title || kitsuEpisode?.titles?.en_us || kitsuEpisode?.titles?.en_jp || newTitle?.jp || oldTitle?.jp : null, length: media?.status === 'FINISHED' || validatedAiringAt ? lastDuration : null, airdate: validatedAiringAt, airingAt: validatedAiringAt, filler, dubAiring: !zeroEpisode ? _dubAiring : dubbedEpisode(episodeNumber - 1, media) }
+      const foundTitle = (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? title || kitsuEpisode?.titles?.en_us || kitsuEpisode?.titles?.en_jp || newTitle?.jp || oldTitle?.jp : null
+      episodeList[episodeNumber - (!zeroEpisode ? 1 : 0)] = { zeroEpisode, episode: episodeNumber, image: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? episode === 0 ? zeroEpisode[0]?.thumbnail : episodeList.some((ep) => ep.image === (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) && ep.episode !== episodeNumber) ? null : (image || kitsuEpisode?.thumbnail?.original || streamingThumbnail) : null, summary: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= Date.now()) || ((episode === 0 || episode === 1) && !validatedAiringAt && media?.status === 'RELEASING')) ? episode === 0 ? (zeroSummary || summary || overview) : episodeList.some((ep) => ep.summary === (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) && ep.episode !== episodeNumber) ? null : (summary || overview || kitsuEpisode?.synopsis || kitsuEpisode?.description) : `This episode ${validatedAiringAt || (media?.status === 'NOT_YET_RELEASED' && (media?.startDate?.month || media?.season || media?.seasonYear)) ? `will be released ${validatedAiringAt || media?.startDate?.month ? `${validatedAiringAt ? `on` : `in`} ${monthDay(validatedAiringAt || new Date(media.startDate.year, media.startDate.month, media.startDate.day), !validatedAiringAt)}` : `in ${media?.season ? capitalize(media?.season?.toLowerCase()) : ''} ${media?.seasonYear || ''}`}.` : ` is in production and does not have an estimated release date.`}`, rating, title: foundTitle && media?.episodes === 1 && (foundTitle.match(/ web|web |movie/i) || foundTitle.toLowerCase() === 'web') ? 'The Movie' : foundTitle, length: media?.status === 'FINISHED' || validatedAiringAt ? lastDuration : null, airdate: validatedAiringAt, airingAt: validatedAiringAt, filler, dubAiring: !zeroEpisode ? _dubAiring : dubbedEpisode(episodeNumber - 1, media) }
     }
 
     if (zeroEpisode && episodeList.length === alEpisodes.length) episodeList = episodeList.slice(0, -1)
@@ -278,7 +279,7 @@
           {/each}
         {:then [title, filler, dubAiring, nextDubAiring]}
           {#if media?.status === 'FINISHED' || (episodeOrder ? (index === 0 || ((currentEpisodes[index - 1]?.airdate && (new Date(currentEpisodes[index - 1].airdate).getTime() <= new Date().getTime())) || (media?.status !== 'NOT_YET_RELEASED' && airdate && currentEpisodes[index - 1]?.airdate && (currentEpisodes[index - 1]?.airdate === airdate)) || (nextDubAiring?.airdate && new Date(nextDubAiring.airdate).getTime() === new Date(dubAiring.airdate).getTime()))) : (index === currentEpisodes.length - 1 || (currentEpisodes[index + 1]?.airdate && (new Date(currentEpisodes[index + 1]?.airdate).getTime() <= new Date().getTime())) || (currentEpisodes[index + 1]?.airdate && currentEpisodes[index + 1]?.airdate === airdate) || (nextDubAiring?.airdate && new Date(nextDubAiring.airdate).getTime() === new Date(dubAiring.airdate).getTime())))}
-            {@const unreleased = media?.status !== 'FINISHED' && ((airdate && new Date(airdate).getTime() > new Date()) || (!airdate && media?.status === 'NOT_YET_RELEASED'))}
+            {@const unreleased = media?.status !== 'FINISHED' && ((airdate && new Date(airdate).getTime() > new Date()) || (!airdate && (episode > 1 || media?.status === 'NOT_YET_RELEASED')))}
             {@const completed = !watched && userProgress >= (episode + (zeroEpisode ? 1 : 0))}
             {@const target = userProgress + 1 === (episode + (zeroEpisode ? 1 : 0))}
             {@const hasFiller = filler?.filler || filler?.recap}
@@ -288,7 +289,7 @@
             {@const resolvedHash = ($completedTorrents || $seedingTorrents || $stagingTorrents || $loadedTorrent) && getHash(media?.id, { episode, client: true, batchGuess: true }, false, true)}
             <div class='w-full content-visibility-auto scale my-20' class:load-in={!loadScroll} class:opacity-half={completed} class:scale-target={target} class:px-20={!target} class:px-10={target} class:h-150={!SUPPORTS.isAndroid && largeCard} class:h-165={SUPPORTS.isAndroid && largeCard}>
               <div role='button' tabindex='0' class='episode-card rounded-2 w-full h-full overflow-hidden d-flex flex-xsm-column flex-row position-relative {unreleased ? `unreleased not-allowed` : `pointer`}' class:not-reactive={!$reactive} class:smallCard={!largeCard} class:android={SUPPORTS.isAndroid}  class:border={target || hasFiller} class:bg-black={completed} class:border-secondary={hasFiller} class:bg-dark-light={!completed} use:click={() => play(media, episode)} on:contextmenu|preventDefault={() => play(media, episode, true)}>
-                <div class="unreleased-overlay position-absolute top-0 left-0 right-0 h-full pointer-events-none rounded-2" class:d-none={!unreleased}/>
+                <div class='unreleased-overlay position-absolute top-0 left-0 right-0 h-full pointer-events-none rounded-2' class:d-none={!unreleased}/>
                 {#if image}
                   <div class='d-flex'>
                     <SmartImage class='img-cover {!SUPPORTS.isAndroid ? `h-150` : `h-165`} w-full w-sm-265' images={[image, './404_episode.png']}/>
@@ -319,7 +320,7 @@
                 <div class='h-full w-full px-20 pt-15 d-flex flex-column'>
                   <div class='w-full d-flex flex-row mb-15'>
                     <div class='text-white font-weight-bold font-size-16 overflow-hidden title'>
-                      {#if resolvedTitle && !new RegExp(`(?<![\\d.])${episode}(?![\\d.])`).test(resolvedTitle)}{episode}. {/if}{resolvedTitle || 'Episode ' + episode}
+                      {#if resolvedTitle && !new RegExp(`(?<![\\d.])${episode}(?![\\d.])`).test(resolvedTitle) && media?.episodes !== 1}{episode}. {/if}{resolvedTitle || 'Episode ' + episode}
                     </div>
                     {#if length}
                       <div class='ml-auto pl-5'>
@@ -351,11 +352,11 @@
                             {since(new Date(airdate))}
                           {:else if !dubAiring.notPlanned}
                             {dubAiring.text}
-                          {:else if (media.status === 'RELEASING' && episode > 1) || (media.status === 'NOT_YET_RELEASED' && !media.startDate?.month && !media?.season)}
+                          {:else if (media.status === 'RELEASING' && episode > 1 && unreleased) || (media.status === 'NOT_YET_RELEASED' && !media.startDate?.month && !media?.season)}
                             In Production
-                          {:else if (media.status === 'NOT_YET_RELEASED' && !media.startDate?.month && media?.season)}
+                          {:else if ((media.status === 'NOT_YET_RELEASED' || episode <= 1) && !media.startDate?.month && media?.season)}
                             {capitalize(media.season.toLowerCase()) + ' ' + (media.seasonYear || '')}
-                          {:else if (media.status === 'NOT_YET_RELEASED' && media.startDate?.month)}
+                          {:else if ((media.status === 'NOT_YET_RELEASED' || episode <= 1) && media.startDate?.month)}
                             {monthDay(new Date(media.startDate.year, media.startDate.month, media.startDate.day), true)}
                           {:else if media.status === 'FINISHED'}
                             Released
@@ -367,11 +368,11 @@
                     {:else}
                       {#if airdate}
                         {since(new Date(airdate))}
-                      {:else if (media.status === 'NOT_YET_RELEASED' && !media.startDate?.month && !media?.season)}
+                      {:else if (media.status === 'RELEASING' && episode > 1 && unreleased) || (media.status === 'NOT_YET_RELEASED' && !media.startDate?.month && !media?.season)}
                         In Production
-                      {:else if (media.status === 'NOT_YET_RELEASED' && !media.startDate?.month && media?.season)}
+                      {:else if ((media.status === 'NOT_YET_RELEASED' || episode <= 1) && !media.startDate?.month && media?.season)}
                         {capitalize(media.season.toLowerCase()) + ' ' + (media.seasonYear || '')}
-                      {:else if (media.status === 'NOT_YET_RELEASED' && media.startDate?.month)}
+                      {:else if ((media.status === 'NOT_YET_RELEASED' || episode <= 1) && media.startDate?.month)}
                         {monthDay(new Date(media.startDate.year, media.startDate.month, media.startDate.day), true)}
                       {:else if media.status === 'FINISHED'}
                         Released

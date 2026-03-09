@@ -47,7 +47,7 @@ export default class Cache {
     try {
       return await writeFile(join(await this.cacheFolder, key), bencoded ? bencode.encode(value) : JSON.stringify(value), { mode: 0o666 })
     } catch (error) {
-      console.error(error)
+      console.debug(error)
     }
   }
 
@@ -93,7 +93,7 @@ export default class Cache {
         }
       }
     } catch (error) {
-      console.error(error)
+      console.debug(error)
     }
   }
 

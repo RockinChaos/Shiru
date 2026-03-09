@@ -43,7 +43,7 @@ export default class Dialog {
         await writeFile(filePath, log, { encoding: 'utf8', mode: 0o644 })
         sender.send('log-exported', { error: false })
       } catch (error) {
-        console.error(error)
+        console.debug(error)
         sender.send('log-exported', { error: true })
       }
     })

@@ -43,6 +43,14 @@
     <label for='miniplayer-disabled'>{$playPage ? 'On' : 'Off'}</label>
   </div>
 </SettingCard>
+{#if !$playPage}
+  <SettingCard title='Auto-Hide Miniplayer' description='When enabled, the miniplayer will automatically shelve itself when playback is paused and unshelve when hovered or focused. When disabled, you can manually shelve and unshelve the miniplayer by clicking, tapping or swiping. Whether enabled or disabled the miniplayer will always unshelve itself when playback resumes.'>
+    <div class='custom-switch'>
+      <input type='checkbox' id='autohide-miniplayer' bind:checked={settings.autoHideMiniplayer} />
+      <label for='autohide-miniplayer'>{settings.autoHideMiniplayer ? 'On' : 'Off'}</label>
+    </div>
+  </SettingCard>
+{/if}
 <h4 class='mb-10 font-weight-bold'>Subtitle Settings</h4>
 {#if ('queryLocalFonts' in self)}
   <SettingCard title='Default Subtitle Font' description={"What font to use when the current loaded video doesn't provide or specify one.\nThis uses fonts installed on your OS."}>

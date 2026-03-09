@@ -17,7 +17,7 @@ import { loadingClient } from './util.js'
 export default class App {
   protocol = new Protocol()
   debugger = new Debugger()
-  updater = new Updater('https://github.com/RockinChaos/Shiru/releases/latest/download/latest-android.yml', 'https://api.github.com/repos/RockinChaos/Shiru/releases/latest')
+  updater = new Updater('RockinChaos', 'Shiru')
   dialog = new Dialog()
 
   ready = NodeJS.whenReady()
@@ -134,7 +134,7 @@ export default class App {
         try {
           LocalNotifications.requestPermissions().then(() => this.canNotify = true)
         } catch (error) {
-          console.error(error)
+          console.debug(error)
         }
       } else this.canNotify = true
     })

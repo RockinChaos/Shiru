@@ -1,11 +1,11 @@
-# Contributing to Shiru
+# 🛠️ Contributing to Shiru
 
-First off — thank you for considering contributing to **Shiru**! 🎉  
+First off, thank you for considering contributing to **Shiru**!  
 Whether you're fixing a bug, adding a feature, improving performance, or updating docs, all contributions help make the project better for everyone.
+By participating in this project, you agree to maintain a respectful and inclusive environment. Be kind, professional, and considerate in all interactions.
 
 ## 📑 Table of Contents
 
-- [Code of Conduct](#-code-of-conduct)
 - [How Can I Contribute?](#-how-can-i-contribute)
     - [Reporting Bugs](#-reporting-bugs)
     - [Suggesting Features](#-suggesting-features)
@@ -15,10 +15,7 @@ Whether you're fixing a bug, adding a feature, improving performance, or updatin
 - [Pull Request Process](#-pull-request-process)
 - [Style Guidelines](#-style-guidelines)
 - [Community](#-community)
-
-## 🤝 Code of Conduct
-
-By participating in this project, you agree to maintain a respectful and inclusive environment. Be kind, professional, and considerate in all interactions.
+- [Code of Conduct](https://github.com/RockinChaos/Shiru?tab=coc-ov-file)
 
 ## 🚀 How Can I Contribute?
 
@@ -26,7 +23,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 Found a bug? Help us fix it by creating a detailed bug report:
 
-1. **Check existing issues** - Search the [issue tracker](https://github.com/RockinChaos/Shiru/issues) to see if the bug has already been reported
+1. **Check existing issues** - Search the [issue tracker](https://github.com/RockinChaos/Shiru/issues?q=is%3Aissue%20label%3Abug) to see if the bug has already been reported
 2. **Use the bug report template** - Click "New Issue" and select "Bug Report"
 3. **Provide details** - Include:
     - Your operating system and architecture
@@ -39,12 +36,12 @@ Found a bug? Help us fix it by creating a detailed bug report:
 
 Have an idea to improve Shiru? We'd love to hear it:
 
-1. **Check existing requests** - Search the [issue tracker](https://github.com/RockinChaos/Shiru/issues) to avoid duplicates
+1. **Check existing requests** - Search the [issue tracker](https://github.com/RockinChaos/Shiru/issues?q=is%3Aissue%20label%3Aenhancement) to avoid duplicates
 2. **Use the feature request template** - Click "New Issue" and select "Feature Request"
 3. **Be specific** - Clearly describe:
-    - What problem the feature solves
+    - What problem does the feature solve
     - How it should work
-    - Which platforms it applies to
+    - Which platforms does it apply to
     - Why it would be valuable
 
 ### ❓ Asking Questions

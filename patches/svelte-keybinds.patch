@@ -1,0 +1,27 @@
+diff --git a/Keybinds.svelte b/Keybinds.svelte
+index 9a0ae3fbcc6d3eacf3d6270d984b150fd8aa7cc0..5b87ae8ff05f647f85dd68235b8ed034ece87ae1 100644
+--- a/Keybinds.svelte
++++ b/Keybinds.svelte
+@@ -80,10 +80,10 @@
+     node.addEventListener('dragover', (e) => {
+       e.dataTransfer.dropEffect = 'move'
+       e.preventDefault()
+-      if (!drag) e.target.classList.add('transparent')
++      if (!drag) node.classList.add('transparent')
+     })
+-    node.addEventListener('dragleave', ({ target }) => {
+-      if (!drag) target.classList.remove('transparent')
++    node.addEventListener('dragleave', ({ relatedTarget }) => {
++      if (!drag && !node.contains(relatedTarget)) node.classList.remove('transparent')
+     })
+     node.addEventListener('drop', ({ target }) => {
+       target.style.opacity = null
+@@ -111,6 +111,8 @@
+       class:dark
+       draggable={!!kbnref[name]}
+       data-code={name}
++      role='button'
++      tabindex='0'
+       class='w-{size || 50}'
+       {...$$restProps}
+       use:draggable={name}

@@ -6,8 +6,9 @@ def jsonFile = file('../../../electron/package.json')
 def parsedJson = new groovy.json.JsonSlurper().parseText(jsonFile.text)
 def verName = parsedJson.version
 def versions = verName.tokenize('.')
+def cleanVersions = versions.take(3).collect { it.replaceAll(/[^0-9]/, '') }
 
-versions.each (code) -> {
+cleanVersions.each (code) -> {
     verCode = (verCode*100) + Integer.parseInt(code)
 }
 

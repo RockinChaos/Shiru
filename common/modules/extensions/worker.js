@@ -4,9 +4,22 @@ import { expose, proxy } from 'comlink'
 /** @typedef {import('../../../extensions').TorrentResult} Result */
 /** @typedef {import('../../../extensions/sources/abstract.js').default} AbstractSource */
 
+/**
+ * Checks whether a module consists only of re-exports or placeholders.
+ * Stub modules typically contain no executable logic such as classes, functions, or arrow functions.
+ *
+ * @param {string} module The module source code.
+ * @returns {boolean} True if the module appears to be a stub, otherwise false.
+ */
+function isStubModule(module) {
+  const stripped = module.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').trim()
+  return (!/(class|function|async\s+function|=>)/.test(stripped))
+}
+
 class Worker {
   id
   source
+  module
   cache = new Map()
 
   /**
@@ -14,9 +27,10 @@ class Worker {
    * @param {string} id
    * @param {object} module
    * @param {{bypassCORS: boolean}} opts
-   * @returns {Promise<{ validated: true } | { validated: false, error: string }>}
+   * @returns {Promise<{ validated: true } | { error: string } | { stub: boolean, error: string }>}
    */
   async initialize(id, module, opts) {
+    this.module = module
     try {
       let source
       if (id.startsWith('extension:')) source = (await import(/* webpackIgnore: true */ module)).default
@@ -25,6 +39,7 @@ class Worker {
         const blobUrl = URL.createObjectURL(blob)
         source = (await import(/* webpackIgnore: true */ blobUrl)).default
       }
+      source.anitomyscript = (await import('anitomyscript')).default
       this.id = id
       this.source = source
 
@@ -36,12 +51,22 @@ class Worker {
           validated = await this.source.validate()
         }
       } else validated = await this.source.validate()
-      if (!validated) return { validated: false, error: 'The content source appears to be unreachable.' }
+      if (!validated) return { error: 'The content source appears to be unreachable.' }
 
       return { validated: true }
     } catch (err) {
-      return { validated: false, error: err.message }
+      return { stub: isStubModule(module), error: err.message }
     }
+  }
+
+  /**
+   * Determines whether the currently loaded module is considered invalid.
+   * A module is treated as "bad" when no source has been initialized and the module code is detected as a stub-only implementation.
+   *
+   * @returns {boolean} True if the module is missing a source and is a stub, otherwise false.
+   */
+  hasBadModule() {
+    return !this.source && isStubModule(this.module)
   }
 
   /**

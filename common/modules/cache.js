@@ -86,7 +86,7 @@ async function loadAll(userID, cache) {
       }
     })
   } catch (error) {
-    console.error(`Failed to load cache ${cache.key} for user ${userID}:`, error)
+    debug(`Failed to load cache ${cache.key} for user ${userID}:`, error)
     throw error
   }
 }
@@ -214,7 +214,7 @@ async function recoverCache(userID, cache) {
       keysRequest.onsuccess = () => resolve(keysRequest.result)
       keysRequest.onerror = () => reject(keysRequest.error)
     })
-    console.error(`Found ${keys.length} keys in ${cache.key}, attempting individual recovery...`)
+    debug(`Found ${keys.length} keys in ${cache.key}, attempting individual recovery...`)
     for (const key of keys) {
       try {
         recovered[key] = await new Promise((resolve, reject) => {
@@ -225,16 +225,16 @@ async function recoverCache(userID, cache) {
           }
           getRequest.onerror = () => reject(getRequest.error)
         })
-        console.error(`Recovered ${cache.key}:${key}`)
+        debug(`Recovered ${cache.key}:${key}`)
       } catch (error) {
         corruptedKeys.push(key)
-        console.error(`Failed to recover ${cache.key}:${key}:`, error.message)
+        debug(`Failed to recover ${cache.key}:${key}:`, error.message)
       }
     }
-    if (corruptedKeys.length > 0) console.error(`Recovered ${Object.keys(recovered).length}/${keys.length} entries from ${cache.key}. Corrupted keys:`, corruptedKeys)
-    else console.error(`Successfully recovered all ${Object.keys(recovered).length} entries from ${cache.key}`)
+    if (corruptedKeys.length > 0) debug(`Recovered ${Object.keys(recovered).length}/${keys.length} entries from ${cache.key}. Corrupted keys:`, corruptedKeys)
+    else debug(`Successfully recovered all ${Object.keys(recovered).length} entries from ${cache.key}`)
   } catch (error) {
-    console.error(`Could not access ${cache.key} for recovery:`, error)
+    debug(`Could not access ${cache.key} for recovery:`, error)
   }
   return recovered
 }
@@ -433,23 +433,23 @@ class Cache {
         try {
           data = await loadAll(this.cacheID, key)
         } catch (error) {
-          console.error(`Normal load failed for ${key.key}, attempting recovery:`, error.message)
+          debug(`Normal load failed for ${key.key}, attempting recovery:`, error.message)
           const recovered = await recoverCache(this.cacheID, key)
           if (Object.keys(recovered).length > 0) {
             try {
-              console.error(`Clearing corrupted ${key.key} and restoring ${Object.keys(recovered).length} recovered entries...`)
+              debug(`Clearing corrupted ${key.key} and restoring ${Object.keys(recovered).length} recovered entries...`)
               await reset(this.cacheID, key)
               await putMany(this.cacheID, key, Object.entries(recovered))
-              console.error(`Successfully restored ${key.key} with recovered data`)
+              debug(`Successfully restored ${key.key} with recovered data`)
             } catch (restoreError) {
-              console.error(`Failed to restore ${key.key}, will use recovered data in-memory only:`, restoreError)
+              debug(`Failed to restore ${key.key}, will use recovered data in-memory only:`, restoreError)
             }
-          } else console.error(`No data could be recovered from ${key.key}, returning empty cache`)
+          } else debug(`No data could be recovered from ${key.key}, returning empty cache`)
           data = recovered
         }
         cacheMap.set(key.key, data)
       } catch (error) {
-        console.error(`Critical error loading ${key.key}, using empty cache:`, error)
+        debug(`Critical error loading ${key.key}, using empty cache:`, error)
         cacheMap.set(key.key, {})
       }
     }

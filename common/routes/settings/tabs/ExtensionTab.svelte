@@ -5,7 +5,9 @@
   import { stringToHex, capitalize, toFlags } from '@/modules/util.js'
   import { extensionManager } from '@/modules/extensions/manager.js'
   import { status } from '@/modules/networking.js'
-  import { TriangleAlert, Github, Folder, FileQuestion, Trash2, CircleX, ChevronDown, ChevronUp, SquarePlus, Adult } from 'lucide-svelte'
+  import { marked } from 'marked'
+  import DOMPurify from 'dompurify'
+  import { TriangleAlert, CircleAlert, Github, Folder, FileQuestion, Trash2, CircleX, ChevronDown, ChevronUp, SquarePlus, Adult } from 'lucide-svelte'
   export let settings
   const npmIcon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcBAMAAACAI8KnAAAALVBMVEXLAADKAADMERHVSkrURkb////eeXnghITfgIDstrbFAADJAADhiorPJCTVSUliGH6+AAAAUklEQVR4AWMgETAKQoEAmKvsAgVGYEnTUCgIFmBgYmAQgOtiAHERACdXSNkBmevi/AGZyxrwAU3v4OJ+gLACGP7DA8dZgOGeixEi6ECUAIlhDgBoOA7wXH0RDQAAAABJRU5ErkJggg=='
 
@@ -36,6 +38,19 @@
       settings.extensionSources = newSources
     }
     pendingSource = false
+  }
+
+  function parseSafeMarkdown(text) {
+    if (!text) return text
+    marked.setOptions({
+      pedantic: false,
+      breaks: true,
+      gfm: true
+    })
+    return DOMPurify.sanitize(marked.parseInline(text), {
+      ALLOWED_TAGS: [ 'strong', 'b', 'em', 'i', 'code', 's', 'del', 'u', 'ins', 'mark', 'sub', 'sup', 'small', 'br', 'kbd', 'abbr', 'cite', 'q', 'var', 'samp' ],
+      ALLOWED_ATTR: []
+    })
   }
 
   async function validateExtension(key) {
@@ -172,8 +187,17 @@
                   <FileQuestion size='4.3rem' />
                 {/if}
                 <div class='ml-10 mb-5 mb-md-0'>
-                  <div class='font-size-18 font-weight-bold'>{extension?.name || extension?.id}</div>
-                  {#if extension?.description}<div class='text-muted pre-wrap'>{extension?.description}</div>{/if}
+                  <div class='font-size-18 font-weight-bold d-flex align-items-center' title={extension?.name}>
+                    {(extension?.name || extension?.id).slice(0, 16)}{extension?.name?.length > 16 ? '...' : ''}
+                    {#if extension?.deprecated}
+                      <div class='ml-10 d-flex align-items-center' data-toggle='tooltip' data-placement='top' data-title='This extension is deprecated and no longer maintained' style='color: var(--warning-color)'><CircleAlert size='2rem'/></div>
+                    {/if}
+                  </div>
+                  {#if extension?.description}
+                    <div class='text-muted pre-wrap'>
+                      {@html parseSafeMarkdown(extension.description.slice(0, 500) + (extension.description.length > 500 ? '...' : ''))}
+                    </div>
+                  {/if}
                 </div>
                 {#if settings.extensionsNew[key]}
                   <div class='custom-switch ml-auto mt-5'>

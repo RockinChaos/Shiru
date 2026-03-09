@@ -27,7 +27,7 @@ HTMLVideoElement.prototype.requestPictureInPicture = function () {
     if (success) document.querySelector('.content-wrapper').requestFullscreen()
   }, error => {
     this.dispatchEvent(new Event('leavepictureinpicture'))
-    console.error(error)
+    console.debug(error)
   })
   return Promise.resolve({})
 }

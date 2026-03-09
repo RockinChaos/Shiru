@@ -31,9 +31,7 @@ export default class Protocol {
       } else location.hash = ''
     })
     App.addListener('appUrlOpen', async ({ url }) => {
-      console.error("awaiting ready state")
       await loadingClient.promise
-      console.error("ready! Handling torrent.")
       if ((!url.startsWith('magnet:') && url.endsWith('.torrent')) || url.startsWith('content://') || url.startsWith('file://')) this.handleTorrentFile(url)
       else this.handleProtocol(url)
     })

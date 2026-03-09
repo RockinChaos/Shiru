@@ -203,7 +203,7 @@ function createSections () {
                 if (matchingAiring && (media?.mediaListEntry || media?.my_list_status)) {
                   const episodes = matchingAiring?.media?.media?.airingSchedule?.nodes
                   const progress = (media?.mediaListEntry?.progress || media?.my_list_status?.num_episodes_watched || 0) - (matchingAiring?.media?.media?.zeroEpisode ? 1 : 0)
-                  const episodeNumber = episodes?.[episodes.length > 1 ? episodes.length - 1 : 0]?.episode - (new Date(episodes?.[episodes.length > 1 ? episodes.length - 1 : 0]?.airingAt) > new Date() ? 1 : 0)
+                  const episodeNumber = episodes?.sort((a, b) => a.episode - b.episode)?.[0]?.episode - (new Date(episodes?.sort((a, b) => a.episode - b.episode)?.[0]?.airingAt) > new Date() ? 1 : 0)
                   if ((progress === (episodeNumber + (media.episodes && (episodeNumber === media.episodes) ? 1 : 0))) && ((media?.status === 'RELEASING' || media?.status === 'currently_airing') || !(progress >= media?.num_episodes))) ids.push(media?.id)
                 }
               })

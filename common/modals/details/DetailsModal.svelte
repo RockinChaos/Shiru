@@ -133,11 +133,12 @@
       .replace(/\n/g, '<br>')  // Convert all \n to <br>
       .replace(/(<br\s*\/?>){2,}/gi, '<br><br>') // Then collapse 2+ <br> to exactly 2
       .replace(/^(<br\s*\/?>\s*)+|(<br\s*\/?>\s*)+$/gi, '') // Remove any prepended or appended <br>.
-    return DOMPurify.sanitize(marked.parse(cleanBody, {
+    marked.setOptions({
       pedantic: false,
       breaks: true,
       gfm: true
-    }).trim(), {
+    })
+    return DOMPurify.sanitize(marked.parse(cleanBody).trim(), {
       ALLOWED_TAGS: [
         'p', 'br', 'span', 'div',
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
