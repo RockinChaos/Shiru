@@ -559,7 +559,10 @@
     muted = !muted
   }
   function handleWheel(event) {
-    if (viewAnime) return
+    const onPlayerPage = $page === page.PLAYER
+    const onDropdown = event.target?.closest('.dropdown') // checks for dropdowns like subtitles or audio tracks as they can be scrollable.
+    const hasFileModal = modal.exists(modal.FILE_MANAGER) || modal.exists(modal.FILE_EDITOR)
+    if (onPlayerPage ? hasFileModal || onDropdown || (modal.length && miniplayerShelved) : !miniplayer || miniplayerShelved) return
     event.preventDefault()
     // make trackpad type device scroll more gradual
     wheelAccumulator += event.deltaY

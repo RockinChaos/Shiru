@@ -49,14 +49,14 @@ importers:
         specifier: ^17.1.0
         version: 17.1.0(eslint-plugin-import@2.29.1(@typescript-eslint/parser@8.45.0(eslint@10.0.3)(typescript@5.5.4))(eslint@10.0.3))(eslint-plugin-n@16.6.2(eslint@10.0.3))(eslint-plugin-promise@6.6.0(eslint@10.0.3))(eslint@10.0.3)
       eslint-plugin-svelte:
-        specifier: ^3.15.1
-        version: 3.15.1(eslint@10.0.3)(svelte@4.2.20)(ts-node@10.9.2(@types/node@22.18.8)(typescript@5.5.4))
+        specifier: ^3.15.2
+        version: 3.15.2(eslint@10.0.3)(svelte@4.2.20)(ts-node@10.9.2(@types/node@22.18.8)(typescript@5.5.4))
       html-webpack-plugin:
         specifier: ^5.6.6
         version: 5.6.6(webpack@5.105.4)
       mini-css-extract-plugin:
-        specifier: ^2.10.0
-        version: 2.10.0(webpack@5.105.4)
+        specifier: ^2.10.1
+        version: 2.10.1(webpack@5.105.4)
       semver:
         specifier: ^7.7.4
         version: 7.7.4
@@ -1308,9 +1308,6 @@ packages:
     resolution: {integrity: sha512-YCS/JNFAUyr5vAuhk1DWm1CBxRHW9LbJ2ozWeemrIqpbsqKjHVxYPyi5GC0rjZIT5JxJ3virVTS8wk4i/Z+krw==}
     peerDependencies:
       ajv: ^8.8.2
-
-  ajv@6.12.6:
-    resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
 
   ajv@6.14.0:
     resolution: {integrity: sha512-IWrosm/yrn43eiKqkfkHis7QioDleaXQHdDVPKg0FSwwd/DuvyX79TZnFOnYpB7dcsFAMmtFztZuXPDvSePkFw==}
@@ -2572,8 +2569,8 @@ packages:
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
 
-  eslint-plugin-svelte@3.15.1:
-    resolution: {integrity: sha512-Ao/LGKPFzz8jbLEqa7OMK6LUX/mJRcJbVbIaHKjdheirkwjA/cDLdY1NcIZYscRxrK4FDIOX6IepmXFnhQlDlw==}
+  eslint-plugin-svelte@3.15.2:
+    resolution: {integrity: sha512-k4Nsjs3bHujeEnnckoTM4mFYR1e8Mb9l2rTwNdmYiamA+Tjzn8X+2F+fuSP2w4VbXYhn2bmySyACQYdmUDW2Cg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     peerDependencies:
       eslint: ^8.57.1 || ^9.0.0 || ^10.0.0
@@ -3824,8 +3821,8 @@ packages:
     resolution: {integrity: sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg==}
     engines: {node: '>=4'}
 
-  mini-css-extract-plugin@2.10.0:
-    resolution: {integrity: sha512-540P2c5dYnJlyJxTaSloliZexv8rji6rY8FhQN+WF/82iHQfA23j/xtJx97L+mXOML27EqksSek/g4eK7jaL3g==}
+  mini-css-extract-plugin@2.10.1:
+    resolution: {integrity: sha512-k7G3Y5QOegl380tXmZ68foBRRjE9Ljavx835ObdvmZjQ639izvZD8CS7BkWw1qKPPzHsGL/JDhl0uyU1zc2rJw==}
     engines: {node: '>= 12.13.0'}
     peerDependencies:
       webpack: ^5.0.0
@@ -6040,8 +6037,8 @@ snapshots:
 
   '@develar/schema-utils@2.6.5':
     dependencies:
-      ajv: 6.12.6
-      ajv-keywords: 3.5.2(ajv@6.12.6)
+      ajv: 6.14.0
+      ajv-keywords: 3.5.2(ajv@6.14.0)
 
   '@discordjs/collection@2.1.1': {}
 
@@ -7243,21 +7240,14 @@ snapshots:
     optionalDependencies:
       ajv: 8.14.0
 
-  ajv-keywords@3.5.2(ajv@6.12.6):
+  ajv-keywords@3.5.2(ajv@6.14.0):
     dependencies:
-      ajv: 6.12.6
+      ajv: 6.14.0
 
   ajv-keywords@5.1.0(ajv@8.14.0):
     dependencies:
       ajv: 8.14.0
       fast-deep-equal: 3.1.3
-
-  ajv@6.12.6:
-    dependencies:
-      fast-deep-equal: 3.1.3
-      fast-json-stable-stringify: 2.1.0
-      json-schema-traverse: 0.4.1
-      uri-js: 4.4.1
 
   ajv@6.14.0:
     dependencies:
@@ -8515,7 +8505,7 @@ snapshots:
     dependencies:
       '@types/plist': 3.0.5
       '@types/verror': 1.10.10
-      ajv: 6.12.6
+      ajv: 6.14.0
       crc: 3.8.0
       iconv-corefoundation: 1.1.7
       plist: 3.1.0
@@ -8889,7 +8879,7 @@ snapshots:
     dependencies:
       eslint: 10.0.3
 
-  eslint-plugin-svelte@3.15.1(eslint@10.0.3)(svelte@4.2.20)(ts-node@10.9.2(@types/node@22.18.8)(typescript@5.5.4)):
+  eslint-plugin-svelte@3.15.2(eslint@10.0.3)(svelte@4.2.20)(ts-node@10.9.2(@types/node@22.18.8)(typescript@5.5.4)):
     dependencies:
       '@eslint-community/eslint-utils': 4.9.0(eslint@10.0.3)
       '@jridgewell/sourcemap-codec': 1.5.0
@@ -10242,7 +10232,7 @@ snapshots:
 
   min-indent@1.0.1: {}
 
-  mini-css-extract-plugin@2.10.0(webpack@5.105.4):
+  mini-css-extract-plugin@2.10.1(webpack@5.105.4):
     dependencies:
       schema-utils: 4.3.3
       tapable: 2.3.0
