@@ -20,3 +20,4 @@ package-lock.json
 
 .idea
 Shiru.iml
+audit_logs/
