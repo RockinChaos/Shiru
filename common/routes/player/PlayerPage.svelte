@@ -1712,7 +1712,7 @@
   {/if}
   <ManagerModal playing={current} files={playableFiles} {playFile} />
   <div class='top z-40 d-flex justify-content-center align-items-center'>
-    <div class='d-flex justify-content-center bottom-0 d-torrent-stats d-filler'>
+    <div class='d-flex justify-content-center bottom-0 d-filler'>
       <span class='icon'><Users class='pt-5 block-scale-30' strokeWidth={3} /> </span>
       <span class='stats font-scale-24'>{torrent.peers || 0}</span>
       <span class='icon'><ArrowDown class='block-scale-30' /></span>
