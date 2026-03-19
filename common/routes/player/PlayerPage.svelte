@@ -1711,30 +1711,8 @@
     </div>
   {/if}
   <ManagerModal playing={current} files={playableFiles} {playFile} />
-  <div class='top z-40 row d-title'>
-    <div class='stats pl-20 col-4 d-title'>
-      <div class='font-weight-bold overflow-hidden text-truncate font-scale-23'>
-        {#if media?.title}
-          {media?.title}
-        {:else if media?.media?.title} <!-- useful when a torrent is EXTREMELY slow at loading... -->
-          {anilistClient.title(media?.media)}
-        {:else if current}
-          {AnimeResolver.cleanFileName(current.name)}
-        {/if}
-      </div>
-      <div class='font-weight-normal overflow-hidden text-truncate text-muted font-scale-16'>
-        {#if (media?.episode === 0 || media?.episode) && media?.media?.episodes !== 1 && media?.media?.format !== 'MOVIE' && (!media?.episodeTitle || !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle))}
-          {@const maxEpisodes = getMediaMaxEp(media.media) - (media.zeroEpisode ? 1 : 0)}
-          Episode {media.episodeRange ? `${media.episodeRange.first} ~ ${media.episodeRange.last}` : media.episode}
-          {#if maxEpisodes && (Number(maxEpisodes) > 1)} of {maxEpisodes}{:else if !maxEpisodes && videos && (videos.length > 1)} of {videos.length}{/if} <!-- for when the media fails to resolve, we can predict that the file length is likely the episode count. -->
-        {:else if current && (videos?.length > 1)}
-          Episode {videos.indexOf(current) + 1} of {videos.length} <!-- fallback for when the media fails to resolve and we also fail to resolve the episode numbers, best to indicate what file we are currently on. -->
-        {/if}
-        {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle) && media?.media?.episodes !== 1)}{' - '}{/if}
-        {#if media?.episodeTitle}{media.episodeTitle}{/if}
-      </div>
-    </div>
-    <div class='d-flex justify-content-center bottom-0 col-4 d-title d-filler'>
+  <div class='top z-40 d-flex justify-content-center align-items-center'>
+    <div class='d-flex justify-content-center bottom-0 d-torrent-stats d-filler'>
       <span class='icon'><Users class='pt-5 block-scale-30' strokeWidth={3} /> </span>
       <span class='stats font-scale-24'>{torrent.peers || 0}</span>
       <span class='icon'><ArrowDown class='block-scale-30' /></span>
@@ -1824,6 +1802,26 @@
     {/if}
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
+    <div class='font-weight-bold overflow-hidden text-truncate font-scale-23'>
+      {#if media?.title}
+        {media?.title}
+      {:else if media?.media?.title} <!-- useful when a torrent is EXTREMELY slow at loading... -->
+        {anilistClient.title(media?.media)}
+      {:else if current}
+        {AnimeResolver.cleanFileName(current.name)}
+      {/if}
+    </div>
+    <div class='font-weight-normal overflow-hidden text-truncate text-muted font-scale-16'>
+      {#if (media?.episode === 0 || media?.episode) && media?.media?.episodes !== 1 && media?.media?.format !== 'MOVIE' && (!media?.episodeTitle || !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle))}
+        {@const maxEpisodes = getMediaMaxEp(media.media) - (media.zeroEpisode ? 1 : 0)}
+        Episode {media.episodeRange ? `${media.episodeRange.first} ~ ${media.episodeRange.last}` : media.episode}
+        {#if maxEpisodes && (Number(maxEpisodes) > 1)} of {maxEpisodes}{:else if !maxEpisodes && videos && (videos.length > 1)} of {videos.length}{/if} <!-- for when the media fails to resolve, we can predict that the file length is likely the episode count. -->
+      {:else if current && (videos?.length > 1)}
+        Episode {videos.indexOf(current) + 1} of {videos.length} <!-- fallback for when the media fails to resolve and we also fail to resolve the episode numbers, best to indicate what file we are currently on. -->
+      {/if}
+      {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle) && media?.media?.episodes !== 1)}{' - '}{/if}
+      {#if media?.episodeTitle}{media.episodeTitle}{/if}
+    </div>
     <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
       <Seekbar
         accentColor='{completed || (media?.media && ((($mediaCache[media.media.id] || media.media)?.mediaListEntry?.progress - (media?.zeroEpisode ? 1 : 0)) >= (media.episodeRange ? media.episodeRange.last : media.episode))) ? `var(--completed-color-dim)` : `var(--accent-color)`}'
