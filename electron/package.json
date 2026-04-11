@@ -20,7 +20,7 @@
     "@electron/notarize": "^3.1.0",
     "common": "workspace:*",
     "client": "workspace:*",
-    "electron": "39.2.7",
+    "electron": "39.8.4",
     "electron-builder": "^26.0.12",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3"
