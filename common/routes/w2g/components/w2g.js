@@ -31,10 +31,10 @@ export class W2GClient extends EventTarget {
   }
 
   static #announce = [
-    atob('d3NzOi8vdHJhY2tlci5vcGVud2VidG9ycmVudC5jb20='),
-    atob('d3NzOi8vdHJhY2tlci53ZWJ0b3JyZW50LmRldg=='),
-    atob('d3NzOi8vdHJhY2tlci5maWxlcy5mbTo3MDczL2Fubm91bmNl'),
-    atob('d3NzOi8vdHJhY2tlci5idG9ycmVudC54eXov')
+    atob('d3NzOi8vdHJhY2tlci53ZWJ0b3JyZW50LmRldg=='),        // wss://tracker.webtorrent.dev
+    atob('d3NzOi8vdHJhY2tlci5vcGVud2VidG9ycmVudC5jb20='),    // wss://tracker.openwebtorrent.com
+    atob('d3NzOi8vdHJhY2tlci5idG9ycmVudC54eXov'),            // wss://tracker.btorrent.xyz/
+    atob('d3NzOi8vdHJhY2tlci5maWxlcy5mbTo3MDczL2Fubm91bmNl') // wss://tracker.files.fm:7073/announce
   ]
 
   player = {
@@ -43,11 +43,12 @@ export class W2GClient extends EventTarget {
   }
 
   index = 0
-  /** @type {{maget: 'string', hash: 'string'} | null} */
+  /** @type {{magnet: string, hash: string} | null} */
   magnet = null
   isHost = false
   hostId = null
   #p2pt
+  #announceInterval
   code
   /** @type {import('simple-store-svelte').Writable<{message: string, user: import('@/modules/providers/anilist/al.d.ts').Viewer | {id: string }, type: 'incoming' | 'outgoing', date: Date}[]>} */
   messages = writable([])
@@ -98,7 +99,12 @@ export class W2GClient extends EventTarget {
     this.#p2pt = new P2PT(W2GClient.#announce, this.code)
 
     this.#wireEvents()
-    this.#p2pt.start()
+    this.#p2pt.start().catch(err => debug('p2pt start failed: %o', err))
+
+    // Re-announce to trackers periodically to discover peers that joined later
+    this.#announceInterval = setInterval(() => {
+      this.#p2pt?.requestMorePeers()
+    }, 15_000)
   }
 
   magnetLink (magnet) {
@@ -147,6 +153,12 @@ export class W2GClient extends EventTarget {
     this.#p2pt.on('peerconnect', this.#onPeerconnect.bind(this))
     this.#p2pt.on('msg', this.#onMsg.bind(this))
     this.#p2pt.on('peerclose', this.#onPeerclose.bind(this))
+    this.#p2pt.on('trackerwarning', (err) => {
+      debug('tracker warning: %o', err)
+    })
+    this.#p2pt.on('trackerconnect', (tracker, stats) => {
+      debug('tracker connected: %s (%d/%d)', tracker.announceUrl, stats.connected, stats.total)
+    })
   }
 
   /**
@@ -183,12 +195,12 @@ export class W2GClient extends EventTarget {
 
     switch (data.type) {
       case EventTypes.SessionInitEvent: {
-        const { version, isHost, ...user } = data.payload
-        if (version !== version) {
+        const { version: peerVersion, isHost, ...user } = data.payload
+        if (peerVersion !== version) {
           if (this.isHost) {
             this.#p2pt.send(peer, JSON.stringify(new Event('reject', {
-              reason: version > version ? 'outdated_host' : 'outdated_peer',
-              peerVersion: version,
+              reason: peerVersion > version ? 'outdated_host' : 'outdated_peer',
+              peerVersion,
               hostVersion: version
             }))).then(() => peer.destroy())
           }
@@ -240,7 +252,9 @@ export class W2GClient extends EventTarget {
         break
       }
       case EventTypes.MessageEvent:{
-        this.messages.update(messages => [...messages, ({ message: data.payload, user: this.peers.value[peer.id].user, type: 'incoming', date: new Date() })])
+        const peerEntry = this.peers.value[peer.id]
+        if (!peerEntry) break
+        this.messages.update(messages => [...messages, ({ message: data.payload, user: peerEntry.user, type: 'incoming', date: new Date() })])
         break
       }
       default:
@@ -266,7 +280,8 @@ export class W2GClient extends EventTarget {
 
   destroy () {
     debug('destroy')
-    this.#p2pt.destroy()
+    clearInterval(this.#announceInterval)
+    this.#p2pt?.destroy()
     this.removeAllListeners()
     this.#p2pt = null
     this.magnet = null
