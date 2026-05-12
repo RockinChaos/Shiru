@@ -31,10 +31,10 @@ export class W2GClient extends EventTarget {
   }
 
   static #announce = [
-    atob('d3NzOi8vdHJhY2tlci53ZWJ0b3JyZW50LmRldg=='),        // wss://tracker.webtorrent.dev
-    atob('d3NzOi8vdHJhY2tlci5vcGVud2VidG9ycmVudC5jb20='),    // wss://tracker.openwebtorrent.com
-    atob('d3NzOi8vdHJhY2tlci5idG9ycmVudC54eXov'),            // wss://tracker.btorrent.xyz/
-    atob('d3NzOi8vdHJhY2tlci5maWxlcy5mbTo3MDczL2Fubm91bmNl') // wss://tracker.files.fm:7073/announce
+    atob('d3NzOi8vdHJhY2tlci53ZWJ0b3JyZW50LmRldg=='),
+    atob('d3NzOi8vdHJhY2tlci5vcGVud2VidG9ycmVudC5jb20='),
+    atob('d3NzOi8vdHJhY2tlci5idG9ycmVudC54eXov'),
+    atob('d3NzOi8vdHJhY2tlci5maWxlcy5mbTo3MDczL2Fubm91bmNl')
   ]
 
   player = {
