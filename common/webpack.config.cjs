@@ -2,9 +2,14 @@ const { join, resolve } = require('path')
 
 const mode = process.env.NODE_ENV?.trim() || 'development'
 const isDev = mode === 'development'
+const webpack = require('webpack')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
+
+// Backend flavor selection, surfaced to the renderer so the UI can adapt
+// (e.g. show the TorBox API key field) for the debrid fork.
+const backend = process.env.SHIRU_BACKEND?.trim() || 'webtorrent'
 
 /** @type {(parentDir: string, alias?: Record<string, string>, aliasFields?: (string | string[]), filename?: string) => import('webpack').WebpackOptionsNormalized} */
 module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'app') => ({
@@ -73,6 +78,7 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     extensions: ['.mjs', '.js', '.svelte']
   },
   plugins: [
+    new webpack.DefinePlugin({ 'process.env.SHIRU_BACKEND': JSON.stringify(backend) }),
     new MiniCssExtractPlugin({
       filename: '[name].css'
     }),

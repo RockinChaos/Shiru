@@ -4,6 +4,13 @@ const CopyWebpackPlugin = require('copy-webpack-plugin')
 
 const mode = process.env.NODE_ENV?.trim() || 'development'
 
+// Backend flavor selection: `SHIRU_BACKEND=torbox` builds the debrid (TorBox)
+// fork, otherwise the default WebTorrent backend is used.
+const backend = process.env.SHIRU_BACKEND?.trim() || 'webtorrent'
+const torrentBackend = backend === 'torbox'
+  ? resolve(__dirname, '..', 'client/core/torbox.js')
+  : resolve(__dirname, '..', 'client/core/webtorrent.js')
+
 const alias = {
   '@/modules/support.js': join(__dirname, 'src', 'main', 'support.js'),
   '@': resolve(__dirname, '..', 'common')
@@ -33,7 +40,7 @@ const capacitorConfig = {
       wrtc: false,
       'node-datachannel': false,
       '@client': resolve(__dirname, '..', 'client'),
-      'webtorrent-client': resolve(__dirname, '..', 'client/core/webtorrent.js'),
+      'webtorrent-client': torrentBackend,
       'http-tracker': resolve('../node_modules/bittorrent-tracker/lib/client/http-tracker.js'),
       'webrtc-polyfill': false // no webrtc on mobile, need the resources
     }

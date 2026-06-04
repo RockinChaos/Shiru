@@ -9,6 +9,7 @@
   import SettingCard from '@/routes/settings/components/SettingCard.svelte'
   import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
   import { SUPPORTS } from '@/modules/support.js'
+  import { isTorBox } from '@/modules/backend.js'
   export let settings
 
   let trackers = settings.trackers.join('\n') || ''
@@ -41,6 +42,11 @@
 {/if}
 
 <h4 class='mb-10 font-weight-bold'>Client Settings</h4>
+{#if isTorBox}
+  <SettingCard title='TorBox API Key' description='Your TorBox API token, found in the TorBox web app under Settings. This build streams torrents through your TorBox account instead of downloading them peer-to-peer. Without a key, torrents cannot be loaded.'>
+    <input type='password' autocomplete='off' spellcheck='false' class='form-control bg-dark w-300 mw-full text-truncate' bind:value={settings.torboxApiKey} placeholder='Paste your TorBox API key' />
+  </SettingCard>
+{/if}
 <SettingCard title='Download Location' description={'Path to the folder used to store torrents. By default this is the TMP folder, which might lose data when your OS tries to reclaim storage.' + (SUPPORTS.isAndroid ? '\n\nIn Android, /sdcard/ is internal storage not external SD Cards and /storage/AB12-34CD/ is external storage not internal.' : '')}>
   <div class='input-group mw-100 w-400 flex-nowrap'>
     <div class='input-group-prepend'>

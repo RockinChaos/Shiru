@@ -595,6 +595,7 @@ export const defaults = {
   hentaiAnnounce: 'none',
   customSections: [['Romance', ['Romance'], [], [], []], ['Isekai Comedy', ['Comedy'], ['Isekai'], [], []]],
   torrentSpeed: 5,
+  torboxApiKey: '',
   torrentPersist: false,
   torrentDHT: false,
   torrentPeX: false,
