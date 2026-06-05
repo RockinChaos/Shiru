@@ -1,0 +1,107 @@
+name: Android Build (TorBox)
+
+# Builds the TorBox (debrid) fork as an installable Android APK and uploads it
+# as a downloadable workflow artifact. Run it manually from the Actions tab
+# (Run workflow), or it runs on every push to master that touches the app.
+#
+# This mirrors android.yml but forces the TorBox flavor via SHIRU_BACKEND=torbox
+# so the engine, the API-key UI and the side-by-side applicationId
+# (watch.shiru.torbox) are all selected. A debug APK is produced, which needs no
+# signing secrets. See the bottom of this file for how to switch to a signed
+# release build.
+
+on:
+  workflow_dispatch: # manual trigger
+  push:
+    branches: [master]
+    paths:
+      - 'client/**'
+      - 'common/**'
+      - 'capacitor/**'
+      - '.github/workflows/android-torbox.yml'
+
+env:
+  SHIRU_BACKEND: torbox # selected by webpack, capacitor.config.js and build.gradle
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./capacitor
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.21.1'
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          check-latest: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Remove Cached Build
+        run: rm -rf ./build && mkdir ./build
+
+      - name: Force production config
+        # Pins capacitor.config.js to production (no dev server URL); the TorBox
+        # appId/appName are still applied because SHIRU_BACKEND=torbox is set.
+        run: |
+          sed -i "s@const isDev = mode === 'development'@const isDev = false@g" ./capacitor.config.js
+          echo "Forced production config"
+
+      - name: Build Native + Web (TorBox)
+        run: pnpm run build:app:torbox
+
+      - name: Capacitor sync
+        run: pnpm exec cap sync android
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Build APK (debug, unsigned)
+        run: cd android && chmod +x ./gradlew && ./gradlew assembleDebug
+
+      - name: Stop Gradle daemon
+        run: cd android && ./gradlew --stop
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shiru-torbox-apk
+          path: capacitor/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+# ---------------------------------------------------------------------------
+# Signed release build (optional)
+#
+# To produce a signed release APK instead of a debug one, set these repository
+# secrets (Settings -> Secrets and variables -> Actions):
+#   SIGNING_KEY            base64 of your keystore
+#   ALIAS, KEY_STORE_PASSWORD, KEY_PASSWORD
+# then replace the "Build APK (debug, unsigned)" step with:
+#   run: cd android && chmod +x ./gradlew && ./gradlew assembleRelease
+# and add a signing step (e.g. NoCrypt/sign-android@v1.0.3) pointed at
+#   capacitor/android/app/build/outputs/apk/release
+# A release build drops the ".dev" applicationId suffix -> watch.shiru.torbox.
+# ---------------------------------------------------------------------------
