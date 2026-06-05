@@ -12,11 +12,15 @@ cleanVersions.each (code) -> {
     verCode = (verCode*100) + Integer.parseInt(code)
 }
 
+// TorBox (debrid) fork installs alongside regular Shiru: only the applicationId
+// (install identity) changes; the namespace (code package) stays the same.
+def torboxBackend = System.getenv('SHIRU_BACKEND') == 'torbox'
+
 android {
     namespace = "watch.shiru"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId = "watch.shiru"
+        applicationId = torboxBackend ? "watch.shiru.torbox" : "watch.shiru"
         minSdk = rootProject.ext.minSdkVersion
         targetSdk = rootProject.ext.targetSdkVersion
         versionCode = verCode

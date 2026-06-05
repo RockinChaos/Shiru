@@ -1,9 +1,15 @@
 const mode = process.env.NODE_ENV?.trim() || 'production'
 const isDev = mode === 'development'
 
+// TorBox (debrid) fork uses a distinct application identity so it installs
+// alongside regular Shiru on the same device.
+const torbox = process.env.SHIRU_BACKEND?.trim() === 'torbox'
+const baseId = torbox ? 'watch.shiru.torbox' : 'watch.shiru'
+const baseName = torbox ? 'Shiru TorBox' : 'Shiru'
+
 const config = {
-  appId: isDev ? 'watch.shiru.dev' : 'watch.shiru',
-  appName: isDev ? 'Shiru (Debug)' : 'Shiru',
+  appId: isDev ? `${baseId}.dev` : baseId,
+  appName: isDev ? `${baseName} (Debug)` : baseName,
   webDir: 'build',
   android: {
     buildOptions: {
