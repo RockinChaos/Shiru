@@ -1,7 +1,15 @@
 const { join, resolve } = require('path')
+const webpack = require('webpack')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 const mode = process.env.NODE_ENV?.trim() || 'development'
+
+// Backend flavor selection: `SHIRU_BACKEND=torbox` builds the debrid (TorBox)
+// fork, otherwise the default WebTorrent backend is used.
+const backend = process.env.SHIRU_BACKEND?.trim() || 'webtorrent'
+const torrentBackend = backend === 'torbox'
+  ? resolve(__dirname, '..', 'client/core/torbox.js')
+  : resolve(__dirname, '..', 'client/core/webtorrent.js')
 
 const commonConfig = require('common/webpack.config.cjs')
 
@@ -27,7 +35,7 @@ module.exports = [
       alias: {
         '@': resolve(__dirname, '..', 'common'),
         '@client': resolve(__dirname, '..', 'client'),
-        'webtorrent-client': resolve(__dirname, '..', 'client/core/webtorrent.js'),
+        'webtorrent-client': torrentBackend,
         'node-fetch': false,
         ws: false,
         wrtc: false,
@@ -36,7 +44,10 @@ module.exports = [
         'http-tracker': resolve('../node_modules/bittorrent-tracker/lib/client/http-tracker.js')
       }
     },
-    plugins: [new HtmlWebpackPlugin({ filename: 'background.html' })],
+    plugins: [
+      new HtmlWebpackPlugin({ filename: 'background.html' }),
+      new webpack.DefinePlugin({ 'process.env.SHIRU_BACKEND': JSON.stringify(backend) })
+    ],
     target: 'electron39.0-renderer',
     devServer: {
       devMiddleware: {
@@ -87,6 +98,9 @@ module.exports = [
         '@': resolve(__dirname, '..', 'common')
       }
     },
+    plugins: [
+      new webpack.DefinePlugin({ 'process.env.SHIRU_BACKEND': JSON.stringify(backend) })
+    ],
     mode,
     target: 'electron39.0-main'
   }

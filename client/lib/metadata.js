@@ -72,12 +72,32 @@ export default class Metadata {
     })
 
     if (this.file.name.endsWith('.mkv') || this.file.name.endsWith('.webm')) {
-      this.file.on('iterator', ({ iterator }, cb) => {
-        if (this.destroyed) return cb(iterator)
-        cb(this.metadata.parseStream(iterator))
-      })
+      if (this.file.httpStream) {
+        // HTTP-backed sources (e.g. debrid CDN links) have no live download
+        // iterator to hook into, so stream the whole container ourselves to
+        // surface embedded subtitle events as they are decoded.
+        this.parseFile()
+      } else {
+        this.file.on('iterator', ({ iterator }, cb) => {
+          if (this.destroyed) return cb(iterator)
+          cb(this.metadata.parseStream(iterator))
+        })
+      }
     } else {
       debug('Unsupported file format: ' + this.file?.name)
+    }
+  }
+
+  /**
+   * Streams the entire container from the underlying file source, emitting
+   * subtitle events as they are parsed. Used for HTTP-backed (debrid) sources
+   * which cannot piggyback on a live torrent download stream.
+   */
+  async parseFile () {
+    try {
+      await this.metadata?.parseFile?.()
+    } catch (error) {
+      if (!this.destroyed) debug('Failed to parse HTTP container stream: ' + error)
     }
   }
 

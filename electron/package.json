@@ -14,7 +14,10 @@
     "electron:start": "electron ./build/main.js",
     "build": "npm run web:build && electron-builder",
     "electron:build": "electron-builder",
-    "publish": "npm run web:build && electron-builder -p always"
+    "publish": "npm run web:build && electron-builder -p always",
+    "start:torbox": "cross-env NODE_ENV=development SHIRU_BACKEND=torbox webpack build && concurrently --kill-others \"cross-env SHIRU_BACKEND=torbox npm run web:watch\" \"npm run electron:start\"",
+    "web:build:torbox": "cross-env NODE_ENV=production SHIRU_BACKEND=torbox webpack build",
+    "build:torbox": "npm run web:build:torbox && electron-builder -c.appId=com.github.rockinchaos.shiru.torbox -c.productName=\"Shiru TorBox\" -c.publish=null"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
