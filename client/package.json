@@ -3,6 +3,7 @@
   "private": true,
   "dependencies": {
     "bittorrent-tracker": "^11.2.3",
+    "bencode": "^4.0.0",
     "matroska-metadata": "^1.0.12",
     "parse-torrent": "^11.0.21",
     "uint8-util": "^2.2.6",

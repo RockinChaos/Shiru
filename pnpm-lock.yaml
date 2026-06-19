@@ -4,29 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@electron/universal': 3.0.4
-
-patchedDependencies:
-  '@capacitor/android':
-    hash: c94a4679400f9edbaab7f82e73b25787c1dd44e9f170b0f61f4166cff5699d22
-    path: patches/@capacitor__android.patch
-  '@capacitor/local-notifications':
-    hash: 92e9cb4b54ea8684b0027c29ec61d24c886b142730b548ae3199be718f58a638
-    path: patches/@capacitor__local-notifications.patch
-  cordova-plugin-apkupdater:
-    hash: 6efbafdbdca79d50b2e3016fca9da323ba046d9a6d8834571050e1827f587c37
-    path: patches/cordova-plugin-apkupdater.patch
-  lucide-svelte@0.455.0:
-    hash: 0609c957d625c84712d92a612c0fe92d6b06ae161e98c32f1b6b5694e5ff66ed
-    path: patches/lucide-svelte@0.455.0.patch
-  rfdc:
-    hash: c9f93965feee0cc9f6da8f3451b078a567c0bb98da4f0c2f8b552e51a055789b
-    path: patches/rfdc.patch
-  svelte-keybinds:
-    hash: f0c94591da45fd53ec510b56276e74597f95557fc91757f7ddc0f4a516ef90b9
-    path: patches/svelte-keybinds.patch
-
 importers:
 
   .:
@@ -79,7 +56,7 @@ importers:
     dependencies:
       '@capacitor/android':
         specifier: ^8.3.4
-        version: 8.3.4(patch_hash=c94a4679400f9edbaab7f82e73b25787c1dd44e9f170b0f61f4166cff5699d22)(@capacitor/core@8.3.4)
+        version: 8.3.4(@capacitor/core@8.3.4)
       '@capacitor/app':
         specifier: ^8.1.0
         version: 8.1.0(@capacitor/core@8.3.4)
@@ -106,7 +83,7 @@ importers:
         version: 8.0.3(@capacitor/core@8.3.4)
       '@capacitor/local-notifications':
         specifier: ^8.2.0
-        version: 8.2.0(patch_hash=92e9cb4b54ea8684b0027c29ec61d24c886b142730b548ae3199be718f58a638)(@capacitor/core@8.3.4)
+        version: 8.2.0(@capacitor/core@8.3.4)
       '@capacitor/splash-screen':
         specifier: ^8.0.1
         version: 8.0.1(@capacitor/core@8.3.4)
@@ -130,7 +107,7 @@ importers:
         version: link:../common
       cordova-plugin-apkupdater:
         specifier: ^5.0.1
-        version: 5.0.1(patch_hash=6efbafdbdca79d50b2e3016fca9da323ba046d9a6d8834571050e1827f587c37)
+        version: 5.0.1
       cordova-plugin-fullscreen:
         specifier: ^1.3.0
         version: 1.3.0
@@ -155,6 +132,9 @@ importers:
       fsctl:
         specifier: ^2.0.0
         version: 2.0.0
+      yaml:
+        specifier: ^2.5.0
+        version: 2.9.0
     devDependencies:
       '@capacitor/assets':
         specifier: ^3.0.5
@@ -174,6 +154,9 @@ importers:
 
   client:
     dependencies:
+      bencode:
+        specifier: ^4.0.0
+        version: 4.0.1
       bittorrent-tracker:
         specifier: ^11.2.3
         version: 11.2.3
@@ -227,10 +210,13 @@ importers:
         version: 1.1.6
       lucide-svelte:
         specifier: 0.455.0
-        version: 0.455.0(patch_hash=0609c957d625c84712d92a612c0fe92d6b06ae161e98c32f1b6b5694e5ff66ed)(svelte@4.2.20)
+        version: 0.455.0(svelte@4.2.20)
       marked:
         specifier: ^18.0.5
         version: 18.0.5
+      ms:
+        specifier: ^2.1.3
+        version: 2.1.3
       p2pt:
         specifier: github:ThaUnknown/p2pt#modernise
         version: https://codeload.github.com/ThaUnknown/p2pt/tar.gz/9ad7a56ed6ee43f5664ebad33b803702ee349316
@@ -239,7 +225,10 @@ importers:
         version: 1.2.3
       rfdc:
         specifier: ^1.4.1
-        version: 1.4.1(patch_hash=c9f93965feee0cc9f6da8f3451b078a567c0bb98da4f0c2f8b552e51a055789b)
+        version: 1.4.1
+      rvfc-polyfill:
+        specifier: ^1.0.8
+        version: 1.0.8
       simple-store-svelte:
         specifier: ^1.0.6
         version: 1.0.6
@@ -248,7 +237,7 @@ importers:
         version: 4.2.20
       svelte-keybinds:
         specifier: ^1.0.9
-        version: 1.0.9(patch_hash=f0c94591da45fd53ec510b56276e74597f95557fc91757f7ddc0f4a516ef90b9)
+        version: 1.0.9
       svelte-loader:
         specifier: ^3.2.4
         version: 3.2.4(svelte@4.2.20)
@@ -436,11 +425,6 @@ packages:
     engines: {node: '>=10.12.0'}
     hasBin: true
 
-  '@electron/asar@4.2.0':
-    resolution: {integrity: sha512-npW1NW5yy8EB9XY/vEw9sUdgmq0sJEhmSBb6bqyFOAw1CSkrhvAvO6QWlW8CdIMo8VN1lkdF345l/MeW0LrY0Q==}
-    engines: {node: '>=22.12.0'}
-    hasBin: true
-
   '@electron/fuses@1.8.0':
     resolution: {integrity: sha512-zx0EIq78WlY/lBb1uXlziZmDZI4ubcCXIMJ4uGjXzZW0nS19TjSPeXPAjzzTmKQlJUZm0SbmZhPKP7tuQ1SsEw==}
     hasBin: true
@@ -471,9 +455,9 @@ packages:
     engines: {node: '>=22.12.0'}
     hasBin: true
 
-  '@electron/universal@3.0.4':
-    resolution: {integrity: sha512-G7mNdfZIdPbx54dTorGlV7SN7nHAKlbJU1NjjeuEo7RzEMYBG62+tKpA2VrzocGcvFLxqJI5XYIknca9EijwOw==}
-    engines: {node: '>=22.12.0'}
+  '@electron/universal@2.0.3':
+    resolution: {integrity: sha512-Wn9sPYIVFRFl5HmwMJkARCCf7rqK/EurkfQ/rJZ14mHP3iYTjZSIOSVonEAnhWeAXwtw7zOekGRlc6yTtZ0t+g==}
+    engines: {node: '>=16.4'}
 
   '@electron/windows-sign@1.2.2':
     resolution: {integrity: sha512-dfZeox66AvdPtb2lD8OsIIQh12Tp0GNCRUDfBHIKGpbmopZto2/A8nSpYYLoedPIHpqkeblZ/k8OV0Gy7PYuyQ==}
@@ -1360,7 +1344,7 @@ packages:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
   anitomyscript@https://codeload.github.com/ThaUnknown/anitomyscript/tar.gz/42290c4b3f256893be08a4e89051f448ff5e9d00:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/ThaUnknown/anitomyscript/tar.gz/42290c4b3f256893be08a4e89051f448ff5e9d00}
+    resolution: {gitHosted: true, integrity: sha512-s+C9tbRiY/h+xhmPb0rZF6gS8u+m9zUEVfsf3htg6H/wUx1Pntb3XaYjCRR9YUdvxsmEWAPWa5s5aWvyq+VW8w==, tarball: https://codeload.github.com/ThaUnknown/anitomyscript/tar.gz/42290c4b3f256893be08a4e89051f448ff5e9d00}
     version: 2.0.5
 
   ansi-html-community@0.0.8:
@@ -1916,10 +1900,6 @@ packages:
     resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
     engines: {node: '>=18'}
 
-  commander@13.1.0:
-    resolution: {integrity: sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==}
-    engines: {node: '>=18'}
-
   commander@14.0.3:
     resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
     engines: {node: '>=20'}
@@ -2285,6 +2265,9 @@ packages:
   diff@5.2.2:
     resolution: {integrity: sha512-vtcDfH3TOjP8UekytvnHH1o1P4FcUdt4eQ1Y+Abap1tk/OB2MWQvcwS2ClCd1zuIhc3JKOx6p3kod8Vfys3E+A==}
     engines: {node: '>=0.3.1'}
+
+  dir-compare@4.2.0:
+    resolution: {integrity: sha512-2xMCmOoMrdQIPHdsTawECdNPwlVFB9zGcz3kuhmBO6U3oU+UQjsue0i8ayLKpgBcm+hcXPMVSGUN9d+pvJ6+VQ==}
 
   discord-api-types@0.38.48:
     resolution: {integrity: sha512-WFUE/2o0lBlLeCQonQ+Pu2RqHAqbytBJ2RlXR91gzk05InSS6k9ShzzLYoymrA4c2oRgRKGE7/VqQJNNdGWSxQ==}
@@ -4167,7 +4150,7 @@ packages:
     engines: {node: '>=6'}
 
   p2pt@https://codeload.github.com/ThaUnknown/p2pt/tar.gz/9ad7a56ed6ee43f5664ebad33b803702ee349316:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/ThaUnknown/p2pt/tar.gz/9ad7a56ed6ee43f5664ebad33b803702ee349316}
+    resolution: {gitHosted: true, integrity: sha512-EyKQSR6UNCiO6dCrQD0MQdy5cuoLIuYErl6GfaXXebzWhIHM54RLKeZbFMa4lx/ciOmtCQi7duooi5fFya6QzA==, tarball: https://codeload.github.com/ThaUnknown/p2pt/tar.gz/9ad7a56ed6ee43f5664ebad33b803702ee349316}
     version: 1.5.1
 
   package-json-from-dist@1.0.1:
@@ -5913,6 +5896,11 @@ packages:
     resolution: {integrity: sha512-vIYeF1u3CjlhAFekPPAk2h/Kv4T3mAkMox5OymRiJQB0spDP10LHvt+K7G9Ny6NuuMAb25/6n1qyUjAcGNf/AA==}
     engines: {node: '>= 6'}
 
+  yaml@2.9.0:
+    resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yargs-parser@18.1.3:
     resolution: {integrity: sha512-o50j0JeToy/4K6OZcaQmW6lyXXKhq7csREXcDwk2omFPJEwUNOVtJKvmDr9EI1fAJZUyZcRF7kxGBWmRXudrCQ==}
     engines: {node: '>=6'}
@@ -5971,7 +5959,7 @@ snapshots:
 
   '@babel/helper-validator-identifier@7.29.7': {}
 
-  '@capacitor/android@8.3.4(patch_hash=c94a4679400f9edbaab7f82e73b25787c1dd44e9f170b0f61f4166cff5699d22)(@capacitor/core@8.3.4)':
+  '@capacitor/android@8.3.4(@capacitor/core@8.3.4)':
     dependencies:
       '@capacitor/core': 8.3.4
 
@@ -6077,7 +6065,7 @@ snapshots:
     dependencies:
       '@capacitor/core': 8.3.4
 
-  '@capacitor/local-notifications@8.2.0(patch_hash=92e9cb4b54ea8684b0027c29ec61d24c886b142730b548ae3199be718f58a638)(@capacitor/core@8.3.4)':
+  '@capacitor/local-notifications@8.2.0(@capacitor/core@8.3.4)':
     dependencies:
       '@capacitor/core': 8.3.4
 
@@ -6128,12 +6116,6 @@ snapshots:
       commander: 5.1.0
       glob: 7.2.3
       minimatch: 3.1.5
-
-  '@electron/asar@4.2.0':
-    dependencies:
-      commander: 13.1.0
-      glob: 13.0.6
-      minimatch: 10.2.5
 
   '@electron/fuses@1.8.0':
     dependencies:
@@ -6205,10 +6187,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/universal@3.0.4':
+  '@electron/universal@2.0.3':
     dependencies:
-      '@electron/asar': 4.2.0
+      '@electron/asar': 3.4.1
+      '@malept/cross-spawn-promise': 2.0.0
       debug: 4.4.3
+      dir-compare: 4.2.0
+      fs-extra: 11.3.5
+      minimatch: 9.0.9
       plist: 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -7468,7 +7454,7 @@ snapshots:
       '@electron/notarize': 2.5.0
       '@electron/osx-sign': 1.3.3
       '@electron/rebuild': 4.0.4
-      '@electron/universal': 3.0.4
+      '@electron/universal': 2.0.3
       '@malept/flatpak-bundler': 0.4.0
       '@noble/hashes': 2.2.0
       '@peculiar/webcrypto': 1.7.1
@@ -8137,8 +8123,6 @@ snapshots:
 
   commander@12.1.0: {}
 
-  commander@13.1.0: {}
-
   commander@14.0.3: {}
 
   commander@2.20.3: {}
@@ -8307,7 +8291,7 @@ snapshots:
       tinyglobby: 0.2.17
       webpack: 5.107.2(postcss@8.5.15)(webpack-cli@7.0.3)
 
-  cordova-plugin-apkupdater@5.0.1(patch_hash=6efbafdbdca79d50b2e3016fca9da323ba046d9a6d8834571050e1827f587c37): {}
+  cordova-plugin-apkupdater@5.0.1: {}
 
   cordova-plugin-fullscreen@1.3.0: {}
 
@@ -8515,6 +8499,11 @@ snapshots:
   diff@4.0.4: {}
 
   diff@5.2.2: {}
+
+  dir-compare@4.2.0:
+    dependencies:
+      minimatch: 3.1.5
+      p-limit: 3.1.0
 
   discord-api-types@0.38.48: {}
 
@@ -10098,7 +10087,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  lucide-svelte@0.455.0(patch_hash=0609c957d625c84712d92a612c0fe92d6b06ae161e98c32f1b6b5694e5ff66ed)(svelte@4.2.20):
+  lucide-svelte@0.455.0(svelte@4.2.20):
     dependencies:
       svelte: 4.2.20
 
@@ -11151,7 +11140,7 @@ snapshots:
 
   retry@0.13.1: {}
 
-  rfdc@1.4.1(patch_hash=c9f93965feee0cc9f6da8f3451b078a567c0bb98da4f0c2f8b552e51a055789b): {}
+  rfdc@1.4.1: {}
 
   rimraf@2.6.3:
     dependencies:
@@ -11679,7 +11668,7 @@ snapshots:
     dependencies:
       svelte: 4.2.20
 
-  svelte-keybinds@1.0.9(patch_hash=f0c94591da45fd53ec510b56276e74597f95557fc91757f7ddc0f4a516ef90b9): {}
+  svelte-keybinds@1.0.9: {}
 
   svelte-loader@3.2.4(svelte@4.2.20):
     dependencies:
@@ -11796,7 +11785,7 @@ snapshots:
       type-fest: 2.19.0
       unique-string: 3.0.0
 
-  terser-webpack-plugin@5.6.1(postcss@8.5.15)(webpack@5.107.2(postcss@8.5.15)(webpack-cli@7.0.3)):
+  terser-webpack-plugin@5.6.1(postcss@8.5.15)(webpack@5.107.2):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
@@ -12265,7 +12254,7 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 4.3.3
       tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(postcss@8.5.15)(webpack@5.107.2(postcss@8.5.15)(webpack-cli@7.0.3))
+      terser-webpack-plugin: 5.6.1(postcss@8.5.15)(webpack@5.107.2)
       watchpack: 2.5.1
       webpack-sources: 3.5.0
     optionalDependencies:
@@ -12515,6 +12504,8 @@ snapshots:
   yallist@5.0.0: {}
 
   yaml@1.10.3: {}
+
+  yaml@2.9.0: {}
 
   yargs-parser@18.1.3:
     dependencies:

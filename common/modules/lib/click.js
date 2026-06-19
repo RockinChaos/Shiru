@@ -72,14 +72,12 @@ export function click(node, cb = noop) {
   node.addEventListener('pointerleave', e => {
     e.stopPropagation()
   })
-  if (!SUPPORTS.isAndroid) {
-    node.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.stopPropagation()
-        cb(e)
-      }
-    })
-  }
+  node.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.stopPropagation()
+      cb(e)
+    }
+  })
 }
 
 /**
@@ -183,7 +181,7 @@ export function hover(node, hoverUpdate = noop) {
         lastTapElement = null
       } else {
         hoverUpdate(true, true)
-        if (!SUPPORTS.isAndroid) lastTapElement = hoverUpdate
+        lastTapElement = hoverUpdate
       }
     }
   })
@@ -273,7 +271,7 @@ export function hoverClick(node, [cb = noop, hoverUpdate = noop, rcb = noop]) {
       } else {
         hoverUpdate(true, true)
         document.addEventListener('pointerup', handleOutsideClick)
-        if (!SUPPORTS.isAndroid) lastTapElement = hoverUpdate
+        lastTapElement = hoverUpdate
       }
     }
   })
@@ -470,7 +468,7 @@ function getElementPosition(element) {
  */
 function getFocusableElementPositions() {
   const elements = []
-  for (const element of getKeyboardFocusableElements(document.querySelector('.modal.show') ?? document.body)) {
+  for (const element of getKeyboardFocusableElements(document.querySelector('.modal.show, .modal-soft.show') ?? document.body)) {
     const position = getElementPosition(element)
     if (position) elements.push(position)
   }

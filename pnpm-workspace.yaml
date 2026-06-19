@@ -1,2 +1,13 @@
 packages:
   - './*'
+allowBuilds:
+  '@paymoapp/electron-shutdown-handler': set this to true or false
+  bufferutil: set this to true or false
+  electron-winstaller: set this to true or false
+  fsctl: set this to true or false
+  ip-set: set this to true or false
+  node-datachannel: set this to true or false
+  sharp: set this to true or false
+  utf-8-validate: set this to true or false
+  utp-native: set this to true or false
+  wrtc: set this to true or false

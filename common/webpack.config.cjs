@@ -15,6 +15,13 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     path: join(parentDir, 'build'),
     filename: 'renderer.js'
   },
+  resolveLoader: {
+    modules: [
+      'node_modules',
+      resolve(__dirname, '../node_modules'),
+      resolve(__dirname, 'node_modules')
+    ]
+  },
   mode,
   module: {
     rules: [
@@ -61,6 +68,13 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     ]
   },
   resolve: {
+    modules: [
+      'node_modules',
+      resolve(__dirname, '../node_modules'),
+      resolve(__dirname, '../client/node_modules'),
+      resolve(__dirname, '../capacitor/node_modules'),
+      resolve(__dirname, 'node_modules')
+    ],
     aliasFields: [aliasFields],
     alias: {
       ...alias,
@@ -68,7 +82,7 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
       module: false,
       url: false,
       debug: resolve(__dirname, './modules/lib/debug.js'),
-      'bittorrent-tracker/lib/client/websocket-tracker.js': resolve('../node_modules/bittorrent-tracker/lib/client/websocket-tracker.js')
+      'bittorrent-tracker/lib/client/websocket-tracker.js': resolve(__dirname, '../client/node_modules/bittorrent-tracker/lib/client/websocket-tracker.js')
     },
     extensions: ['.mjs', '.js', '.svelte']
   },

@@ -26,6 +26,13 @@ const capacitorConfig = {
     'require-addon': 'commonjs2 require-addon'
   },
   resolve: {
+    modules: [
+      'node_modules',
+      resolve(__dirname, '../node_modules'),
+      resolve(__dirname, '../client/node_modules'),
+      resolve(__dirname, '../capacitor/node_modules'),
+      resolve(__dirname, 'node_modules')
+    ],
     aliasFields: [],
     mainFields: ['module', 'main', 'node'],
     alias: {
@@ -35,7 +42,7 @@ const capacitorConfig = {
       '@client': resolve(__dirname, '..', 'client'),
       'webtorrent-client': resolve(__dirname, '..', 'client/core/webtorrent.js'),
       debug: resolve(__dirname, '..', 'common/modules/lib/debug.js'),
-      'http-tracker': resolve('../node_modules/bittorrent-tracker/lib/client/http-tracker.js'),
+      'http-tracker': resolve(__dirname, '../client/node_modules/bittorrent-tracker/lib/client/http-tracker.js'),
       'webrtc-polyfill': false // no webrtc on mobile, need the resources
     }
   },

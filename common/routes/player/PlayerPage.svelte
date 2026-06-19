@@ -54,7 +54,7 @@
 
   export let miniplayer = false
   $: viewAnime = $modal[modal.ANIME_DETAILS]
-  $condition = () => SUPPORTS.keybinds && $page === page.PLAYER && ((!miniplayer && (!$modal || !modal.length) && !document.querySelector('.modal.show')) || viewAnime)
+  $: $condition = () => SUPPORTS.keybinds && $page === page.PLAYER && (((!miniplayer && (!$modal || !modal.length) && !document.querySelector('.modal.show') && immersed)) || viewAnime)
 
   export let files = []
   export let playableFiles = []
@@ -1836,7 +1836,7 @@
         </div>
       </div>
     {/if}
-    <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='-1' role='button' on:keydown={handleSeekbarKey}>
+    <div class='w-full d-flex align-items-center h-20 mb-5 seekbar' tabindex='0' role='button' on:keydown={handleSeekbarKey}>
       <Seekbar
         accentColor='{completed || (media?.media && ((($mediaCache[media.media.id] || media.media)?.mediaListEntry?.progress - (media?.zeroEpisode ? 1 : 0)) >= (media.episodeRange ? media.episodeRange.last : media.episode))) ? `var(--completed-color-dim)` : `var(--accent-color)`}'
         class='font-size-20'
