@@ -71,15 +71,8 @@ flatpak:
   description: *description
   desktop:
     entry:
-      Comment: *description
       Keywords: anime
       MimeType: x-scheme-handler/shiru;
-      Icon: shiru
-  files:
-    - - buildResources/icon.png
-      - /share/icons/hicolor/512x512/apps/shiru.png
-    - - buildResources/icon.png
-      - /share/icons/hicolor/256x256/apps/shiru.png
 mac:
   artifactName: ${os}-${productName}-v${version}.${ext}
   singleArchFiles: node_modules/+(register-scheme|utp-native|fs-native-extensions)/**
