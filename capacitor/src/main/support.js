@@ -6,7 +6,7 @@ export const SUPPORTS = {
   angle: false,
   doh: false,
   discord: false,
-  keybinds: true,
+  keybinds: typeof navigator !== 'undefined' && /TV|Leanback|AFT/i.test(navigator.userAgent),
   isAndroid: true,
   maxSeeding: 10,
   externalPlayer: false,
