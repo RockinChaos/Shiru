@@ -54,7 +54,7 @@
 
   export let miniplayer = false
   $: viewAnime = $modal[modal.ANIME_DETAILS]
-  $: $condition = () => SUPPORTS.keybinds && $page === page.PLAYER && (((!miniplayer && (!$modal || !modal.length) && !document.querySelector('.modal.show') && immersed)) || viewAnime)
+  $: $condition = () => SUPPORTS.keybinds && $page === page.PLAYER && (((!miniplayer && (!$modal || !modal.length) && !document.querySelector('.modal.show') && (!SUPPORTS.isAndroid || immersed))) || viewAnime)
 
   export let files = []
   export let playableFiles = []
