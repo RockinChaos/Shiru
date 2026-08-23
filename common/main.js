@@ -5,6 +5,7 @@ import { SUPPORTS } from '@/modules/support.js'
 import { COMMON } from '@/modules/bridge.js'
 import '@/css.css'
 import '@/themes.css'
+import '@/modules/themes.js'
 import '@/typography.css'
 
 let splash

@@ -16,7 +16,7 @@ variables.subscribe(value => {
 })
 
 export function setStyle(value) {
-  settings.value.customCSS = value
+  settings.update(s => ({ ...s, customCSS: value ?? s.customCSS }))
   document.documentElement.setAttribute('data-theme', settings.value.presetTheme)
   document.querySelector('meta[name="theme-color"]').setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--theme-color').trim())
   style.textContent = `:root[data-theme='${settings.value.presetTheme}']{${(value || variables.value).replace(/{|}/g, '')}}`
