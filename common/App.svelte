@@ -21,6 +21,7 @@
   import { status } from '@/modules/networking.js'
   import Toaster from '@/components/toast/Toaster.svelte'
   import { onMount, onDestroy } from 'svelte'
+  import '@/modules/themes.js'
 
   let currentStatus = status.value
   let transitionTimer
