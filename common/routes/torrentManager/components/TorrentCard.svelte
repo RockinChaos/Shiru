@@ -45,17 +45,36 @@
       : (resolved?.files?.[0]?.episodeRange && `${resolved?.files?.[0].episodeRange.first} ~ ${resolved?.files?.[0].episodeRange.last}`) || (resolved?.episodeRange && `${resolved.episodeRange.first} ~ ${resolved.episodeRange.last}`)
         : null
   $: search = resolvedId && $mediaCache[resolvedId] ? { media: $mediaCache[resolvedId], episode, episodeRange } : null
+  $: watched = isWatched(search, resolved)
   $: progressPct = data.size && (!data.missing_pieces || (data.progress && data.progress < 1)) ? ((data.progress * 100) || 0).toFixed(1) : (data.missing_pieces ? null : '0')
   $: statusLabel = completed ? (data.incomplete ? ((data.missing_pieces && !(data.progress && data.progress < 1)) ? 'Missing Pieces' : 'Incomplete') : 'Completed')
     : data.progress === 1 ? 'Seeding'
       : data.size && (data.downloadSpeed || data.uploadSpeed) ? 'Downloading'
         : !(data.downloadSpeed || data.uploadSpeed) && data.eta > 1000 && data.eta < Infinity && data.progress < 1 && !settings.value.torrentStreamedDownload ? 'Scanning'
           : data.name ? 'Stalled' : '—'
-  $: watched = !!search && (episode || episode === 0
-    ? search.media?.mediaListEntry?.status === 'COMPLETED' || (search.media?.mediaListEntry?.progress ?? 0) >= (episode - (episode === 0 ? 1 : 0))
-    : search.media?.format === 'MOVIE'
-      ? search.media?.mediaListEntry?.status === 'COMPLETED' || (search.media?.mediaListEntry?.progress ?? 0) > 0
-      : (resolved?.files?.map((/** @type {{ mediaId: number }} */ file) => $mediaCache[file.mediaId]).filter(Boolean) ?? []).every((/** @type {{ mediaListEntry?: { status?: string, progress?: number }, episodes?: number }} */ media) => media?.mediaListEntry?.status === 'COMPLETED' || ((media.episodes ?? 0) > 0 && (media?.mediaListEntry?.progress ?? 0) >= (media.episodes ?? 0))))
+
+  /**
+   * Determines whether the resolved media for this torrent has been fully watched.
+   * @param {{ media: import('@/modules/providers/anilist/al.d.ts').Media, episode?: number, episodeRange?: string } | null} search
+   * @param {{ files?: { mediaId: number }[] }} resolved
+   * @returns {boolean}
+   */
+  function isWatched(search, resolved) {
+    if (!search) return false
+    const media = search.media
+    if (search.episode || search.episode === 0) {
+      return media?.mediaListEntry?.status === 'COMPLETED' || (media?.mediaListEntry?.progress ?? 0) >= (search.episode - (search.episode === 0 ? 1 : 0))
+    }
+    if (media?.format === 'MOVIE' && (media?.episodes ?? 0) <= 1) {
+      return media?.mediaListEntry?.status === 'COMPLETED' || (media?.mediaListEntry?.progress ?? 0) > 0
+    }
+    const files = resolved?.files?.map((/** @type {{ mediaId: number }} */ file) => $mediaCache[file.mediaId]).filter(Boolean) ?? []
+    if (files.length > 0) {
+      return files.every(media => media?.mediaListEntry?.status === 'COMPLETED' || ((media.episodes ?? 0) > 0 && (media?.mediaListEntry?.progress ?? 0) >= (media.episodes ?? 0)))
+    }
+    // individual files have not been resolved, fallback to the main media entry
+    return media?.mediaListEntry?.status === 'COMPLETED' || ((media.episodes ?? 0) > 0 && (media?.mediaListEntry?.progress ?? 0) >= (media.episodes ?? 0))
+  }
 
   /**
    * Returns a seeding quality label based on the upload ratio.
@@ -248,7 +267,7 @@
   }
 
   .watched {
-    opacity: .6;
+    opacity: .7;
   }
   .overlay {
     background: hsla(var(--black-color-hsl), .55);
