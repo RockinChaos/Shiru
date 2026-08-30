@@ -18,15 +18,10 @@ export const debugStore = persisted('debug', '', { serializer: { parse: e => e, 
  * Ensures that the webtorrent service is reloaded when the app is reloaded.
  * This is triggered by a `location.reload()` or force reload event.
  */
-const _onbeforeunload = window.onbeforeunload
-window.onbeforeunload = function (event) {
+window.addEventListener('unload', () => {
   ANDROID.showSplash()
   TORRENT.reload()
-  if (typeof _onbeforeunload === 'function') {
-    const result = _onbeforeunload(event)
-    if (typeof result === 'string') return result
-  }
-}
+})
 
 let storedSettings = cache.getEntry(caches.GENERAL, 'settings')
 let scopedDefaults
