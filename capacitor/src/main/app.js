@@ -125,7 +125,7 @@ export default class App {
           id: this.NOTIFICATION_FG_ID++,
           title: opts.title,
           body: opts.message,
-          actionTypeId: opts.button.length > 1 ? opts.button[0].text?.includes('Start') ? 'start_watching' : (opts.button[0].text?.includes('Continue') ? 'continue_watching' : (opts.button[0].text?.includes('Update') ? 'update_app' : 'watch_now')) : 'view_anime',
+          actionTypeId: opts.button?.length > 1 ? opts.button[0].text?.includes('Start') ? 'start_watching' : (opts.button[0].text?.includes('Continue') ? 'continue_watching' : (opts.button[0].text?.includes('Update') ? 'update_app' : 'watch_now')) : (opts.button?.length ? 'view_anime' : undefined),
           attachments: [{ id: 'my_preview', url: opts.heroImg || opts.iconXL || opts.icon }],
           extra: { buttons: opts.button }
         }]

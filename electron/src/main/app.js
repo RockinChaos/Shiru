@@ -139,14 +139,14 @@ export default class App {
         notification = new Notification({ toastXml: toXmlString(opts) })
       } else {
         const simpleOpts = { title: opts.title, body: opts.message, icon: opts.icon }
-        if (process.platform === 'darwin' && opts.button && opts.button.length) simpleOpts.actions = opts.button.map(button => ({ type: 'button', text: button.text }))
+        if (process.platform === 'darwin' && opts.button?.length) simpleOpts.actions = opts.button.map(button => ({ type: 'button', text: button.text }))
         notification = new Notification(simpleOpts)
         notification.on('click', () => {
           if (opts.activation?.launch) shell.openExternal(opts.activation.launch)
         })
         if (process.platform === 'darwin') {
           notification.on('action', (event, index) => {
-            if (opts.button && opts.button[index]) shell.openExternal(opts.button[index].activation)
+            if (opts.button?.[index]) shell.openExternal(opts.button[index].activation)
           })
         }
       }
