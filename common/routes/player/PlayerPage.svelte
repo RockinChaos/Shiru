@@ -136,12 +136,12 @@
       clearTimeout(boostResetTimer)
     }
     if ('audioTracks' in HTMLVideoElement.prototype) {
-      if (!video.audioTracks.length) {
+      if (src && !video.audioTracks.length) {
         toast.error('Audio Codec Unsupported', {
           description: "This torrent's audio codec is not supported, try a different release by disabling Autoplay Torrents in RSS settings.",
           force: true
         })
-      } else if (video.audioTracks.length > 1) {
+      } else if (src && video.audioTracks.length > 1) {
         const preferredTrack = [...video.audioTracks].find(({ language }) => language === $settings.audioLanguage)
         if (preferredTrack) return selectAudio(preferredTrack.id)
 
@@ -1364,6 +1364,7 @@
       thumbnailProcess.running = false
       await new Promise(resolve => setTimeout(resolve, 5 * 1_000))
     }
+    if (!current) return
     const t0 = performance.now()
     thumbnailProcess = { videoDraw: document.createElement('video'), running: true }
     const videoDraw = thumbnailProcess.videoDraw
@@ -1489,6 +1490,11 @@
     torrent.down = detail.downloadSpeed || 0
   }
   function checkError ({ target }) {
+    // nothing is playing... skip showing a toast.
+    if (!current || !src) {
+      debug('Ignoring video error after playback was cleared.', target.error)
+      return
+    }
     // video playback failed - show a message saying why
     switch (target.error?.code) {
       case target.error.MEDIA_ERR_ABORTED:
