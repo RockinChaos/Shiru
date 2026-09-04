@@ -192,12 +192,22 @@ function createSections () {
           if (!res?.data && res?.errors) throw res.errors[0]
           let mediaList = Helper.isAniAuth() ? (res.data.MediaListCollection?.lists || []).reduce((filtered, { status, entries }) => (status === 'CURRENT' || status === 'REPEATING') ? filtered.concat(entries) : filtered, []) : (res.data.MediaList || []).filter(({ node }) => (node.my_list_status.status === Helper.statusMap('CURRENT') || node.my_list_status.is_rewatching))
           if (!mediaList) return {}
-          return animeSchedule.dubAiringLists.value.then(airing => {
+          return Promise.all([animeSchedule.dubAiringLists.value, animeSchedule.dubAiredLists.value, malDubs.dubLists.value]).then(([airing, dubAired, dubLists]) => {
             if (settings.value.preferDubs) {
               const ids = []
+              const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1_000)
               mediaList.forEach(watchMedia => {
                 const media = watchMedia?.media || watchMedia?.node
+                const isDubbed = dubLists?.dubbed?.includes(media?.idMal || media?.id)
+                const isPartialDub = dubLists?.incomplete?.includes(media?.idMal || media?.id)
                 const matchingAiring = airing?.find(item => (watchMedia?.media ? item?.media?.media?.id : item?.media?.media?.idMal) === media?.id)
+                const airedDubs = (dubAired || []).filter(item => item?.id === media?.id || item?.idMal === media?.id)
+                const latestDub = airedDubs.sort((a, b) => b?.episode?.aired - a?.episode?.aired)[0]
+                const progress = media?.mediaListEntry?.progress ?? media?.my_list_status?.num_episodes_watched ?? 0
+                if (isDubbed && (latestDub && progress === (latestDub.episode.aired + (airedDubs.some(item => item?.episode?.aired === 0) ? 1 : 0))) && ((media?.status === 'RELEASING' || media?.status === 'currently_airing') || (!isPartialDub && new Date(latestDub.episode.airedAt).getTime() >= twoWeeksAgo))) {
+                  ids.push(media?.id)
+                  return
+                }
                 if (matchingAiring && (media?.mediaListEntry || media?.my_list_status)) {
                   const now = new Date()
                   const episodes = matchingAiring?.media?.media?.airingSchedule?.nodes
