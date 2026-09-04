@@ -8,7 +8,7 @@
   import { episodesList } from '@/modules/episodes.js'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
   import { durationMap, getMediaMaxEp } from '@/modules/anime/anime.js'
-  import { createEventDispatcher } from 'svelte'
+  import { createEventDispatcher, onMount } from 'svelte'
   import Subtitles from '@/modules/subtitles.js'
   import { toTS, fastPrettyBytes, matchPhrase, videoRx, isValidNumber, debounce } from '@/modules/util.js'
   import { toast } from '@/modules/lib/toast.js'
@@ -94,6 +94,17 @@
   let source = null
   let gainNode = null
   let playbackRate = 1
+  let holdPlaybackTimer = null
+  let holdPlaybackRate = 1
+  let holdPlaybackWasPaused = false
+  let holdPlaybackActive = false
+  let holdPlaybackKeyCode = null
+  let holdPlaybackPointerId = null
+  let playbackRateText = ''
+  let playbackRateVisible = false
+  let playbackRateTimeout
+  let suppressPlayerClick = false
+  let holdPlaybackSession = 0
   let externalPlayerReady = false
   $: $settings.volume = (String(volume || 0))
   $: launchedExternal = false
@@ -277,6 +288,7 @@
   $: loadDeband($settings.playerDeband, video)
 
   async function handleCurrent (file) {
+    cancelHoldState()
     paused = true
     canPlay = false
     video?.pause?.()
@@ -508,6 +520,7 @@
       hidden = !visible
       if (!video?.ended) {
         if (hidden) {
+          cancelHoldState()
           visibilityPaused = paused
           paused = true
         } else if (!visibilityPaused) paused = false
@@ -784,6 +797,127 @@
     $settings.playerCoverVideo = fitWidth
     return value
   }
+
+  function startHoldPlayback() {
+    if (holdPlaybackTimer || holdPlaybackActive || !video || !src || externalPlayback) return false
+    holdPlaybackTimer = setTimeout(activateHoldPlayback, 400)
+    holdPlaybackTimer.unref?.()
+    return true
+  }
+
+  function activateHoldPlayback() {
+    holdPlaybackTimer = null
+    if (!video || !src || externalPlayback) return
+
+    holdPlaybackActive = true
+    holdPlaybackRate = video.playbackRate
+    holdPlaybackWasPaused = video.paused
+    video.playbackRate = Math.min(16, Number((holdPlaybackRate * 2).toFixed(1)))
+    showPlaybackRateTemporarily(video.playbackRate)
+
+    if (holdPlaybackWasPaused) {
+      const session = ++holdPlaybackSession
+      video.play().then(() => {
+        if (holdPlaybackSession === session && !holdPlaybackActive) video.pause()
+      }).catch(() => {})
+    }
+  }
+
+  function endHoldPlayback(showIndicator = true) {
+    if (holdPlaybackTimer) {
+      clearTimeout(holdPlaybackTimer)
+      holdPlaybackTimer = null
+    }
+    if (!holdPlaybackActive) return false
+
+    const wasPaused = holdPlaybackWasPaused
+    holdPlaybackActive = false
+    if (video) {
+      video.playbackRate = holdPlaybackRate
+      if (showIndicator) showPlaybackRateTemporarily(video.playbackRate)
+      if (wasPaused && !video.paused) video.pause()
+    }
+    return true
+  }
+
+  function startPointerHold(event) {
+    if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return
+    if (startHoldPlayback()) {
+      holdPlaybackPointerId = event.pointerId
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+  }
+
+  function endPointerHold(event) {
+    if (event.pointerId !== holdPlaybackPointerId) return
+    if (endHoldPlayback() && event.type === 'pointerup') suppressPlayerClick = true
+    if (event.type === 'pointerup') holdPlaybackPointerId = null
+    else if (event.type === 'pointercancel' || event.type === 'lostpointercapture') {
+      holdPlaybackPointerId = null
+      suppressPlayerClick = false
+    }
+  }
+
+  function handlePlayerClick() {
+    if (suppressPlayerClick) suppressPlayerClick = false
+    else if ($page === page.PLAYER && modal.length === 0) playPause()
+    else if (!miniplayerShelved) page.navigateTo(page.PLAYER)
+  }
+
+  function handleMobilePlayerClick() {
+    if (suppressPlayerClick) suppressPlayerClick = false
+    else toggleImmerse()
+  }
+
+  function handleMiniplayerClick() {
+    if (suppressPlayerClick) suppressPlayerClick = false
+    else page.navigateTo(page.PLAYER)
+  }
+
+  function startKeyboardHold(event) {
+    if (!event?.code || event.repeat || holdPlaybackKeyCode) return
+    if (holdPlaybackActive || holdPlaybackTimer) {
+      const wasPointerHold = holdPlaybackPointerId != null
+      const beganPaused = holdPlaybackWasPaused
+      const wasHolding = endHoldPlayback()
+      if (wasPointerHold) suppressPlayerClick = true
+      if (!wasHolding || !beganPaused) playPause()
+      return
+    }
+    holdPlaybackKeyCode = event.code
+    if (!startHoldPlayback()) {
+      holdPlaybackKeyCode = null
+      playPause()
+    }
+  }
+
+  function endKeyboardHold(event) {
+    if (event.code !== holdPlaybackKeyCode) return
+    event.preventDefault()
+    const wasHolding = endHoldPlayback()
+    holdPlaybackKeyCode = null
+    if (!wasHolding) playPause()
+  }
+
+  function cancelHoldState() {
+    holdPlaybackKeyCode = null
+    const wasHoldingOrPending = holdPlaybackActive || holdPlaybackTimer
+    endHoldPlayback(false)
+    if (wasHoldingOrPending && holdPlaybackPointerId != null) suppressPlayerClick = true
+  }
+
+  function handleHoldState() {
+    if (endHoldPlayback() && holdPlaybackPointerId != null) suppressPlayerClick = true
+  }
+
+  function showPlaybackRateTemporarily(rate = playbackRate) {
+    playbackRateText = `${Number(rate.toFixed(1))}x`
+    playbackRateVisible = true
+    clearTimeout(playbackRateTimeout)
+    playbackRateTimeout = setTimeout(() => playbackRateVisible = false, 600)
+    playbackRateTimeout.unref?.()
+  }
+
   let showKeybinds = false
   loadWithDefaults({
     KeyX: {
@@ -827,11 +961,11 @@
       desc: 'Toggle Keybinds'
     },
     Space: {
-      fn: () => !viewAnime && playPause(),
+      fn: event => !viewAnime && startKeyboardHold(event),
       id: 'play_arrow',
       icon: Play,
       type: 'icon',
-      desc: 'Play/Pause'
+      desc: 'Play/Pause / Hold to Speed Up'
     },
     KeyN: {
       fn: () => !viewAnime && playNext(),
@@ -1638,6 +1772,17 @@
     }
     ELECTRON.setPresence({ activity })
   }
+
+  onMount(() => {
+    window.addEventListener('keyup', endKeyboardHold, true)
+    window.addEventListener('blur', cancelHoldState)
+    return () => {
+      window.removeEventListener('keyup', endKeyboardHold, true)
+      window.removeEventListener('blur', cancelHoldState)
+      clearTimeout(playbackRateTimeout)
+      cancelHoldState()
+    }
+  })
 </script>
 
 <div
@@ -1691,6 +1836,7 @@
     bind:playbackRate
     on:error={checkError}
     on:pause={updatew2g}
+    on:pause={handleHoldState}
     on:play={updatew2g}
     on:seeked={updatew2g}
     on:timeupdate={() => createThumbnail()}
@@ -1702,6 +1848,7 @@
     on:canplay={hideBuffering}
     on:playing={hideBuffering}
     on:loadedmetadata={hideBuffering}
+    on:ended={handleHoldState}
     on:ended={tryPlayNext}
     on:loadedmetadata={initThumbnails}
     on:loadedmetadata={findChapters}
@@ -1803,9 +1950,9 @@
     </div>
   </div>
   <div class='middle d-flex align-items-center justify-content-center flex-grow-1 position-relative'>
-    <div aria-hidden='true' class='w-full h-full position-absolute toggle-fullscreen' on:dblclick={toggleFullscreen} on:click|self={() => { if ($page === page.PLAYER && modal.length === 0) { playPause(); } else if (!miniplayerShelved) { page.navigateTo(page.PLAYER) } }} />
-    <div aria-hidden='true' class='w-full h-full position-absolute toggle-immerse d-none' on:dblclick={toggleFullscreen} on:click|self={toggleImmerse} />
-    <div class='w-full h-full position-absolute mobile-focus-target d-none' use:click={() => { page.navigateTo(page.PLAYER) }} />
+    <div aria-hidden='true' class='w-full h-full position-absolute toggle-fullscreen' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handlePlayerClick} />
+    <div aria-hidden='true' class='w-full h-full position-absolute toggle-immerse d-none' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handleMobilePlayerClick} />
+    <div aria-hidden='true' class='w-full h-full position-absolute mobile-focus-target d-none' on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handleMiniplayerClick} />
     <span aria-hidden='true' class='icon ctrl align-items-center justify-content-end w-150 mw-full mr-auto' class:hidden={externalPlayback} class:mb-50={!miniplayer} on:click={rewind}><Rewind size='3rem' /></span>
     <!-- miniplayer buttons -->
     {#if miniplayer && !miniplayerShelved}
@@ -1848,6 +1995,7 @@
     {#if subDelayText}
       <span class='position-absolute z-10 font-weight-bold font-scale-40 text-white rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' class:transparent={!subDelayVisible}>{subDelayText}</span>
     {/if}
+    <span class='position-absolute z-10 font-weight-bold font-scale-40 text-white rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' class:transparent={!playbackRateVisible}>{playbackRateText}</span>
   </div>
   <div class='bottom d-flex z-40 flex-column px-20'>
     {#if !$settings.playerTitleTop}
