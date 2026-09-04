@@ -22,7 +22,7 @@
     "rfdc": "^1.4.1",
     "rvfc-polyfill": "^1.0.8",
     "simple-store-svelte": "^1.0.6",
-    "svelte": "^4.2.20",
+    "svelte": "^5.0.0",
     "svelte-keybinds": "^1.0.9",
     "svelte-loader": "^3.2.4",
     "svelte-persisted-store": "^0.12.0",
