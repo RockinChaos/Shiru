@@ -10,7 +10,7 @@ on:
         type: boolean
 
 env:
-  NODE_VERSION: '24.18.1'
+  NODE_VERSION: '24.19.0'
   PNPM_VERSION: '10.34.1'
 
 jobs:

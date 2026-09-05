@@ -287,8 +287,8 @@ importers:
         specifier: workspace:*
         version: link:../common
       electron:
-        specifier: 42.9.0
-        version: 42.9.0
+        specifier: 42.11.0
+        version: 42.11.0
       electron-builder:
         specifier: ^26.15.7
         version: 26.15.7(electron-builder-squirrel-windows@26.15.7)
@@ -1171,7 +1171,7 @@ packages:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
   anitomyscript@https://codeload.github.com/ThaUnknown/anitomyscript/tar.gz/42290c4b3f256893be08a4e89051f448ff5e9d00:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/ThaUnknown/anitomyscript/tar.gz/42290c4b3f256893be08a4e89051f448ff5e9d00}
+    resolution: {gitHosted: true, integrity: sha512-s+C9tbRiY/h+xhmPb0rZF6gS8u+m9zUEVfsf3htg6H/wUx1Pntb3XaYjCRR9YUdvxsmEWAPWa5s5aWvyq+VW8w==, tarball: https://codeload.github.com/ThaUnknown/anitomyscript/tar.gz/42290c4b3f256893be08a4e89051f448ff5e9d00}
     version: 2.0.5
 
   ansi-html-community@0.0.8:
@@ -2142,8 +2142,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@42.9.0:
-    resolution: {integrity: sha512-xyKfPbHP43Jx22Z1hItLR4KB5h3/avb5BIX4xaQZ6uPPRY4cQxuHnRVrKCGbSsMa/9zd0bBT4TAVNVuVjYcYtw==}
+  electron@42.11.0:
+    resolution: {integrity: sha512-cVKNrRk+qedJspxeQm7HpPbALpPK8shfIBYAdqRbpw+4Gwn9+1HySne11ILs93Pmxt3z89wjso0AftadPd6Nqg==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -7737,7 +7737,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@42.9.0:
+  electron@42.11.0:
     dependencies:
       '@electron-internal/extract-zip': 1.0.5
       '@electron/get': 5.0.0

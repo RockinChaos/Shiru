@@ -180,7 +180,7 @@ Credit to [NoCrypt](https://github.com/NoCrypt) for doing the legwork on this.
 
 ### 📋 Requirements:
 - PNPM (or any package manager)
-- NodeJS 24.18.1
+- NodeJS 24.19.0
 - Visual Studio 2022 (if on Windows)
 - Docker (with WSL on Windows)
 - ADB & Android Studio (SDK 34)

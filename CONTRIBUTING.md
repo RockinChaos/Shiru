@@ -68,7 +68,7 @@ Want to contribute code? Great! Here's how:
 ### 📋 Prerequisites
 
 - **PNPM** (or any package manager)
-- **Node.js 24.18.1**
+- **Node.js 24.19.0**
 - **Visual Studio 2022** (if on Windows)
 - **Docker** (with WSL if on Windows)
 - **ADB & Android Studio** (SDK 34) - for Android development
