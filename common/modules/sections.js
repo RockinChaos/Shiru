@@ -221,19 +221,24 @@ function createSections () {
               })
               mediaList = mediaList.filter(media => !ids.includes(media?.media?.id || media?.node?.id))
             }
-            return animeSchedule.subAiringLists.value.then(airing => {
+            return Promise.all([animeSchedule.subAiringLists.value, animeSchedule.subAiredLists.value, animeSchedule.hentaiAiredLists.value]).then(([airing, subAired, hentaiAired]) => {
               if (Helper.isMalAuth()) {
                 const ids = []
                 mediaList.forEach(watchMedia => {
                   const media = watchMedia?.node
                   const matchingAiring = airing?.find(item => item?.idMal === media?.id)
+                  const airedSubs = (subAired || []).filter(item => item?.idMal === media?.id)
+                  const airedEpisodes = airedSubs.length ? airedSubs : (hentaiAired || []).filter(item => item?.idMal === media?.id)
                   if (matchingAiring && media?.my_list_status) {
                     const now = Date.now() / 1000
                     const episodes = matchingAiring?.airingSchedule?.nodes || []
                     const closest = episodes.sort((a, b) => Math.abs(a.airingAt - now) - Math.abs(b.airingAt - now))[0]
-                    const highestEpisode = Math.max(...episodes.filter(ep => ep.airingAt === closest?.airingAt)?.map(ep => ep.episode))
-                    const episodeNumber = closest ? closest.airingAt > now ? highestEpisode - 1 : highestEpisode : null
+                    const closestEpisodes = episodes.filter(ep => ep.airingAt === closest?.airingAt).map(ep => ep.episode)
+                    const episodeNumber = closest ? closest.airingAt > now ? Math.min(...closestEpisodes) - 1 : Math.max(...closestEpisodes) : null
                     if (media?.my_list_status?.num_episodes_watched >= (episodeNumber || media?.num_episodes)) ids.push(media?.id)
+                  } else if (media?.status === 'currently_airing' && airedEpisodes.length) {
+                    const latestEpisode = Math.max(...airedEpisodes.map(item => item?.episode?.aired ?? 0))
+                    if (media?.my_list_status?.num_episodes_watched === latestEpisode) ids.push(media?.id)
                   }
                 })
                 mediaList = mediaList.filter(media => !ids.includes(media?.media?.id || media?.node?.id))
