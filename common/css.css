@@ -164,12 +164,6 @@
       U+FFFC-FFFD, U+1F16A-1F16B;
 }
 
-@font-face {
-  font-family: "Twemoji";
-  src: /* webpackIgnore: true */ url(Twemoji.ttf) format("truetype");
-  unicode-range: U+1F1E6-1F1FF;
-}
-
 .dark-mode {
   background-color: var(--dark-color) !important;
 }

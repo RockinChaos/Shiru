@@ -5,7 +5,7 @@
   "dependencies": {
     "bencode": "^4.0.1",
     "bittorrent-tracker": "^11.2.3",
-    "matroska-metadata": "github:cedarpolar/matroska-metadata#b36dd003c41da5acd11c70144c13aef16a5603ee",
+    "@rockinchaos/matroska-metadata": "github:RockinChaos/matroska-metadata#dd219b3f83cefc7bb34ad2fa7c68b5053d4e8429",
     "parse-torrent": "^11.0.24",
     "webtorrent": "^3.0.21"
   }

@@ -84,6 +84,9 @@ module.exports = [
     externals: {
       '@paymoapp/electron-shutdown-handler': 'require("@paymoapp/electron-shutdown-handler")'
     },
+    optimization: {
+      concatenateModules: { commonjs: false }
+    },
     resolve: {
       aliasFields: [],
       alias: {

@@ -1,4 +1,4 @@
-import _Metadata from 'matroska-metadata'
+import _Metadata from '@rockinchaos/matroska-metadata'
 import { arr2hex, hex2bin } from 'uint8-util'
 import { fontRx } from '@/modules/util.js'
 import { SUPPORTS } from '@/modules/support.js'
@@ -70,6 +70,8 @@ export default class Metadata {
       debug(`Found subtitle for track: ${trackNumber}: ${subtitle.text}`)
       this.client.dispatch('subtitle', { subtitle, trackNumber })
     })
+
+    this.metadata.on('warning', error => debug('Subtitle parsing warning:', error))
 
     if (this.file.name.endsWith('.mkv') || this.file.name.endsWith('.webm')) {
       this.file.on('iterator', ({ iterator }, cb) => {

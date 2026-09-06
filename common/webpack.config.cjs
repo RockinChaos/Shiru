@@ -3,7 +3,6 @@ const { join, resolve } = require('path')
 const mode = process.env.NODE_ENV?.trim() || 'development'
 const isDev = mode === 'development'
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 
 /** @type {(parentDir: string, alias?: Record<string, string>, aliasFields?: (string | string[]), filename?: string) => import('webpack').WebpackOptionsNormalized} */
@@ -39,18 +38,6 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
         }
       },
       {
-        test: /\.css$/,
-        use: [
-          MiniCssExtractPlugin.loader,
-          {
-            loader: 'css-loader',
-            options: {
-              sourceMap: true
-            }
-          }
-        ]
-      },
-      {
         // required to prevent errors from Svelte on Webpack 5+
         test: /node_modules\/svelte\/.*\.mjs$/,
         resolve: {
@@ -68,6 +55,8 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     ]
   },
   resolve: {
+    mainFields: ['svelte', 'browser', '...'],
+    conditionNames: ['svelte', 'browser', '...'],
     modules: [
       'node_modules',
       resolve(__dirname, '../node_modules'),
@@ -87,9 +76,6 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     extensions: ['.mjs', '.js', '.svelte']
   },
   plugins: [
-    new MiniCssExtractPlugin({
-      filename: '[name].css'
-    }),
     new CopyWebpackPlugin({
       patterns: [
         { from: join(__dirname, 'public') }
