@@ -14,6 +14,7 @@ export default class Protocol {
     torrent: magnet => this.add(magnet),
     search: id => this.play(id),
     w2g: link => ipcWire.send('common:onLobbyInvite', link),
+    player: () => ipcWire.send('common:onRequestPage', 'player'),
     schedule: () => ipcWire.send('common:onRequestPage', 'schedule'),
     donate: () => Browser.open({ url: 'https://contribute.shiru.app/' }),
     update: () => ipcWire.emit('common:quitAndInstall'),

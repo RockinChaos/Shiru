@@ -6,3 +6,11 @@ export const FileManager = {
   requestAllFilesAccess: () => FileManagerPlugin.requestAllFilesAccess(),
   pickFolder: async () => (await FileManagerPlugin.pickFolder()).path
 }
+
+const MediaSessionPlugin = registerPlugin('MediaSession')
+export const MediaSession = {
+  onAction: (callback) => MediaSessionPlugin.addListener('mediaAction', ({ action }) => callback(action)),
+  onPictureInPictureModeChanged: (callback) => MediaSessionPlugin.addListener('pictureInPictureModeChanged', ({ isInPictureInPictureMode }) => callback(isInPictureInPictureMode)),
+  setPlaybackState: (state) => MediaSessionPlugin.setPlaybackState(state),
+  exitPiP: () => MediaSessionPlugin.exitPiP()
+}

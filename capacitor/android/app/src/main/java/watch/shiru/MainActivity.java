@@ -10,15 +10,18 @@ import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
+import android.content.res.Configuration;
 import com.getcapacitor.BridgeActivity;
 
 import watch.shiru.plugin.FileManager;
+import watch.shiru.plugin.MediaSession;
 
 public class MainActivity extends BridgeActivity {
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
     registerPlugin(FileManager.class);
+    registerPlugin(MediaSession.class);
 
     super.onCreate(savedInstanceState);
 
@@ -42,6 +45,12 @@ public class MainActivity extends BridgeActivity {
         return bridge.getLocalServer().shouldInterceptRequest(request);
       }
     });
+  }
+
+  @Override
+  public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+    MediaSession.dispatchPiPChanged(isInPictureInPictureMode);
   }
 
   /**

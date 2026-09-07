@@ -238,7 +238,7 @@ const validPages = Object.values(page).filter(value => typeof value === 'string'
 COMMON.onRequestPage((pageName) => {
   if (validPages.includes(pageName)) {
     ELECTRON.showAndFocus()
-    page.navigateTo(pageName)
+    page.navigateTo(pageName === 'player' ? (files?.value?.length ? pageName : 'home') : pageName)
   } else debug(`onRequestPage: unknown page "${pageName}"`)
 })
 

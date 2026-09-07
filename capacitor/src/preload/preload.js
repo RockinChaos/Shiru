@@ -5,7 +5,7 @@ import { IntentUri } from 'capacitor-intent-uri'
 import { Filesystem } from '@capacitor/filesystem'
 import { development, keyboardVisible} from '../main/util.js'
 import { SplashScreen } from '@capacitor/splash-screen'
-import { FileManager } from '../main/plugin.js'
+import { FileManager, MediaSession } from '../main/plugin.js'
 import { ipcWire } from '../main/ipc.js'
 import { SystemBars, SystemBarsStyle, SystemBarType } from '@capacitor/core'
 import { ForegroundService, Importance, ServiceType } from '@capawesome-team/capacitor-android-foreground-service'
@@ -208,6 +208,32 @@ window.android = {
    * @param {(event: any) => void} callback
    */
   onBackButton: (callback) => Capacitor.addListener('backButton', callback),
+  /**
+   * Listens for the app moving between the foreground and background.
+   *
+   * @param {(isActive: boolean) => void} callback
+   */
+  onAppStateChange: (callback) => Capacitor.addListener('appStateChange', ({ isActive }) => callback(isActive)),
+  /**
+   * Listens for native Android PiP mode changes.
+   *
+   * @param {(isInPictureInPictureMode: boolean) => void} callback
+   */
+  onPictureInPictureModeChanged: (callback) => MediaSession.onPictureInPictureModeChanged(callback),
+  /**
+   * Listens for playback actions from Android media controls.
+   *
+   * @param {(action: 'play' | 'pause' | 'last' | 'next') => void} callback
+   */
+  onMediaAction: (callback) => MediaSession.onAction(callback),
+  /**
+   * Activates Android media controls and keeps their playback state in sync.
+   *
+   * @param {{ active: boolean, playing?: boolean, title?: string, subtitle?: string, artwork?: string, position?: number, duration?: number, playbackRate?: number, hasLast?: boolean, hasNext?: boolean }} state
+   */
+  setMediaSession: (state) => MediaSession.setPlaybackState(state),
+  /** Brings the player activity out of PiP and back to the foreground. */
+  exitPiP: () => MediaSession.exitPiP(),
   /** Hides the status bar if the keyboard is not visible. */
   hideStatusBar: () => {
     if (!keyboardVisible) SystemBars.hide({ bar: SystemBarType.StatusBar })

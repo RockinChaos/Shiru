@@ -76,6 +76,7 @@
   let bufferTimeout = null
   let subHeaders = null
   let pip = false
+  let appActive = true
   // const presentationRequest = null
   // const presentationConnection = null
   // const canCast = false
@@ -742,7 +743,7 @@
   $: updatePiPState(paused)
   function togglePopout () {
     if (video.readyState) {
-      if (!subs?.renderer) {
+      if (!subs?.renderer || SUPPORTS.isAndroid) {
         if (video !== document.pictureInPictureElement) {
           video.requestPictureInPicture()
           resetImmerse()
@@ -1267,6 +1268,22 @@
     playbackRate: 1,
     position: Math.max(0, Math.min(safeduration || 0, currentTime || 0))
   })
+  $: updateAndroidMediaSession(media, !!src && !externalPlayback && (((!$playPage || $page === page.PLAYER) && appActive) || pip), paused, safeduration, playbackRate, hasLast, hasNext)
+
+  function updateAndroidMediaSession(np = media, active = !!src && !externalPlayback && (((!$playPage || $page === page.PLAYER) && appActive) || pip), isPaused = paused, mediaDuration = safeduration, rate = playbackRate, last = hasLast, next = hasNext) {
+    ANDROID.setMediaSession?.({
+      active,
+      playing: active && !isPaused,
+      title: np?.title || 'Shiru',
+      subtitle: np?.media?.format === 'MOVIE' && (np.media?.episodes ?? 0) <= 1 ? 'The Movie' : [np?.episode === 0 || np?.episode ? `Episode ${np.episode}${np.media?.episodes ? ` of ${np.media.episodes}` : ''}` : '', np?.episodeTitle].filter(Boolean).join(' - ') || 'Streaming the Universe',
+      artwork: np?.artwork || np?.thumbnail || '',
+      position: currentTime,
+      duration: mediaDuration,
+      playbackRate: rate || 1,
+      hasLast: last,
+      hasNext: next
+    })
+  }
 
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', playPause)
@@ -1774,9 +1791,38 @@
   }
 
   onMount(() => {
+    let destroyed = false
+    let mediaActionListener
+    let appStateListener
+    let pictureInPictureListener
+    ANDROID.onAppStateChange?.(isActive => appActive = isActive)?.then?.(listener => {
+      if (destroyed) listener?.remove()
+      else appStateListener = listener
+    })
+    ANDROID.onPictureInPictureModeChanged?.(isInPictureInPictureMode => {
+      pip = isInPictureInPictureMode
+      if (!pip && document.fullscreenElement) document.exitFullscreen()
+    })?.then?.(listener => {
+      if (destroyed) listener?.remove()
+      else pictureInPictureListener = listener
+    })
+    ANDROID.onMediaAction?.(action => {
+      if (!src || externalPlayback) return
+      if (action === 'last') playLast()
+      else if (action === 'next') playNext()
+      else if ((action === 'play' && paused) || (action === 'pause' && !paused)) playPause()
+    })?.then?.(listener => {
+      if (destroyed) listener?.remove()
+      else mediaActionListener = listener
+    })
     window.addEventListener('keyup', endKeyboardHold, true)
     window.addEventListener('blur', cancelHoldState)
     return () => {
+      destroyed = true
+      appStateListener?.remove()
+      mediaActionListener?.remove()
+      pictureInPictureListener?.remove()
+      ANDROID.setMediaSession?.({ active: false })
       window.removeEventListener('keyup', endKeyboardHold, true)
       window.removeEventListener('blur', cancelHoldState)
       clearTimeout(playbackRateTimeout)
@@ -1791,7 +1837,7 @@
   class:pointer={miniplayer}
   class:rounded-top-10={miniplayer}
   class:miniplayer
-  class:pip
+  class:pip={pip && !SUPPORTS.isAndroid}
   class:immersed={immersed}
   class:buffering={($page === page.PLAYER || miniplayer) && buffering}
   class:fitWidth
@@ -1839,6 +1885,7 @@
     on:pause={handleHoldState}
     on:play={updatew2g}
     on:seeked={updatew2g}
+    on:seeked={() => updateAndroidMediaSession()}
     on:timeupdate={() => createThumbnail()}
     on:timeupdate={checkCompletion}
     on:timeupdate={checkSkippableChapters}
@@ -1859,6 +1906,9 @@
     on:loadedmetadata={loadAnimeProgress}
     on:leavepictureinpicture={() => { pip = false }}
   ><track kind='captions' src='' srclang='en' label='English'/></video>
+  <div class='buffering-position position-absolute top-0 left-0 w-full h-full d-none align-items-center justify-content-center pointer-events-none z-10' class:d-flex={SUPPORTS.isAndroid && pip}>
+    <div class='bufferingDisplay'/>
+  </div>
   {#if stats && !miniplayer}
     <div class='position-absolute top-0 bg-tp p-10 ml-20 mt-100 text-monospace rounded z-50'>
       <button class='close btn btn-square mt-5' type='button' use:click={toggleStats}>
@@ -1887,7 +1937,7 @@
   {/if}
   <ManagerModal playing={current} files={playableFiles} {playFile} />
   <div class='top z-40 row d-title' class:justify-content-center={!$settings.playerTitleTop} class:align-items-center={!$settings.playerTitleTop}>
-    {#if $settings.playerTitleTop}
+    {#if $settings.playerTitleTop && (!SUPPORTS.isAndroid || !pip)}
       <div class='stats pl-20 col-4 d-title'>
         <div class='font-weight-bold overflow-hidden text-truncate font-scale-23'>
           {#if media?.title}
@@ -1912,12 +1962,14 @@
       </div>
     {/if}
     <div class='d-flex justify-content-center bottom-0 d-title d-filler' class:col-4={$settings.playerTitleTop}>
-      <span class='icon'><Users class='pt-5 block-scale-30' strokeWidth={3} /> </span>
-      <span class='stats font-scale-24'>{torrent.peers || 0}</span>
-      <span class='icon'><ArrowDown class='block-scale-30' /></span>
-      <span class='stats font-scale-24'>{fastPrettyBytes(torrent.down)}/s</span>
-      <span class='icon'><ArrowUp class='block-scale-30' /></span>
-      <span class='stats font-scale-24'>{fastPrettyBytes(torrent.up)}/s</span>
+      {#if !SUPPORTS.isAndroid || !pip}
+        <span class='icon'><Users class='pt-5 block-scale-30' strokeWidth={3} /> </span>
+        <span class='stats font-scale-24'>{torrent.peers || 0}</span>
+        <span class='icon'><ArrowDown class='block-scale-30' /></span>
+        <span class='stats font-scale-24'>{fastPrettyBytes(torrent.down)}/s</span>
+        <span class='icon'><ArrowUp class='block-scale-30' /></span>
+        <span class='stats font-scale-24'>{fastPrettyBytes(torrent.up)}/s</span>
+      {/if}
       {#if resolvePrompt}
         <div class='position-absolute text-monospace rounded skipPrompt d-flex flex-column align-items-center text-center bg-dark-light p-20 z-50 mt-60' class:w-500={SUPPORTS.isAndroid}>
           <div class='skipFont'>
@@ -1953,7 +2005,7 @@
     <div aria-hidden='true' class='w-full h-full position-absolute toggle-fullscreen' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handlePlayerClick} />
     <div aria-hidden='true' class='w-full h-full position-absolute toggle-immerse d-none' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handleMobilePlayerClick} />
     <div aria-hidden='true' class='w-full h-full position-absolute mobile-focus-target d-none' on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handleMiniplayerClick} />
-    <span aria-hidden='true' class='icon ctrl align-items-center justify-content-end w-150 mw-full mr-auto' class:hidden={externalPlayback} class:mb-50={!miniplayer} on:click={rewind}><Rewind size='3rem' /></span>
+    <span aria-hidden='true' class='icon ctrl align-items-center justify-content-end w-150 mw-full mr-auto' class:hidden={externalPlayback || (SUPPORTS.isAndroid && pip)} class:mb-50={!miniplayer} on:click={rewind}><Rewind size='3rem' /></span>
     <!-- miniplayer buttons -->
     {#if miniplayer && !miniplayerShelved}
       <span class='position-absolute rounded-10 top-0 right-0 m-10 btn-shadow button' class:ctrl={!SUPPORTS.isAndroid} class:mr-40={!SUPPORTS.isAndroid} class:mr-50={SUPPORTS.isAndroid} title='Minimize' data-name='playPause' use:click={() => (playPage.set(!playPage.value))}>
@@ -1965,28 +2017,28 @@
     {/if}
     {#if !miniplayer || !miniplayerShelved}
       <div class='d-flex align-items-center position-relative' class:mb-50={!miniplayer} style='width: 100%;' title='Play/Pause'>
-          <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `left: 5%` : `left: 15%`} title='{hasLast ? `Last` : `No Previous Episode`}' data-name='playPause' disabled={!hasLast} class:not-allowed={!hasLast} class:text-very-muted={!hasLast} use:click={playLast}>
-            <SkipBack size='3rem' fill='currentColor' />
-          </span>
-          <span class='icon ctrl position-absolute rounded-10 text-white' data-name='playPause' style='left: 50%; margin-left: -3rem;' use:click={playPause}>
-            {#if ended}
-              <RotateCw size='3rem' />
+        <div class='position-absolute bufferingDisplay' style='left: 50%; margin-left: -2.5rem;' class:d-none={SUPPORTS.isAndroid && pip}/>
+        <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `left: 5%` : `left: 15%`} title='{hasLast ? `Last` : `No Previous Episode`}' data-name='playPause' disabled={!hasLast} class:not-allowed={!hasLast} class:text-very-muted={!hasLast} class:hidden={SUPPORTS.isAndroid && pip} use:click={playLast}>
+          <SkipBack size='3rem' fill='currentColor' />
+        </span>
+        <span class='icon ctrl position-absolute rounded-10 text-white' data-name='playPause' style='left: 50%; margin-left: -3rem;' class:hidden={SUPPORTS.isAndroid && pip} use:click={playPause}>
+          {#if ended}
+            <RotateCw size='3rem' />
+          {:else}
+            {#if paused}
+              <Play size='3rem' fill='currentColor' />
             {:else}
-              {#if paused}
-                <Play size='3rem' fill='currentColor' />
-              {:else}
-                <Pause size='3rem' fill='currentColor' />
-              {/if}
+              <Pause size='3rem' fill='currentColor' />
             {/if}
-          </span>
-          <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `right: 5%` : `right: 15%`} title='{hasNext ? `Next` : `No Next Episode`}' data-name='playPause' disabled={!hasNext} class:not-allowed={!hasNext} class:text-very-muted={!hasNext} use:click={playNext}>
+          {/if}
+        </span>
+        <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `right: 5%` : `right: 15%`} title='{hasNext ? `Next` : `No Next Episode`}' data-name='playPause' disabled={!hasNext} class:not-allowed={!hasNext} class:text-very-muted={!hasNext} class:hidden={SUPPORTS.isAndroid && pip} use:click={playNext}>
             <SkipForward size='3rem' fill='currentColor' />
           </span>
       </div>
-      <span aria-hidden='true' class='icon ctrl align-items-center w-150 mw-full ml-auto' class:hidden={externalPlayback} class:mb-50={!miniplayer} on:click={forward}><FastForward size='3rem' /></span>
-      <div class='position-absolute bufferingDisplay' class:bufferingPos={SUPPORTS.isAndroid && !miniplayer}/>
+      <span aria-hidden='true' class='icon ctrl align-items-center w-150 mw-full ml-auto' class:hidden={externalPlayback || (SUPPORTS.isAndroid && pip)} class:mb-50={!miniplayer} on:click={forward}><FastForward size='3rem' /></span>
       {#if currentSkippable}
-        <button class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold z-30 d-flex align-items-center justify-content-center' use:click={skip}>
+        <button class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold z-30 d-flex align-items-center justify-content-center' class:hidden={SUPPORTS.isAndroid && pip} use:click={skip}>
           <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
         </button>
       {/if}
@@ -1997,7 +2049,7 @@
     {/if}
     <span class='position-absolute z-10 font-weight-bold font-scale-40 text-white rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' class:transparent={!playbackRateVisible}>{playbackRateText}</span>
   </div>
-  <div class='bottom d-flex z-40 flex-column px-20'>
+  <div class='bottom d-flex z-40 flex-column px-20' class:hidden={SUPPORTS.isAndroid && pip}>
     {#if !$settings.playerTitleTop}
       <div class='stats pl-5 d-title'>
         <div class='font-weight-bold overflow-hidden text-truncate font-scale-23'>
@@ -2529,7 +2581,7 @@
     opacity: 0.1%;
   }
 
-  .middle .bufferingDisplay {
+  .bufferingDisplay {
     border: 4px solid hsla(var(--white-color-hsl), 0);
     border-top: 4px solid var(--white-color);
     border-radius: 50%;
@@ -2543,11 +2595,7 @@
     filter: drop-shadow(0 0 8px var(--black-color));
   }
 
-  .middle .bufferingPos {
-    margin-bottom: 5rem;
-  }
-
-  .buffering .middle .bufferingDisplay {
+  .buffering .bufferingDisplay {
     opacity: 1 !important;
     visibility: visible !important;
   }

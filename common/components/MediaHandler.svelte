@@ -147,23 +147,26 @@
       const ep = (Number(episode || parseObject?.episode_number) === 0) || (zeroEpisode && !episode) ? 0 : (Number(episode || parseObject?.episode_number) || null)
       const streamingTitle = media?.streamingEpisodes?.find(episode => episodeRx.exec(episode.title) && Number(episodeRx.exec(episode.title)?.[1]) === ep)
       let streamingEpisode
+      let streamingArtwork = streamingTitle?.thumbnail
       if (!newPlaying && (!streamingEpisode || !episodeRx.exec(streamingEpisode.title) || episodeRx.exec(streamingEpisode.title)[2].toLowerCase()?.trim()?.startsWith('episode') || media?.streamingEpisodes?.find(episode => episodeRx.exec(episode.title) && Number(episodeRx.exec(episode.title)[1]) === (media?.episodes + 1)))) {
         // better episode title fetching, especially for "two cour" anime releases like Dead Mount Play... shocker, the anilist database for streamingEpisodes can be wrong!
         const mappings = await getAniMappings(media?.id) || {}
-          if (/episode\s*0/i.test(mappings?.episodes?.[1]?.title?.en || mappings?.episodes?.[1]?.title?.jp)) {
-            delete mappings?.episodes?.[1]
-            mappings.episodes = Object.keys(mappings.episodes).sort((a, b) => a - b).reduce((acc, key, index) => {
-                acc[index + 1] = mappings.episodes?.[key]
-                return acc
-            }, {})
-          }
+        if (/episode\s*0/i.test(mappings?.episodes?.[1]?.title?.en || mappings?.episodes?.[1]?.title?.jp)) {
+          delete mappings?.episodes?.[1]
+          mappings.episodes = Object.keys(mappings.episodes).sort((a, b) => a - b).reduce((acc, key, index) => {
+            acc[index + 1] = mappings.episodes?.[key]
+            return acc
+          }, {})
+        }
         const { episodes, specialCount, episodeCount } = mappings
-        let mappingsTitle = episode && episodes && episodes[Number(episode)]?.title?.en
+        const mappedEpisode = ep !== null && episodes ? episodes[ep] : null
+        let mappingsTitle = mappedEpisode?.title?.en
         // if (episode && (!mappingsTitle || mappingsTitle.length === 0)) {
         //   const kitsuMappings = (await getKitsuMappings(media?.id))?.data?.find(ep => ep?.attributes?.number === Number(episode))?.attributes
         //   mappingsTitle = kitsuMappings?.titles?.en_us || kitsuMappings?.titles?.en_jp || (episodes && episodes[Number(episode)]?.title?.jp)
         // }
-        const needsValidation = !(!specialCount || (media?.episodes === episodeCount && episodes && episodes[Number(episode)]))
+        const needsValidation = !(!specialCount || (media?.episodes === episodeCount && mappedEpisode))
+        if (!needsValidation || media?.status === 'FINISHED') streamingArtwork = mappedEpisode?.image || streamingArtwork
         streamingEpisode = (!needsValidation && mappingsTitle && episodeRx.exec(`Episode ${Number(episode)} - ` + mappingsTitle)) ? {title: (`Episode ${Number(episode)} - ` + mappingsTitle)} : (needsValidation && media?.status === 'FINISHED') ? {title: (`Episode ${Number(episode)} - ` + (mappingsTitle || `Episode ${Number(episode)}`))} : streamingTitle
         if (!streamingEpisode || !episodeRx.exec(streamingEpisode.title) || episodeRx.exec(streamingEpisode.title)[2].toLowerCase()?.trim()?.startsWith('episode')) {
           const episodeTitle = await episodesList.getSingleEpisode(media?.idMal, Number(episode)) // animappings sometimes doesn't have all the data, so we can use an alternative api to fetch episode information.,
@@ -176,6 +179,9 @@
         streamingEpisode.title = (titleParts?.[0]?.trim() === titleParts?.[1]?.trim()) ? titleParts?.[0]?.trim() : streamingEpisode.title
       }
 
+      const lastEpisode = (episodeRange || parseObject?.episodeRange)?.last || (isValidNumber(ep) && (ep + (zeroEpisode ? 1 : 0))) || (media?.episodes === 1 && media?.episodes)
+      const hasSpoiler = settings.value.spoilerStatus.includes(media?.mediaListEntry?.status ?? 'NOTONLIST')
+      const isSpoiler = hasSpoiler && (media?.mediaListEntry?.progress ?? 0) < lastEpisode
       const foundEpisodeTitle = (streamingEpisode && (episodeRx.exec(streamingEpisode.title)?.[2] || episodeRx.exec(streamingEpisode.title))) || ((media?.format === 'MOVIE' && (media?.episodes ?? 0) <= 1) ? 'The Movie' : '')
       const details = {
         title: anilistClient.title(media) || parseObject?.anime_title || parseObject?.file_name,
@@ -183,15 +189,16 @@
         episode: ep,
         episodeRange,
         episodeTitle: foundEpisodeTitle && media?.episodes === 1 && (foundEpisodeTitle.match(/ web|web |movie/i) || foundEpisodeTitle.toLowerCase() === 'web') ? 'The Movie' : foundEpisodeTitle,
-        thumbnail: media?.coverImage?.extraLarge
+        thumbnail: media?.coverImage?.extraLarge,
+        artwork: (!(isSpoiler && ['minimal', 'moderate', 'strict', 'hermit'].includes(settings.value.spoilers)) && streamingArtwork) || media?.bannerImage
       }
 
       nowPlaying.set({
-          ...(newPlaying ? newPlaying : {}),
-          media,
-          parseObject,
-          failed: opts.failed || parseObject?.failed,
-          ...details
+        ...(newPlaying ? newPlaying : {}),
+        media,
+        parseObject,
+        failed: opts.failed || parseObject?.failed,
+        ...details
       })
       if (!newPlaying) setMediaSession(nowPlaying.value)
       debug(`Now playing as been set to: ${JSON.stringify(details)}`)

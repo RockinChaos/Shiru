@@ -63,6 +63,11 @@
             android:name="io.capawesome.capacitorjs.plugins.foregroundservice.NotificationActionBroadcastReceiver"
         />
 
+        <receiver
+            android:name=".plugin.MediaSession$Receiver"
+            android:exported="false"
+        />
+
         <service
             android:name="io.capawesome.capacitorjs.plugins.foregroundservice.AndroidForegroundService"
             android:foregroundServiceType="mediaPlayback"

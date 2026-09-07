@@ -76,6 +76,11 @@ const androidDefaults = {
   showSplash: noopVoid,
   toast: noopAsyncVoid,
   onBackButton: noopVoid,
+  onAppStateChange: noopAsyncVoid,
+  onPictureInPictureModeChanged: noopAsyncVoid,
+  onMediaAction: noopAsyncVoid,
+  setMediaSession: noopVoid,
+  exitPiP: noopAsyncVoid,
   hideStatusBar: noopVoid,
   /** @param {'LIGHT' | 'DARK'} style */
   setSystemStyle: (style = 'LIGHT') => {},

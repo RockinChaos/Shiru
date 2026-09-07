@@ -3,6 +3,7 @@
   import TorrentResults from '@/modals/torrent/components/TorrentResults.svelte'
   import { findInCurrent } from '@/components/MediaHandler.svelte'
   import { page, modal } from '@/modules/navigation.js'
+  import { ANDROID } from '@/modules/bridge.js'
 
   export function playAnime (media, episode = 1, force = false) {
     episode = Number(episode)
@@ -11,6 +12,7 @@
       page.navigateTo(page.PLAYER)
       return
     }
+    ANDROID.exitPiP()
     modal.open(modal.TORRENT_MENU, { media, episode })
   }
 </script>
