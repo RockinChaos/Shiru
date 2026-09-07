@@ -1,14 +1,19 @@
-name: Publish Release to R2
+name: Publish Release to Mirrors
 
 on:
   release:
     types: [published]
 
 jobs:
-  upload-r2:
+  upload-storage:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      STORAGE_BUCKET: ${{ secrets.STORAGE_BUCKET }}
+      STORAGE_ENDPOINT: ${{ secrets.STORAGE_ENDPOINT }}
     steps:
       - name: Get Channels
         id: channel
@@ -36,26 +41,21 @@ jobs:
       - name: List Release Assets
         run: ls -lh release-assets
 
-      - name: Configure AWS CLI for R2
+      - name: Sync Release Assets to Storage
         run: |
-          aws configure set aws_access_key_id "${{ secrets.R2_ACCESS_KEY_ID }}"
-          aws configure set aws_secret_access_key "${{ secrets.R2_SECRET_ACCESS_KEY }}"
-          aws configure set default.region auto
-
-      - name: Sync Release Assets to R2
-        run: |
+          aws configure set default.s3.addressing_style path
           for prefix in ${{ steps.channel.outputs.prefixes }}; do
-            echo "Syncing to $prefix bucket..."
-            aws s3 sync release-assets/ "s3://${{ secrets.R2_BUCKET }}/$prefix/" \
+            echo "Syncing $prefix channel..."
+            aws s3 sync release-assets/ "s3://$STORAGE_BUCKET/$prefix/" \
               --delete \
-              --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+              --endpoint-url "$STORAGE_ENDPOINT"
           done
 
       - name: Verify Upload
         run: |
           for prefix in ${{ steps.channel.outputs.prefixes }}; do
-            curl -fsSI "https://${{ secrets.R2_DOMAIN }}/$prefix/latest.yml" \
-              || (echo "::error::latest.yml not reachable at ${{ secrets.R2_DOMAIN }}/$prefix after upload" && exit 1)
+            curl -fsSI "$STORAGE_ENDPOINT/$prefix/latest.yml" \
+              || (echo "::error::latest.yml not reachable at $STORAGE_ENDPOINT/$prefix after upload" && exit 1)
           done
 
   publish-gitlab:
