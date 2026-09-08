@@ -229,6 +229,15 @@
     </div>
   </SettingCard>
 {/if}
+{#if SUPPORTS.isAndroid}
+  <SettingCard title='Auto-Fullscreen Playback' description='If playback should automatically enter fullscreen when loading a torrent.'>
+    <div class='custom-switch fit-content'>
+
+      <input type='checkbox' id='player-auto-fullscreen' bind:checked={settings.autoFullscreen} />
+      <label for='player-auto-fullscreen'>{settings.autoFullscreen ? 'On' : 'Off'}</label>
+    </div>
+  </SettingCard>
+{/if}
 <SettingCard title='Deband Video' description='Reduces banding on dark and compressed videos. High performance impact, not recommended for high quality videos.'>
   <div class='custom-switch fit-content'>
     <input type='checkbox' id='player-deband' bind:checked={settings.playerDeband} />

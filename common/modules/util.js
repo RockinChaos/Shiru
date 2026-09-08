@@ -706,6 +706,7 @@ export const defaults = {
   disableMiniplayer: false,
   autoHideMiniplayer: true,
   enableExternal: false,
+  autoFullscreen: true,
   spoilers: 'off',
   spoilerStatus: [],
   playerPath: '',
