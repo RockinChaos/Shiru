@@ -267,7 +267,7 @@ function notify(type, detail) {
   for (const exclude of excludedToastMessages) {
     if ((detail.message || detail)?.toLowerCase()?.includes(exclude)) return
   }
-  if (type === 'warn') toast.warning(`Torrent Warning`, { description: '' + (detail.message || detail), respectLevel: true })
-  else if (type === 'error') toast.error(`Torrent Error`, { description: '' + (detail.message || detail), respectLevel: true })
+  if (type === 'warn') toast.warning(`Torrent Warning`, { description: '' + (detail.message || detail), respectLevel: true, dedupe: true })
+  else if (type === 'error') toast.error(`Torrent Error`, { description: '' + (detail.message || detail), respectLevel: true, dedupe: true })
   else toast.info(`Torrent ${capitalize(type)}`, { description: '' + (detail.message || detail) })
 }
