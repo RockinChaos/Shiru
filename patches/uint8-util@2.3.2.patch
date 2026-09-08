@@ -1,0 +1,26 @@
+diff --git a/dist/src/browser.js b/dist/src/browser.js
+index a0d08d716c51fba2463d09fce8f90be8029ae002..0068676470962ba8382e0a7b07e4be272a7d4ea1 100644
+--- a/dist/src/browser.js
++++ b/dist/src/browser.js
+@@ -17,7 +17,7 @@ for (let i = 0; i < 16; ++i) {
+ export const arr2hex = (data) => data.toHex();
+ export const hex2arr = (str) => {
+     const len = str.length;
+-    if (len > 64)
++    if (len > 64 && typeof Uint8Array.fromHex === 'function')
+         return Uint8Array.fromHex(str);
+     const out = new Uint8Array(len >> 1);
+     let j = 0;
+diff --git a/src/browser.ts b/src/browser.ts
+index 17d1fc51d08dbf525cbbe81206bab906fa33ee6c..7280072df3eab1d3c87e4c86b08a84189633ea9a 100644
+--- a/src/browser.ts
++++ b/src/browser.ts
+@@ -21,7 +21,7 @@ export const arr2hex = (data: ByteArray) => data.toHex()
+ 
+ export const hex2arr = (str: string) => {
+   const len = str.length
+-  if (len > 64) return Uint8Array.fromHex(str)
++  if (len > 64 && typeof Uint8Array.fromHex === 'function') return Uint8Array.fromHex(str)
+   const out = new Uint8Array(len >> 1)
+   let j = 0
+   let i = 0

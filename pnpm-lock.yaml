@@ -29,6 +29,9 @@ patchedDependencies:
   svelte-keybinds:
     hash: f0c94591da45fd53ec510b56276e74597f95557fc91757f7ddc0f4a516ef90b9
     path: patches/svelte-keybinds.patch
+  uint8-util@2.3.2:
+    hash: 3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57
+    path: patches/uint8-util@2.3.2.patch
 
 importers:
 
@@ -60,7 +63,7 @@ importers:
         version: 7.8.5
       uint8-util:
         specifier: ^2.3.2
-        version: 2.3.2
+        version: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       webpack:
         specifier: ^5.110.3
         version: 5.110.3(postcss@8.5.15)(webpack-cli@7.2.3)
@@ -6139,7 +6142,7 @@ snapshots:
       '@rockinchaos/ebml-iterator': git+https://github.com/RockinChaos/ebml-iterator.git#bb3c64d4e14601865b95b218b25b96b204e966b6
       fast-readable-async-iterator: 2.0.0
       pako: 3.0.1
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   '@rockinchaos/private-ip@3.1.1':
     dependencies:
@@ -6176,7 +6179,7 @@ snapshots:
       debug: 4.4.3
       err-code: 3.0.1
       streamx: 2.26.0
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       webrtc-polyfill: 1.2.1
     transitivePeerDependencies:
       - bare-abort-controller
@@ -6188,7 +6191,7 @@ snapshots:
       debug: 4.4.3
       err-code: 3.0.1
       streamx: 2.28.0
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       webrtc-polyfill: 1.2.2
     transitivePeerDependencies:
       - bare-abort-controller
@@ -6200,7 +6203,7 @@ snapshots:
       debug: 4.4.3
       queue-microtask: 1.2.3
       streamx: 2.26.0
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
     transitivePeerDependencies:
       - bare-abort-controller
@@ -6211,7 +6214,7 @@ snapshots:
 
   '@thaunknown/thirty-two@1.0.6':
     dependencies:
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   '@trapezedev/gradle-parse@7.1.3': {}
 
@@ -6810,7 +6813,7 @@ snapshots:
 
   bencode@4.0.1:
     dependencies:
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   bep53-range@2.0.1: {}
 
@@ -6850,7 +6853,7 @@ snapshots:
       debug: 4.4.3
       streamx: 2.28.0
       throughput: 1.0.2
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       unordered-array-remove: 1.0.2
     transitivePeerDependencies:
       - bare-abort-controller
@@ -6877,7 +6880,7 @@ snapshots:
       run-series: 1.1.9
       socks: 2.8.9
       string2compact: 2.0.2
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       unordered-array-remove: 1.0.2
       ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
     optionalDependencies:
@@ -7428,7 +7431,7 @@ snapshots:
       piece-length: 2.0.1
       queue-microtask: 1.2.3
       run-parallel: 1.2.0
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   cross-dirname@0.1.0:
     optional: true
@@ -8235,7 +8238,7 @@ snapshots:
       random-access-file: 4.1.2(bare-url@2.4.3)
       run-parallel: 1.2.0
       thunky: 1.1.0
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
@@ -9050,7 +9053,7 @@ snapshots:
     dependencies:
       '@thaunknown/thirty-two': 1.0.6
       bep53-range: 2.0.1
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   make-error@1.3.6: {}
 
@@ -9554,7 +9557,7 @@ snapshots:
   p2pt@1.6.2:
     dependencies:
       bittorrent-tracker: 11.2.3
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
     optionalDependencies:
       '@roamhq/wrtc': 0.9.1
     transitivePeerDependencies:
@@ -9590,7 +9593,7 @@ snapshots:
       get-stdin: 10.0.0
       magnet-uri: 7.0.10
       queue-microtask: 1.2.3
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   parseurl@1.3.3: {}
 
@@ -10688,7 +10691,7 @@ snapshots:
 
   torrent-piece@4.0.1:
     dependencies:
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   tr46@0.0.3: {}
 
@@ -10812,7 +10815,7 @@ snapshots:
   uglify-js@3.19.3:
     optional: true
 
-  uint8-util@2.3.2: {}
+  uint8-util@2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57): {}
 
   unbox-primitive@1.1.0:
     dependencies:
@@ -10879,7 +10882,7 @@ snapshots:
       bencode: 4.0.1
       bitfield: 5.0.1
       debug: 4.4.3
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
     transitivePeerDependencies:
       - supports-color
 
@@ -11097,7 +11100,7 @@ snapshots:
       throughput: 1.0.2
       torrent-discovery: 11.0.21
       torrent-piece: 4.0.1
-      uint8-util: 2.3.2
+      uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       unordered-array-remove: 1.0.2
       ut_metadata: 5.0.1
       ut_pex: 5.0.2
