@@ -106,9 +106,17 @@ export function createDeferred() {
 /** Reactive root font size in pixels, updates when the document font size changes. */
 export const baseFontSize = (() => {
   const store = writable(typeof getComputedStyle !== 'undefined' ? parseFloat(getComputedStyle(document.documentElement).fontSize) : 16)
+  const update = () => {
+    const fontSize = parseFloat(getComputedStyle(document.documentElement).fontSize)
+    if (Number.isFinite(fontSize)) store.value = fontSize
+  }
   if (typeof ResizeObserver !== 'undefined') {
-    const observer = new ResizeObserver(() => store.value = parseFloat(getComputedStyle(document.documentElement).fontSize))
+    const observer = new ResizeObserver(update)
     observer.observe(document.documentElement)
+  }
+  if (typeof MutationObserver !== 'undefined') {
+    const observer = new MutationObserver(update)
+    observer.observe(document.documentElement, { attributes: true })
   }
   return store
 })()
