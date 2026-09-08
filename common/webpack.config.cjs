@@ -22,6 +22,9 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     ]
   },
   mode,
+  optimization: {
+    minimize: { css: false }
+  },
   module: {
     rules: [
       {
