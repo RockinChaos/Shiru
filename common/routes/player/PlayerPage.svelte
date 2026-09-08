@@ -101,10 +101,13 @@
   let holdPlaybackActive = false
   let holdPlaybackKeyCode = null
   let holdPlaybackPointerId = null
+  let holdPlaybackPointerType = null
+  let holdPlaybackPointerTarget = null
   let playbackRateText = ''
   let playbackRateVisible = false
   let playbackRateTimeout
   let suppressPlayerClick = false
+  let suppressPlayerClickTarget = null
   let holdPlaybackSession = 0
   let externalPlayerReady = false
   $: $settings.volume = (String(volume || 0))
@@ -801,7 +804,7 @@
 
   function startHoldPlayback() {
     if (holdPlaybackTimer || holdPlaybackActive || !video || !src || externalPlayback) return false
-    holdPlaybackTimer = setTimeout(activateHoldPlayback, 400)
+    holdPlaybackTimer = setTimeout(activateHoldPlayback, 600)
     holdPlaybackTimer.unref?.()
     return true
   }
@@ -843,36 +846,68 @@
 
   function startPointerHold(event) {
     if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return
+    if (miniplayer && event.pointerType === 'touch') return
     if (startHoldPlayback()) {
       holdPlaybackPointerId = event.pointerId
+      holdPlaybackPointerType = event.pointerType
+      holdPlaybackPointerTarget = event.currentTarget
       event.currentTarget.setPointerCapture(event.pointerId)
     }
   }
 
   function endPointerHold(event) {
     if (event.pointerId !== holdPlaybackPointerId) return
-    if (endHoldPlayback() && event.type === 'pointerup') suppressPlayerClick = true
-    if (event.type === 'pointerup') holdPlaybackPointerId = null
+    if (holdPlaybackPointerType === 'touch' && (event.type === 'pointercancel' || event.type === 'lostpointercapture')) return
+    if (endHoldPlayback() && event.type === 'pointerup') suppressNextPlayerClick(event.currentTarget)
+    if (event.type === 'pointerup') {
+      holdPlaybackPointerId = null
+      holdPlaybackPointerType = null
+      holdPlaybackPointerTarget = null
+    }
     else if (event.type === 'pointercancel' || event.type === 'lostpointercapture') {
       holdPlaybackPointerId = null
+      holdPlaybackPointerType = null
+      holdPlaybackPointerTarget = null
       suppressPlayerClick = false
+      suppressPlayerClickTarget = null
     }
   }
 
-  function handlePlayerClick() {
-    if (suppressPlayerClick) suppressPlayerClick = false
-    else if ($page === page.PLAYER && modal.length === 0) playPause()
+  function endTouchHold() {
+    if (holdPlaybackPointerType !== 'touch') return
+    endHoldPlayback()
+    holdPlaybackPointerId = null
+    holdPlaybackPointerType = null
+    holdPlaybackPointerTarget = null
+  }
+
+  function suppressNextPlayerClick(target = holdPlaybackPointerTarget) {
+    suppressPlayerClick = true
+    suppressPlayerClickTarget = target
+  }
+
+  function shouldSuppressPlayerClick(target) {
+    if (!suppressPlayerClick) return false
+    const shouldSuppress = !suppressPlayerClickTarget || suppressPlayerClickTarget === target
+    suppressPlayerClick = false
+    suppressPlayerClickTarget = null
+    return shouldSuppress
+  }
+
+  function handlePlayerClick(event) {
+    if (shouldSuppressPlayerClick(event.currentTarget)) return
+    if ($page === page.PLAYER && modal.length === 0) playPause()
     else if (!miniplayerShelved) page.navigateTo(page.PLAYER)
   }
 
-  function handleMobilePlayerClick() {
-    if (suppressPlayerClick) suppressPlayerClick = false
-    else toggleImmerse()
+  function handleMobilePlayerClick(event) {
+    if (shouldSuppressPlayerClick(event.currentTarget)) return
+    toggleImmerse()
   }
 
-  function handleMiniplayerClick() {
-    if (suppressPlayerClick) suppressPlayerClick = false
-    else page.navigateTo(page.PLAYER)
+  function handleMiniplayerClick(event) {
+    if (shouldSuppressPlayerClick(event.currentTarget)) return
+    page.navigateTo(page.PLAYER)
   }
 
   function startKeyboardHold(event) {
@@ -881,7 +916,7 @@
       const wasPointerHold = holdPlaybackPointerId != null
       const beganPaused = holdPlaybackWasPaused
       const wasHolding = endHoldPlayback()
-      if (wasPointerHold) suppressPlayerClick = true
+      if (wasPointerHold) suppressNextPlayerClick()
       if (!wasHolding || !beganPaused) playPause()
       return
     }
@@ -904,15 +939,15 @@
     holdPlaybackKeyCode = null
     const wasHoldingOrPending = holdPlaybackActive || holdPlaybackTimer
     endHoldPlayback(false)
-    if (wasHoldingOrPending && holdPlaybackPointerId != null) suppressPlayerClick = true
+    if (wasHoldingOrPending && holdPlaybackPointerId != null) suppressNextPlayerClick()
   }
 
   function handleHoldState() {
-    if (endHoldPlayback() && holdPlaybackPointerId != null) suppressPlayerClick = true
+    if (endHoldPlayback() && holdPlaybackPointerId != null) suppressNextPlayerClick()
   }
 
   function showPlaybackRateTemporarily(rate = playbackRate) {
-    playbackRateText = `${Number(rate.toFixed(1))}x`
+    playbackRateText = `${rate.toFixed(1)}x`
     playbackRateVisible = true
     clearTimeout(playbackRateTimeout)
     playbackRateTimeout = setTimeout(() => playbackRateVisible = false, 600)
@@ -1921,7 +1956,7 @@
       <div>Viewport: {stats.viewport}</div>
       <div>Resolution: {stats.resolution}</div>
       <div>Buffer health: {stats.buffer}</div>
-      <div>Playback speed: x{stats.speed?.toFixed(1)}</div>
+      <div>Playback speed: {stats.speed?.toFixed(1)}x</div>
       <div>Name: {current?.name || ''}</div>
       {#if playableFiles?.length > 1}
         <div class='mt-10'>All files in this batch:</div>
@@ -2002,9 +2037,9 @@
     </div>
   </div>
   <div class='middle d-flex align-items-center justify-content-center flex-grow-1 position-relative'>
-    <div aria-hidden='true' class='w-full h-full position-absolute toggle-fullscreen' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handlePlayerClick} />
-    <div aria-hidden='true' class='w-full h-full position-absolute toggle-immerse d-none' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handleMobilePlayerClick} />
-    <div aria-hidden='true' class='w-full h-full position-absolute mobile-focus-target d-none' on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:click|self={handleMiniplayerClick} />
+    <div aria-hidden='true' class='w-full h-full position-absolute toggle-fullscreen' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:touchend={endTouchHold} on:click|self={handlePlayerClick} />
+    <div aria-hidden='true' class='w-full h-full position-absolute toggle-immerse d-none' on:dblclick={toggleFullscreen} on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:touchend={endTouchHold} on:click|self={handleMobilePlayerClick} />
+    <div aria-hidden='true' class='w-full h-full position-absolute mobile-focus-target d-none' on:pointerdown={startPointerHold} on:pointerup={endPointerHold} on:pointercancel={endPointerHold} on:lostpointercapture={endPointerHold} on:touchend={endTouchHold} on:click|self={handleMiniplayerClick} />
     <span aria-hidden='true' class='icon ctrl align-items-center justify-content-end w-150 mw-full mr-auto' class:hidden={externalPlayback || (SUPPORTS.isAndroid && pip)} class:mb-50={!miniplayer} on:click={rewind}><Rewind size='3rem' /></span>
     <!-- miniplayer buttons -->
     {#if miniplayer && !miniplayerShelved}
@@ -2032,6 +2067,11 @@
             {/if}
           {/if}
         </span>
+        <span class='ui-volume position-absolute z-10 font-weight-bold font-scale-40 rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' style='left: 50%; margin-left: -3rem;' class:transparent={!volumeVisible} class:text-white={volumeBoosted || !boostScrollCount} class:boosting={!volumeBoosted && boostScrollCount} class:muted={volume === 0}>{volumeText}</span>
+        {#if subDelayText}
+          <span class='position-absolute z-10 font-weight-bold font-scale-40 text-white rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' style='left: 50%; margin-left: -3rem;' class:transparent={!subDelayVisible}>{subDelayText}</span>
+        {/if}
+        <span class='playback-rate-display position-absolute z-10 font-weight-bold font-scale-40 text-white rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' style='left: 50%; margin-left: -3rem;' class:transparent={!playbackRateVisible}>{playbackRateText}</span>
         <span class='icon ctrl position-absolute rounded-10 text-white' style={externalPlayback ? `right: 5%` : `right: 15%`} title='{hasNext ? `Next` : `No Next Episode`}' data-name='playPause' disabled={!hasNext} class:not-allowed={!hasNext} class:text-very-muted={!hasNext} class:hidden={SUPPORTS.isAndroid && pip} use:click={playNext}>
             <SkipForward size='3rem' fill='currentColor' />
           </span>
@@ -2043,11 +2083,6 @@
         </button>
       {/if}
     {/if}
-    <span class='ui-volume position-absolute z-10 font-weight-bold font-scale-40 rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' class:transparent={!volumeVisible} class:text-white={volumeBoosted || !boostScrollCount} class:boosting={!volumeBoosted && boostScrollCount} class:muted={volume === 0}>{volumeText}</span>
-    {#if subDelayText}
-      <span class='position-absolute z-10 font-weight-bold font-scale-40 text-white rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' class:transparent={!subDelayVisible}>{subDelayText}</span>
-    {/if}
-    <span class='position-absolute z-10 font-weight-bold font-scale-40 text-white rounded-10 pointer-events-none bg-blur py-6px opacity-90 opacity-ts-3' class:transparent={!playbackRateVisible}>{playbackRateText}</span>
   </div>
   <div class='bottom d-flex z-40 flex-column px-20' class:hidden={SUPPORTS.isAndroid && pip}>
     {#if !$settings.playerTitleTop}
@@ -2126,10 +2161,10 @@
       </div>
       <div class='ts font-scale-20' class:mr-auto={playbackRate === 1}>{toTS(targetTime, safeduration > 3600 ? 2 : 3)} / {toTS(safeduration - targetTime, safeduration > 3600 ? 2 : 3)}</div>
       {#if playbackRate !== 1}
-        <div class='ts mr-auto font-scale-20'>x{playbackRate.toFixed(1)}</div>
+        <div class='ts mr-auto font-scale-20'>{playbackRate.toFixed(1)}x</div>
       {/if}
       <input type='file' class='d-none' id='search-subtitle' accept='.srt,.vtt,.ass,.ssa,.sub,.txt' on:input|preventDefault|stopPropagation={handleFile} bind:this={fileInput}/>
-      <NestedDropdown position='top' panelHeightPadding={6} panelColor={'var(--dark-color-glass)'} containerEl={container} items={[
+      <NestedDropdown direction='top' panelHeightPadding={6} panelColor={'var(--dark-color-glass)'} containerEl={container} items={[
           ...(!externalPlayback ? [{
             icon: Gauge,
             label: 'Playback speed',
