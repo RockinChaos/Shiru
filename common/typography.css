@@ -161,6 +161,9 @@
   .pb-md-wh-30 {
     padding-bottom: 3rem !important;
   }
+  :root {
+    --pt-md-wh-20: 2rem;
+  }
 }
 
 @media (min-width: 769px) {

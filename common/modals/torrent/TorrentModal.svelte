@@ -23,6 +23,6 @@
   }
 </script>
 
-<SoftModal class='m-0 w-full wm-1150 h-full rounded bg-very-dark pt-0 mx-sm-20 scrollbar-none' innerCss='pt-safe-area' bind:showModal={$modal[modal.TORRENT_MENU]} {close} id={modal.TORRENT_MENU}>
+<SoftModal class='m-0 w-full wm-1150 h-full rounded bg-very-dark pt-0 mx-sm-20 scrollbar-none' bind:showModal={$modal[modal.TORRENT_MENU]} {close} id={modal.TORRENT_MENU}>
   <TorrentResults search={modal.value[modal.TORRENT_MENU].data} {close} />
 </SoftModal>

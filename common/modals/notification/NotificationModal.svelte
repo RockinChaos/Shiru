@@ -111,8 +111,8 @@
   }
 </script>
 
-<SoftModal class='m-0 w-1000 mw-0 mh-full d-flex flex-column rounded bg-very-dark pt-0 pb-10 pb-md-wh-30 pl-md-20 pr-md-30 mx-20 scrollbar-none' innerCss='pt-safe-area' bind:showModal={$modal[modal.NOTIFICATIONS]} {close} id={modal.NOTIFICATIONS}>
-  <div class='d-flex mt-10'>
+<SoftModal class='m-0 w-1000 mw-0 mh-full d-flex flex-column rounded bg-very-dark pt-0 pb-20 pl-md-20 pr-md-30 mx-20 scrollbar-none' innerCss='pt-20' bind:showModal={$modal[modal.NOTIFICATIONS]} {close} id={modal.NOTIFICATIONS}>
+  <div class='d-flex' style='margin-top: max(calc(var(--safe-area-top) - 3rem), 1rem)'>
     <h3 class='mb-0 font-weight-bold text-white title mr-5 font-size-24 ml-20'>Notifications</h3>
     <button type='button' class='btn btn-square ml-auto d-flex align-items-center justify-content-center rounded-2 flex-shrink-0 mt-10 mr-20 mr-md-0' use:click={close}>
       <X size='1.7rem' strokeWidth='3' />

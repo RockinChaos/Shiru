@@ -52,8 +52,8 @@
     modal.open(modal.FILE_EDITOR, writable(search))
   }
 </script>
-<SoftModal class='w-full mx-20 h-full rounded scrollbar-none bg-very-dark' innerCss='pt-safe-area' bind:showModal={$modal[modal.FILE_EDITOR]} {close} id={modal.FILE_EDITOR}>
-  <div class='d-flex mt-10'>
+<SoftModal class='w-full mx-20 h-full rounded scrollbar-none bg-very-dark' innerCss='pt-20' bind:showModal={$modal[modal.FILE_EDITOR]} {close} id={modal.FILE_EDITOR}>
+  <div class='d-flex' style='margin-top: max(calc(var(--safe-area-top) - 3rem), 1rem)'>
     <div class='details'>
       <h3 class='mb-0 font-weight-bold text-white title font-size-24 ml-20 line-height-1'>Select a Series</h3>
       <h4 class='mb-0 text-muted title font-size-12 ml-20 line-height-1'>Click or tap the series that is currently playing.</h4>
