@@ -378,7 +378,12 @@ class AnimeSchedule {
         if (type === 'Dub' || type === 'Sub' || type === 'Hentai') {
             if (type === 'Hentai' && settings.value.adult !== 'hentai') return
             const lastNotified = cache.getEntry(caches.NOTIFICATIONS, `last${type}`)
-            const newReleases = combinedItems?.data?.Page?.media?.filter(media => (Math.floor(new Date(media.episode.airedAt).getTime() / 1000) >= lastNotified) || (Math.floor(new Date(media.episode.addedAt).getTime() / 1000) >= lastNotified))
+            const newReleases = combinedItems?.data?.Page?.media?.filter(media => {
+                const airedAt = Math.floor(new Date(media.episode.airedAt).getTime() / 1_000)
+                const addedAt = Math.floor(new Date(media.episode.addedAt).getTime() / 1_000)
+                // skip if more than 10 minutes in the future, likely a bad entry...
+                return (!(airedAt > currentTime + 600) && airedAt >= lastNotified) || (!(addedAt > currentTime + 600) && addedAt >= lastNotified)
+            })
             debug(`Found ${newReleases?.length} new ${type} releases, notifying...`)
             if (newReleases && settings.value.releasesNotify?.length > 0 && lastNotified > 0) {
                 for (const media of newReleases) {
