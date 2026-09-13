@@ -266,7 +266,7 @@ function addAnimeType(obj, newType) {
  */
 export async function hasZeroEpisode(media, existingMappings) { // really wish they could make fetching zero episodes less painful.
   if (!media) return null
-  const mappings = existingMappings || (await getAniMappings(media.id)) || {}
+  const mappings = existingMappings || (await getAniMappings(media)) || {}
   const hasZeroEpisode = media.streamingEpisodes?.filter((ep) => { const match = (/Episode (\d+(\.\d+)?) - /).exec(ep.title); return match ? Number.isInteger(parseFloat(match[1])) && Number(parseFloat(match[1])) === 0 : false})
   const zeroAsFirstEpisode = /episode\s*0/i.test(mappings?.episodes?.[1]?.title?.en || mappings?.episodes?.[1]?.title?.jp) // The first episode is titled as Episode 0 so this is likely a Prologue, fixes issues with series like `Fate/stay night: Unlimited Blade Works`
   // no clue what fixed Mushoku but this initial part seems to allow 'Episode 0 : Guardian Fits' to properly be mapped to season 2 part 1, ensure when making changes this doesn't appear on season 1 part 1.
@@ -829,10 +829,10 @@ const episodeMetadataMap = new Map()
 export async function getEpisodeMetadataForMedia (media) {
   if (episodeMetadataMap.has(`${media?.id}`)) return episodeMetadataMap.get(`${media?.id}`)
   const promiseData = (async () => {
-    //const aniMappings = (await getAniMappings(media?.id) || {})?.episodes
+    //const aniMappings = (await getAniMappings(media) || {})?.episodes
     //if (!aniMappings || !Object.keys(aniMappings).length) return kitsuToAniEpisodes(await episodesList.getKitsuEpisodes(media?.id))
     //else return aniMappings
-    return (await getAniMappings(media?.id) || {})?.episodes
+    return (await getAniMappings(media) || {})?.episodes
   })()
   episodeMetadataMap.set(`${media?.id}`, promiseData)
   return promiseData
@@ -909,10 +909,10 @@ export function nextAiring(nodes, variables) {
 export function lastAired(nodes, variables) {
   const currentTime = new Date()
   return nodes?.filter(node => new Date(variables?.hideSubs ? node.airingAt : (node.airingAt * 1000)) < currentTime)?.sort((a, b) => {
-      const timeDiff = b.airingAt - a.airingAt
-      if (timeDiff !== 0) return timeDiff
-      return (b.episode || 0) - (a.episode || 0)
-    })?.shift()
+    const timeDiff = b.airingAt - a.airingAt
+    if (timeDiff !== 0) return timeDiff
+    return (b.episode || 0) - (a.episode || 0)
+  })?.shift()
 }
 
 export async function isSubbedProgress(media) {
@@ -1004,17 +1004,19 @@ aniLimiter.on('failed', async (error) => {
   return time
 })
 
-export async function getAniMappings(anilistID) {
-  if (!anilistID) return
-  const cachedEntry = cache.cachedEntry(caches.QUERY_MAPPINGS, `ani-${anilistID}`, status.value === 'offline')
+export async function getAniMappings(opts) {
+  if (!opts?.id && !opts?.idMal) return
+  const cacheKey = opts.id ? `ani-${opts.id}` : `mal-${opts.idMal}`
+  const cachedEntry = cache.cachedEntry(caches.QUERY_MAPPINGS, cacheKey, status.value === 'offline')
   if (cachedEntry) return cachedEntry
   else if (status.value === 'offline') return
-  if (concurrentRequests.has(`ani-${anilistID}`)) return concurrentRequests.get(`ani-${anilistID}`)
+  if (concurrentRequests.has(cacheKey)) return concurrentRequests.get(cacheKey)
   const requestPromise = aniLimiter.wrap(async () => {
     await aniRateLimitPromise
-    let res = {}
+    let res
     try {
-      res = await fetch(`https://api.ani.zip/mappings?anilist_id=${anilistID}`)
+      res = await fetch(`https://api.ani.zip/mappings?${opts.id ? `anilist_id=${opts.id}` : `mal_id=${opts.idMal}`}`)
+      if (res?.status === 404 && opts.id && opts.idMal) res = await fetch(`https://api.ani.zip/mappings?mal_id=${opts.idMal}`)
     } catch (e) {
       if (!res || res.status !== 404) throw e
     }
@@ -1038,21 +1040,21 @@ export async function getAniMappings(anilistID) {
         }
       }
       const date = new Date()
-      const media = cache.getMedia(anilistID)
+      const media = opts.id && cache.getMedia(opts.id)
       const cacheDuration = media?.status === 'FINISHED' && media?.endDate && (date.getFullYear() - media.endDate.year) * 12 + (date.getMonth() + 1 - media.endDate.month) >= 12 ? getRandomInt(24, 48) * 60 * 60 * 1_000 : getRandomInt(30, 60) * 60 * 1_000
-      return cache.cacheEntry(caches.QUERY_MAPPINGS, `ani-${anilistID}`, {}, json, date.getTime() + cacheDuration) // caches currently airing series for 30 to 60 minutes, or 24 to 48 hours for series that finished at least a year ago (its highly unlikely the mappings will change drastically at that point).
+      return cache.cacheEntry(caches.QUERY_MAPPINGS, cacheKey, {}, json, date.getTime() + cacheDuration) // caches currently airing series for 30 to 60 minutes, or 24 to 48 hours for series that finished at least a year ago (its highly unlikely the mappings will change drastically at that point).
     } catch (e) {
-      const cachedEntry = cache.cachedEntry(caches.QUERY_MAPPINGS, `ani-${anilistID}`, true)
+      const cachedEntry = cache.cachedEntry(caches.QUERY_MAPPINGS, cacheKey, true)
       if (cachedEntry) {
-        debug(`Failed to request Anilist Mappings for ${anilistID}, this is likely due to an outage... falling back to cached data.`)
+        debug(`Failed to request Ani mappings for ${opts.id || opts.idMal}, this is likely due to an outage... falling back to cached data.`)
         return cachedEntry
       }
       else throw e
     }
   })().finally(() => {
-    concurrentRequests.delete(`ani-${anilistID}`)
+    concurrentRequests.delete(cacheKey)
   })
-  concurrentRequests.set(`ani-${anilistID}`, requestPromise)
+  concurrentRequests.set(cacheKey, requestPromise)
   return requestPromise
 }
 

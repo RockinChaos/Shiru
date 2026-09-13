@@ -107,7 +107,7 @@
     const _requestId = ++requestId
     const cancelled = () => _requestId !== requestId
 
-    const mappings = await getAniMappings(id) || {}
+    const mappings = await getAniMappings({ id, idMal }) || {}
     if (cancelled()) return null
     const { episodes, specialCount, episodeCount: newEpisodeCount } = mappings
     const getEpisode = (episode) => {

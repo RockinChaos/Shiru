@@ -199,13 +199,13 @@ export async function updatePeerCounts(entries, cacheOnly = false) {
 
 /** @param {import('@/modules/providers/anilist/al.d.ts').Media} media */
 async function ALToAniDB (media) {
-  const json = await getAniMappings(media?.id) || {}
+  const json = await getAniMappings(media) || {}
   if (json.mappings?.anidb_id) return json
 
   const parentID = getParentForSpecial(media)
   if (!parentID) return
 
-  return getAniMappings(parentID)
+  return getAniMappings({ id: parentID })
 }
 
 /** @param {import('@/modules/providers/anilist/al.d.ts').Media} media */
