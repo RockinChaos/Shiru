@@ -42,7 +42,7 @@
   import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
   import { since, monthDay, matchPhrase, capitalize } from '@/modules/util.js'
   import { click } from '@/modules/lib/click.js'
-  import { onMount, onDestroy } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
   import { episodeByAirDate } from '@/modules/extensions/handler.js'
   import { liveAnimeProgress } from '@/modules/anime/animeprogress.js'
   import { getHash } from '@/modules/anime/animehash.js'
@@ -83,6 +83,16 @@
   let loadScroll = false
   let maxEpisodes = 15
   let currentEpisodes = []
+
+  function lazyPromise(loader) {
+    let promise
+    return {
+      then(onFulfilled, onRejected) {
+        if (!promise) promise = loader()
+        return promise.then(onFulfilled, onRejected)
+      }
+    }
+  }
   function handleScroll(event) {
     const container = event.target
     if (currentEpisodes.length !== episodeList.length && container.scrollTop + container.clientHeight + 80 >= container.scrollHeight) {
@@ -112,7 +122,7 @@
 
     /** @type {{ zeroEpisode: object; airingAt: number; episode: number; filler?: boolean; dubAiring?: object; }[]} */
     let result = Array.from({ length: (newEpisodeCount > episodeCount ? newEpisodeCount : episodeCount) }, (_, i) => ({
-      episode: i + 1, image: null, summary: null, rating: null, title: null, length: null, airdate: null, airingAt: null, filler: episodesList.getSingleEpisode(idMal, (i + 1)), dubAiring: dubbedEpisode(i, media)
+      episode: i + 1, image: null, summary: null, rating: null, title: null, length: null, airdate: null, airingAt: null, filler: lazyPromise(() => episodesList.getSingleEpisode(idMal, i + 1)), dubAiring: lazyPromise(() => dubbedEpisode(i, media))
     }))
     let alEpisodes = result
 
@@ -121,7 +131,7 @@
       const settled = media.airingSchedule
       if (settled?.length >= newEpisodeCount) {
         alEpisodes = settled.map((episode, i) => ({
-          ...episode, airingAt: episode.airingAt, episode: episode.episode, filler: episodesList.getSingleEpisode(idMal, (i + 1)), dubAiring: dubbedEpisode(i, media)
+          ...episode, airingAt: episode.airingAt, episode: episode.episode, filler: lazyPromise(() => episodesList.getSingleEpisode(idMal, i + 1)), dubAiring: lazyPromise(() => dubbedEpisode(i, media))
         }))
       } else if (settled?.length) {
         const settledMap = settled.reduce((acc, { airingAt, episode }) => {
@@ -130,7 +140,7 @@
         }, {})
         alEpisodes = alEpisodes.map((episode, i) => {
           const settledData = settledMap?.[episode.episode]
-          if (settledData) return { ...episode, airingAt: settledData.airingAt ?? episode.airingAt, episode: settledData.episode ?? episode.episode, filler: episodesList.getSingleEpisode(idMal, (i + 1)), dubAiring: dubbedEpisode(i, media)}
+          if (settledData) return { ...episode, airingAt: settledData.airingAt ?? episode.airingAt, episode: settledData.episode ?? episode.episode, filler: lazyPromise(() => episodesList.getSingleEpisode(idMal, i + 1)), dubAiring: lazyPromise(() => dubbedEpisode(i, media)) }
           return episode
         })
       }
@@ -142,11 +152,11 @@
       if (eps?.length > 0) {
         const lastId = eps[eps.length - 1].episode_id
         alEpisodes = Array.from({ length: (lastId) }, (_, i) => ({
-          episode: i + 1, image: null, summary: null, rating: null, title: (lastId <= 100 ? eps.find(e => e.episode_id === (i + 1)) : episodesList.getSingleEpisode(idMal, (i + 1)))?.title, length: null, airdate: null, airingAt: (lastId <= 100 ? eps.find(e => e.episode_id === (i + 1)) : episodesList.getSingleEpisode(idMal, (i + 1)))?.aired, filler: episodesList.getSingleEpisode(idMal, (i + 1)), dubAiring: dubbedEpisode(i, media)
+          episode: i + 1, image: null, summary: null, rating: null, title: lastId <= 100 ? eps.find(e => e.episode_id === (i + 1))?.title : null, length: null, airdate: null, airingAt: lastId <= 100 ? eps.find(e => e.episode_id === (i + 1))?.aired : null, filler: lazyPromise(() => episodesList.getSingleEpisode(idMal, i + 1)), dubAiring: lazyPromise(() => dubbedEpisode(i, media))
         }))
       } else if ((media?.status === 'RELEASING' || media?.status === 'FINISHED')) {
         alEpisodes = Array.from({ length: (media?.mediaListEntry?.progress > 0 ? media?.mediaListEntry?.progress : 1) }, (_, i) => ({
-          episode: i + 1, image: null, summary: null, rating: null, title: null, length: null, airdate: null, airingAt: null, filler: episodesList.getSingleEpisode(idMal, (i + 1)), dubAiring: dubbedEpisode(i, media)
+          episode: i + 1, image: null, summary: null, rating: null, title: null, length: null, airdate: null, airingAt: null, filler: lazyPromise(() => episodesList.getSingleEpisode(idMal, i + 1)), dubAiring: lazyPromise(() => dubbedEpisode(i, media))
         }))
       }
     }
@@ -156,7 +166,7 @@
     let zeroAsFirstEpisode
     const zeroEpisode = await hasZeroEpisode(media, mappings)
     if (cancelled()) return null
-    if (zeroEpisode) alEpisodes.unshift({ episode: 0, title: zeroEpisode[0].title, airingAt: media.airingSchedule?.nodes?.find(node => node.episode === 1)?.airingAt || zeroEpisode[0].airingAt, filler: episodesList.getSingleEpisode(idMal, 0), dubAiring: dubbedEpisode(0, media)})
+    if (zeroEpisode) alEpisodes.unshift({ episode: 0, title: zeroEpisode[0].title, airingAt: media.airingSchedule?.nodes?.find(node => node.episode === 1)?.airingAt || zeroEpisode[0].airingAt, filler: lazyPromise(() => episodesList.getSingleEpisode(idMal, 0)), dubAiring: lazyPromise(() => dubbedEpisode(0, media))})
     for (const { episode, title: oldTitle, airingAt, filler, dubAiring } of alEpisodes?.length ? alEpisodes : [{ episode: 1, title: null, airingAt: null, filler: null, dubAiring: null }]) {
       if (cancelled()) return null
       const airingPromise = await airingAt
@@ -167,7 +177,7 @@
       const { image, summary, overview, rating, title: newTitle, length, airdate } = needsValidation ? episodeByAirDate(null, episodes, episode) : (episodes && getEpisode(Number(episode)) || {})
       const streamingTitle = !media.streamingEpisodes?.find(ep => episodeRx.exec(ep.title) && Number(episodeRx.exec(ep.title)[1]) === (media?.episodes + 1)) && media.streamingEpisodes?.find(ep => episodeRx.exec(ep.title) && Number(episodeRx.exec(ep.title)[1]) === episode && episodeRx.exec(ep.title)[2] && !episodeRx.exec(ep.title)[2].toLowerCase().trim().startsWith('episode'))
       const streamingThumbnail = media.streamingEpisodes?.find(ep => episodeRx.exec(ep.title) && Number(episodeRx.exec(ep.title)[1]) === episode)?.thumbnail
-      const title = episode === 0 ? oldTitle : newTitle?.en || oldTitle?.en || (await episodesList.getSingleEpisode(idMal, episode))?.title || episodeRx.exec(streamingTitle?.title)?.[2]
+      const title = episode === 0 ? oldTitle : newTitle?.en || oldTitle?.en || episodeRx.exec(streamingTitle?.title)?.[2]
       lastDuration = length || duration || lastDuration
 
       // fix any weird dates when maintainers are lazy.
@@ -207,8 +217,10 @@
       }
 
       const episodeNumber = episode - (zeroAsFirstEpisode ? 1 : 0)
-      const foundTitle = (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? title || newTitle?.jp || oldTitle?.jp : null
-      result[episodeNumber - (!zeroEpisode ? 1 : 0)] = { zeroEpisode, episode: episodeNumber, image: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))) ? episode === 0 ? zeroEpisode[0]?.thumbnail : result.some((ep) => ep.image === (image || streamingThumbnail) && ep.episode !== episodeNumber) ? null : (image || streamingThumbnail) : null, summary: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= Date.now()) || ((episode === 0 || episode === 1) && !validatedAiringAt && media?.status === 'RELEASING')) ? episode === 0 ? (zeroSummary || summary || overview) : result.some((ep) => ep.summary === (summary || overview) && ep.episode !== episodeNumber) ? null : (summary || overview) : `This episode ${validatedAiringAt || (media?.status === 'NOT_YET_RELEASED' && (media?.startDate?.month || media?.season || media?.seasonYear)) ? `will be released ${validatedAiringAt || media?.startDate?.month ? `${validatedAiringAt ? `on` : `in`} ${monthDay(validatedAiringAt || new Date(media.startDate.year, media.startDate.month, media.startDate.day), !validatedAiringAt)}` : `in ${media?.season ? capitalize(media?.season?.toLowerCase()) : ''} ${media?.seasonYear || ''}`}.` : ` is in production and does not have an estimated release date.`}`, rating, title: foundTitle && media?.episodes === 1 && (foundTitle.match(/ web|web |movie/i) || foundTitle.toLowerCase() === 'web') ? 'The Movie' : foundTitle, length: media?.status === 'FINISHED' || validatedAiringAt ? lastDuration : null, airdate: validatedAiringAt, airingAt: validatedAiringAt, filler, dubAiring: !zeroEpisode ? _dubAiring : dubbedEpisode(episodeNumber - 1, media) }
+      const isReleased = media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= (Date.now() + 7 * 24 * 60 * 60 * 1000))
+      const foundTitle = isReleased ? title || newTitle?.jp || oldTitle?.jp : null
+      const episodeTitle = foundTitle || (isReleased && filler ? lazyPromise(async () => (await filler)?.title || null) : null)
+      result[episodeNumber - (!zeroEpisode ? 1 : 0)] = { zeroEpisode, episode: episodeNumber, image: isReleased ? episode === 0 ? zeroEpisode[0]?.thumbnail : result.some((ep) => ep.image === (image || streamingThumbnail) && ep.episode !== episodeNumber) ? null : (image || streamingThumbnail) : null, summary: (media?.status === 'FINISHED' || (validatedAiringAt && new Date(validatedAiringAt).getTime() <= Date.now()) || ((episode === 0 || episode === 1) && !validatedAiringAt && media?.status === 'RELEASING')) ? episode === 0 ? (zeroSummary || summary || overview) : result.some((ep) => ep.summary === (summary || overview) && ep.episode !== episodeNumber) ? null : (summary || overview) : `This episode ${validatedAiringAt || (media?.status === 'NOT_YET_RELEASED' && (media?.startDate?.month || media?.season || media?.seasonYear)) ? `will be released ${validatedAiringAt || media?.startDate?.month ? `${validatedAiringAt ? `on` : `in`} ${monthDay(validatedAiringAt || new Date(media.startDate.year, media.startDate.month, media.startDate.day), !validatedAiringAt)}` : `in ${media?.season ? capitalize(media?.season?.toLowerCase()) : ''} ${media?.seasonYear || ''}`}.` : ` is in production and does not have an estimated release date.`}`, rating, title: typeof episodeTitle === 'string' && media?.episodes === 1 && (episodeTitle.match(/ web|web |movie/i) || episodeTitle.toLowerCase() === 'web') ? 'The Movie' : episodeTitle, length: media?.status === 'FINISHED' || validatedAiringAt ? lastDuration : null, airdate: validatedAiringAt, airingAt: validatedAiringAt, filler, dubAiring: !zeroEpisode ? _dubAiring : lazyPromise(() => dubbedEpisode(episodeNumber - 1, media)) }
     }
 
     if (cancelled()) return null
@@ -232,6 +244,7 @@
     if (episodeList?.length) {
       if (episodeOrder) currentEpisodes = episodeList.slice(0, maxEpisodes)
       else currentEpisodes = [...episodeList].reverse().slice(0, maxEpisodes)
+      tick().then(renderVisible)
     }
   }
 
@@ -259,12 +272,6 @@
     })
     return mobileWaiting
   }
-
-  onMount(() => {
-    setInterval(() => {
-      if (!mobileList && episodeList?.length > maxEpisodes) renderVisible()
-    }, 100)
-  })
 
   onDestroy(() => {
     mobileWaiting = null

@@ -719,6 +719,8 @@ class Cache {
       const dbName = this.#getDatabase(key)
       const batchWriter = getBatchWriter(dbName)
       const store = key.key === caches.MEDIA_CACHE.key ? mediaCache : this[key.key]
+      const mediaReferences = key.key === caches.MEDIA_CACHE.key ? new Map() : null
+      const queryEpisodeReferences = key.key === caches.QUERY_EPISODES.key ? new Map() : null
       return store.subscribe(value => {
         const storeEntries = cacheMap.get(key.key) || {}
         // Sync user-specific fields into user_lists['entries'] when they change
@@ -726,6 +728,7 @@ class Cache {
           const updatedEntries = { ...this.user_lists.value['entries'] }
           let entriesChanged = false
           for (const [subKey, subValue] of Object.entries(value || {})) {
+            if (mediaReferences.get(subKey) === subValue) continue
             const persistValue = stripUserFields(subValue)
             const prevSubValue = storeEntries[subKey]
             if (!equal(prevSubValue, persistValue)) {
@@ -741,6 +744,7 @@ class Cache {
               delete updatedEntries[subKey]
               entriesChanged = true
             }
+            mediaReferences.set(subKey, subValue)
           }
           if (entriesChanged) {
             this.user_lists.update(lists => {
@@ -750,16 +754,20 @@ class Cache {
           }
         } else {
           for (const [subKey, subValue] of Object.entries(value || {})) {
+            if (queryEpisodeReferences?.get(subKey) === subValue) continue
             const prevSubValue = storeEntries[subKey]
             if (!equal(prevSubValue, subValue)) {
               batchWriter.enqueue(key, subKey, subValue)
               storeEntries[subKey] = deepClone(subValue)
             }
+            queryEpisodeReferences?.set(subKey, subValue)
           }
         }
         for (const subKey of Object.keys(storeEntries)) {
           if (!(subKey in (value || {}))) {
             delete storeEntries[subKey]
+            mediaReferences?.delete(subKey)
+            queryEpisodeReferences?.delete(subKey)
             remove(dbName, key, [subKey]).catch(error => debug(`Failed to remove ${subKey} from ${key.key}`, error))
           }
         }

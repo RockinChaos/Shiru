@@ -4,7 +4,7 @@
   import Card from '@/components/cards/Card.svelte'
   import { hasNextPage } from '@/modules/sections.js'
   import { status } from '@/modules/networking.js'
-  import { onDestroy, onMount } from 'svelte'
+  import { onDestroy, onMount, tick } from 'svelte'
   import { writable } from 'simple-store-svelte'
   import SectionsManager from '@/modules/sections.js'
   import ErrorCard from '@/components/cards/ErrorCard.svelte'
@@ -38,24 +38,29 @@
   /** Recalculates and applies first-in-row / last-in-row classes to all loaded cards */
   function updateRowMarkers() {
     if (!container || !keyContainer) return
-    const cards = container.querySelectorAll('.small-card, .large-card, .episode-card')
+    const cards = [...container.querySelectorAll('.small-card, .large-card, .episode-card')]
     const containerRect = container.getBoundingClientRect()
     const isGrid = getComputedStyle(keyContainer).display === 'grid'
+    const cardPositions = cards.map(card => ({ card, top: card.getBoundingClientRect().top - containerRect.top + container.scrollTop }))
+    const firstInRow = new Set()
+    const lastInRow = new Set()
     let currentRow = []
     let prevTop = null
-    cards.forEach(card => card.classList.remove('first-in-row', 'last-in-row'))
-    cards.forEach((card, index) => {
-      const top = card.getBoundingClientRect().top - containerRect.top + container.scrollTop
+    cardPositions.forEach(({ card, top }, index) => {
       if (prevTop !== null && !sameRow(top, prevTop) && currentRow.length > 0) {
-        currentRow[currentRow.length - 1].classList.add('last-in-row')
+        lastInRow.add(currentRow[currentRow.length - 1])
         currentRow = []
       }
       if (prevTop === null || !sameRow(top, prevTop)) {
-        card.classList.add('first-in-row')
+        firstInRow.add(card)
         currentRow.push(card)
       } else currentRow.push(card)
       prevTop = top
-      if (index === cards.length - 1 && currentRow.length > 0 && !(isGrid && currentRow.length === 1)) currentRow[currentRow.length - 1].classList.add('last-in-row')
+      if (index === cardPositions.length - 1 && currentRow.length > 0 && !(isGrid && currentRow.length === 1)) lastInRow.add(currentRow[currentRow.length - 1])
+    })
+    cards.forEach(card => {
+      card.classList.toggle('first-in-row', firstInRow.has(card))
+      card.classList.toggle('last-in-row', lastInRow.has(card))
     })
   }
   /**
@@ -100,8 +105,10 @@
     hasNextPage.value = true
     try {
       await loadSearchData()
+      await tick()
       while ($hasNextPage && container && cachedKey === $key && container.scrollTop + container.clientHeight > container.scrollHeight - scrollThreshold) {
         await loadSearchData()
+        await tick()
       }
     } finally {
       canScroll = true
@@ -121,8 +128,10 @@
       canScroll = false
       try {
         await loadSearchData()
+        await tick()
         while ($hasNextPage && scrollContainer && cachedKey === $key && scrollContainer.scrollTop + scrollContainer.clientHeight > scrollContainer.scrollHeight - scrollThreshold) {
           await loadSearchData()
+          await tick()
         }
       } finally {
         canScroll = true
