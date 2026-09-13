@@ -5,9 +5,13 @@ const isDev = mode === 'development'
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 
-/** @type {(parentDir: string, alias?: Record<string, string>, aliasFields?: (string | string[]), filename?: string) => import('webpack').WebpackOptionsNormalized} */
-module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'app') => ({
+/** @type {(parentDir: string, alias?: Record<string, string>, aliasFields?: (string | string[]), filename?: string, cacheName?: string) => import('webpack').WebpackOptionsNormalized} */
+module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'app', cacheName = 'shiru-renderer') => ({
   devtool: 'source-map',
+  cache: isDev && {
+    type: 'filesystem',
+    name: cacheName
+  },
   entry: [join(__dirname, 'main.js')],
   stats: { warnings: false },
   output: {
