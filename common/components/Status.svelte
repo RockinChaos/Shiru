@@ -2,6 +2,7 @@
   import { Earth, WifiOff, CloudAlert } from 'lucide-svelte'
   import { status } from '@/modules/networking.js'
   import { SUPPORTS } from '@/modules/support.js'
+  import { alToken } from '@/modules/settings.js'
   import { onDestroy } from 'svelte'
 
   let transition = true
@@ -25,13 +26,13 @@
 </script>
 
 <div class='overflow-hidden status-bar h-0' class:status-bar-transition={transition} class:offline={!SUPPORTS.isAndroid && $status.match(/offline/i)} class:offline-safe={SUPPORTS.isAndroid && $status.match(/offline/i)}>
-  <div class='z-79 position-absolute d-flex align-items-center justify-content-center overflow-hidden status-bar h-0' style='width: calc(100% - var(--safe-area-navigation-right) - var(--safe-area-left))' class:status-bar-transition={transition} class:offline={!SUPPORTS.isAndroid && $status.match(/offline/i)} class:offline-safe={SUPPORTS.isAndroid && $status.match(/offline/i)} class:padding-safe={SUPPORTS.isAndroid} class:bg-very-dark={$status.match(/offline/i)} class:bg-success={!$status.match(/offline/i)}>
+  <div class='z-79 position-absolute d-flex align-items-center justify-content-center overflow-hidden status-bar h-0 mx-md-80 mx-20' style='width: calc(100% - var(--safe-area-navigation-right) - var(--safe-area-left))' class:status-bar-transition={transition} class:offline={!SUPPORTS.isAndroid && $status.match(/offline/i)} class:offline-safe={SUPPORTS.isAndroid && $status.match(/offline/i)} class:padding-safe={SUPPORTS.isAndroid} class:bg-very-dark={$status.match(/offline/i)} class:bg-success={!$status.match(/offline/i)}>
     {#if $status === 'online'}
       <Earth size='1.8rem' strokeWidth='2.5' />
-      <span class='ml-10 font-weight-semi-bold font-size-16'>Connection Restored</span>
+      <span class='ml-10 font-weight-semi-bold font-size-16 text-truncate'>Connection Restored</span>
     {:else if $status.match(/offline/i)}
       <svelte:component this={$status === 'offline' ? WifiOff : CloudAlert} size='1.8rem' strokeWidth='2.5' />
-      <span class='ml-10 font-weight-semi-bold font-size-16'>{$status === 'offline' ? 'Offline' : 'AniList Outage'}</span>
+      <span class='ml-10 font-weight-semi-bold font-size-16 text-truncate'>{$status === 'offline' ? 'Offline' : alToken ? 'AniList Outage' : 'AniList Outage or Blocked, Try Signing In'}</span>
     {/if}
   </div>
 </div>
