@@ -9,7 +9,7 @@ export const FileManager = {
 
 const MediaSessionPlugin = registerPlugin('MediaSession')
 export const MediaSession = {
-  onAction: (callback) => MediaSessionPlugin.addListener('mediaAction', ({ action }) => callback(action)),
+  onAction: (callback) => MediaSessionPlugin.addListener('mediaAction', ({ action, position }) => callback(action, position)),
   onPictureInPictureModeChanged: (callback) => MediaSessionPlugin.addListener('pictureInPictureModeChanged', ({ isInPictureInPictureMode }) => callback(isInPictureInPictureMode)),
   setPlaybackState: (state) => MediaSessionPlugin.setPlaybackState(state),
   exitPiP: () => MediaSessionPlugin.exitPiP()

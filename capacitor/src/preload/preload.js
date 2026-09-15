@@ -223,7 +223,7 @@ window.android = {
   /**
    * Listens for playback actions from Android media controls.
    *
-   * @param {(action: 'play' | 'pause' | 'last' | 'next') => void} callback
+   * @param {(action: 'play' | 'pause' | 'last' | 'next' | 'seek', position?: number) => void} callback
    */
   onMediaAction: (callback) => MediaSession.onAction(callback),
   /**

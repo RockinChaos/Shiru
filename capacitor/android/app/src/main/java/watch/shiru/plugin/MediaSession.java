@@ -108,6 +108,11 @@ public class MediaSession extends Plugin {
       public void onSkipToNext() {
         notifyMediaAction("next");
       }
+
+      @Override
+      public void onSeekTo(long position) {
+        notifyMediaAction("seek", position / 1_000d);
+      }
     });
   }
 
@@ -177,7 +182,8 @@ public class MediaSession extends Plugin {
   private void updatePlaybackState() {
     int state = playing ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED;
     float speed = playing ? playbackSpeed : 0f;
-    long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY_PAUSE;
+    long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE
+        | PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_SEEK_TO;
     if (hasLast) actions |= PlaybackState.ACTION_SKIP_TO_PREVIOUS;
     if (hasNext) actions |= PlaybackState.ACTION_SKIP_TO_NEXT;
     mediaSession.setPlaybackState(
@@ -296,8 +302,13 @@ public class MediaSession extends Plugin {
   }
 
   private void notifyMediaAction(String action) {
+    notifyMediaAction(action, null);
+  }
+
+  private void notifyMediaAction(String action, Double position) {
     JSObject event = new JSObject();
     event.put("action", action);
+    if (position != null) event.put("position", position);
     notifyListeners("mediaAction", event);
   }
 

@@ -190,7 +190,7 @@
         episodeRange,
         episodeTitle: foundEpisodeTitle && media?.episodes === 1 && (foundEpisodeTitle.match(/ web|web |movie/i) || foundEpisodeTitle.toLowerCase() === 'web') ? 'The Movie' : foundEpisodeTitle,
         thumbnail: media?.coverImage?.extraLarge,
-        artwork: (!(isSpoiler && ['minimal', 'moderate', 'strict', 'hermit'].includes(settings.value.spoilers)) && streamingArtwork) || media?.bannerImage
+        artwork: (!(isSpoiler && ['minimal', 'moderate', 'strict', 'hermit'].includes(settings.value.spoilers)) && streamingArtwork) || media?.coverImage?.extraLarge || (media?.trailer?.id && `https://i.ytimg.com/vi/${media?.trailer?.id}/hqdefault.jpg`) || media?.bannerImage
       }
 
       nowPlaying.set({

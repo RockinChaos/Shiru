@@ -87,7 +87,7 @@ declare global {
       onBackButton: (callback: (event: any) => void) => void
       onAppStateChange: (callback: (isActive: boolean) => void) => Promise<{ remove: () => Promise<void> }>
       onPictureInPictureModeChanged: (callback: (isInPictureInPictureMode: boolean) => void) => Promise<{ remove: () => Promise<void> }>
-      onMediaAction: (callback: (action: 'play' | 'pause' | 'last' | 'next') => void) => Promise<{ remove: () => Promise<void> }>
+      onMediaAction: (callback: (action: 'play' | 'pause' | 'last' | 'next' | 'seek', position?: number) => void) => Promise<{ remove: () => Promise<void> }>
       setMediaSession: (state: { active: boolean; playing?: boolean; title?: string; subtitle?: string; artwork?: string; position?: number; duration?: number; playbackRate?: number; hasLast?: boolean; hasNext?: boolean }) => Promise<void>
       exitPiP: () => void
       hideStatusBar: () => void

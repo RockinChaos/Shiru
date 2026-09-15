@@ -1841,10 +1841,16 @@
       if (destroyed) listener?.remove()
       else pictureInPictureListener = listener
     })
-    ANDROID.onMediaAction?.(action => {
+    ANDROID.onMediaAction?.((action, position) => {
       if (!src || externalPlayback) return
       if (action === 'last') playLast()
       else if (action === 'next') playNext()
+      else if (action === 'seek' && isValidNumber(position)) {
+        currentTime = Math.max(0, Math.min(safeduration || position, position))
+        targetTime = currentTime
+        video.currentTime = targetTime
+        updateAndroidMediaSession()
+      }
       else if ((action === 'play' && paused) || (action === 'pause' && !paused)) playPause()
     })?.then?.(listener => {
       if (destroyed) listener?.remove()
