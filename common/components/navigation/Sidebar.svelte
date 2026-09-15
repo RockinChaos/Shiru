@@ -3,12 +3,12 @@
   import NavItem from '@/components/navigation/components/NavItem.svelte'
   import NavLink from '@/components/navigation/components/NavLink.svelte'
   import NavBar from '@/components/navigation/components/NavBar.svelte'
+  import { status, previousStatus } from '@/modules/networking.js'
   import { page, drawerOpen } from '@/modules/navigation.js'
   import { ELECTRON, COMMON } from '@/modules/bridge.js'
   import { fadeIn, fadeOut } from '@/modules/util.js'
   import { MoveLeft, MoveRight } from 'lucide-svelte'
   import { settings } from '@/modules/settings.js'
-  import { status } from '@/modules/networking.js'
   import { click } from '@/modules/lib/click.js'
   import { writable } from 'simple-store-svelte'
 
@@ -16,22 +16,15 @@
   const drawerItems = writable([])
 
   /**
-   * Previous network status value used to detect changes
-   *
-   * @type {string}
-   */
-  let _status = status.value
-  /**
    * Whether a status transition animation is active
    *
    * @type {boolean}
    */
   $: statusTransition = false
   $: {
-    if (_status !== $status) {
+    if ($previousStatus !== $status) {
       statusTransition = true
       setTimeout(() => (statusTransition = false), 3000)
-      _status = $status
     }
   }
 
@@ -52,7 +45,7 @@
   <div class='z--1 pointer-events-none h-full bg-dark position-absolute' style='width: var(--sidebar-width)'/>
   <div class='sidebar-overlay z--1 pointer-events-none h-full position-absolute' class:animated={$settings.expandingSidebar} />
   <div class='sidebar-menu h-full d-flex flex-column m-0 pb-5 animate' class:br-10={!$settings.expandingSidebar}>
-    <div class='w-50 top-0 flex-shrink-0 pointer-events-none {_status?.match(/offline/i) ? `h-25` : `${COMMON.getPlatformInfo().platform === `darwin` && !fullScreen ? `h-25` : `h-0`}`}' class:status-transition={statusTransition}/>
+    <div class='w-50 top-0 flex-shrink-0 pointer-events-none {$status !== 'online' ? `h-25` : `${COMMON.getPlatformInfo().platform === `darwin` && !fullScreen ? `h-25` : `h-0`}`}' class:status-transition={statusTransition}/>
     <div class='d-flex justify-content-center z-102' style='width: var(--sidebar-width); margin-top: 1rem !important'>
       <NavLink sidebar={true} center={false} click={goBack} class={`h-auto w-30 ${$canGoBack ? 'active' : ''}`} css='rounded-left-block p-0 m-0'>
         <MoveLeft size={'2.5rem'} class='flex-shrink-0 rounded m-0' strokeWidth='2.5' />

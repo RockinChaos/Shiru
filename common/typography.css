@@ -174,10 +174,6 @@
     margin-left: 3rem !important;
     margin-right: 3rem !important;
   }
-  .mx-md-80 {
-    margin-left: 8rem !important;
-    margin-right: 8rem !important;
-  }
   .mr-md-80 {
     margin-right: 8rem !important;
   }
@@ -195,6 +191,10 @@
   .px-md-50 {
     padding-left: 5rem !important;
     padding-right: 5rem !important;
+  }
+  .px-md-80 {
+    padding-left: 8rem !important;
+    padding-right: 8rem !important;
   }
   .pt-md-50 {
     padding-top: 5rem !important;

@@ -6,7 +6,7 @@ import { alToken, settings, validateToken } from '@/modules/settings.js'
 import { malDubs } from '@/modules/anime/animedubs.js'
 import { isSubbedProgress, getMediaMaxEp } from '@/modules/anime/anime.js'
 import { getRandomInt, sleep, debounce, uniqueStore, normalizeASCII, codes } from '@/modules/util.js'
-import { printError, status } from '@/modules/networking.js'
+import { printError, status, previousStatus } from '@/modules/networking.js'
 import { cache, caches, mediaCache } from '@/modules/cache.js'
 import { MutationQueue } from '@/modules/providers/lib/mutationqueue.js'
 import { malClient } from '@/modules/providers/myanimelist/myanimelist.js'
@@ -158,14 +158,15 @@ recommendations {
 
 class AnilistClient {
   limiter = new Bottleneck({
-    reservoir: 90,
-    reservoirRefreshAmount: 90,
-    reservoirRefreshInterval: 60 * 1_000,
+    reservoir: 30, // should be 90 but api is heavily degraded...
+    reservoirRefreshAmount: 30, // should be 90 but api is heavily degraded...
+    reservoirRefreshInterval: 64 * 1_000,
     maxConcurrent: 10,
-    minTime: 100
+    minTime: 260 // burst limit is 4 rq/s
   })
 
   rateLimitPromise = null
+  rateLimitUntil = 0
 
   #listPromise = Promise.resolve()
 
@@ -176,21 +177,47 @@ class AnilistClient {
 
   userID = alToken
 
+  _status = status.value
+
   constructor() {
     debug('Initializing Anilist Client for ID ' + this.userID?.viewer?.data?.Viewer?.id)
+    this.limiter.on('depleted', async () => {
+      trace('AniList limiter reservoir depleted, jobs will queue until next refresh')
+      if (status.value !== 'online') return
+      status.set('limited_anilist')
+      while ((await this.limiter.currentReservoir()) <= 0) {
+        await sleep(100)
+      }
+      if (status.value === 'limited_anilist') status.set('online')
+    })
     this.limiter.on('failed', async (error, jobInfo) => {
       if (status.value.match(/offline/i)) throw new Error('Failed making request to Anilist, network is offline... not retrying')
-      else if (error.status === 429 || jobInfo.retryCount >= 1) await printError('Search Failed', 'Failed making request to Anilist! Trying again in a minute.', error, 20_000)
-      const errorDebug = `Error: ${error.status || 429} - ${error.message || error.statusText || codes[error.status || 429]}`
+      else if (jobInfo.retryCount >= 1 && error.status !== 429) await printError('Search Failed', 'Failed making request to Anilist!', error, 20_000)
+      const errorTrace = `Error: ${error.status || 429} - ${error.message || error.statusText || codes[error.status || 429]}`
 
       if (error.status === 429) { // rate limited...
-        const time = (Number(error.headers.get('retry-after') || 60) + 1) * 1_000
-        if (!this.rateLimitPromise) this.rateLimitPromise = sleep(time).then(() => { this.rateLimitPromise = null })
-        return time
+        const resetHeader = error.headers?.get('x-ratelimit-reset')
+        const retryHeader = error.headers?.get('retry-after')
+        const resetAt = Number(resetHeader)
+        const retryAfter = Number(retryHeader)
+        const resetTime = resetHeader != null && Number.isFinite(resetAt) && resetAt > 0 ? Math.max((resetAt * 1_000) - Date.now(), 0) + 1_000 : 0
+        const retryTime = retryHeader != null && Number.isFinite(retryAfter) && retryAfter >= 0 ? (retryAfter + 1) * 1_000 : 0
+        this.rateLimitUntil = Math.max(this.rateLimitUntil, Date.now() + (Math.max(resetTime, retryTime) || 64_000))
+        if (!this.rateLimitPromise) {
+          this._status = status.value
+          this.rateLimitPromise = (async () => {
+            while (this.rateLimitUntil > Date.now()) await sleep(this.rateLimitUntil - Date.now())
+            this.rateLimitUntil = 0
+            this.rateLimitPromise = null
+            if (status.value === 'limited_anilist') status.set(this._status)
+          })()
+        }
+        if (!status.value.match(/offline/i) && status.value !== 'limited_anilist' && (this.rateLimitUntil - Date.now()) > 6_000) status.set('limited_anilist')
+        return
       }
 
       if (jobInfo.retryCount >= 1) { // give up after 2 total attempts, let it reject so callers can fall back
-        debug(`Giving up on request after ${jobInfo.retryCount + 1} attempts`, errorDebug)
+        trace(`Giving up on request after ${jobInfo.retryCount + 1} attempts`, errorTrace)
         return
       }
 
@@ -218,7 +245,7 @@ class AnilistClient {
       setInterval(() => this.findNewNotifications().catch((error) => debug('Failed to get new anilist notifications at the scheduled interval, this is likely a temporary connection issue:', JSON.stringify(error))), 1_000 * 60 * 5)
       // update userLists and flush queued offline mutations when back online
       uniqueStore(status).subscribe(value => {
-        if (value !== 'online') return
+        if (!(previousStatus.value.match(/offline/i) && value === 'online')) return
         debug(`Back online${this.mutationQueue.hasPending ? ' with pending mutations' : ''}, refreshing user lists`)
         this.getUserLists({ sort: 'UPDATED_TIME_DESC' }, false, true).then(updatedLists => {
           this.userLists.value = Promise.resolve(updatedLists)
@@ -227,7 +254,7 @@ class AnilistClient {
       })
     } else {
       uniqueStore(status).subscribe(value => {
-        if (value !== 'online' || !this.mutationQueue.hasPending) return
+        if (!(previousStatus.value.match(/offline/i) && value === 'online') || !this.mutationQueue.hasPending) return
         debug('Back online with pending mutations, flushing mutation queue...')
         this.#flushMutationQueue()
       })
@@ -236,43 +263,54 @@ class AnilistClient {
 
   numberOfQueries = 0
   /** @type {(options: RequestInit) => Promise<any>} */
-  handleRequest = this.limiter.wrap(async opts => {
-    await this.rateLimitPromise
-    // Skip using token if its expired, causes fetch to fail for queries that do not need a token.
-    if (opts.headers.Authorization && this.userID && this.userID.reauth && this.userID.token === opts.headers.Authorization && (!this.userID.expires_in || (Math.floor(Date.now() / 1_000) >= (this.userID.expires_in + 30 * 24 * 60 * 60)))) delete opts.headers.Authorization
-    validateToken(opts.headers.Authorization)
-    if (status.value.match(/offline/i)) throw new Error('AniList API is temporarily disabled or network is offline')
-    trace(`[${this.numberOfQueries}] requesting`, JSON.stringify({ ...opts, headers: { ...opts.headers, Authorization: opts.headers.Authorization ? '[redacted]' : undefined } }))
-    this.numberOfQueries++
-    let res = {}
+  handleRequest = async opts => {
+    if (this.rateLimitPromise) await this.rateLimitPromise
     try {
-      res = await fetch('https://graphql.anilist.co', opts)
-    } catch (e) {
-      if (!res || res.status !== 404) throw e
-    }
-    if (!res.ok && (res.status === 429 || res.status >= 500)) {
-      throw res
-    }
-    let json = null
-    try {
-      json = await res.json()
-    } catch (error) {
-      if (res.ok) printError('Search Failed', 'Failed making request to Anilist! Try again in a minute.', error)
-    }
-    if (!res.ok && res.status !== 404) {
-      if (json) {
-        for (const error of json?.errors || []) {
-          if (error.status === 400 && error.message?.match(/invalid token/i) && opts.headers.Authorization && !validateToken(opts.headers.Authorization, true)) {
-            return { data: null, errors: [{ message: 'AniList session has expired. Please go to Profiles and log in again to continue syncing.', status: 401 }] }
-          }
-          printError('Search Failed', 'Failed making request to Anilist! Try again in a minute.', error)
+      return await this.limiter.schedule(async () => {
+        // Skip using token if its expired, causes fetch to fail for queries that do not need a token.
+        if (opts.headers.Authorization && this.userID && this.userID.reauth && this.userID.token === opts.headers.Authorization && (!this.userID.expires_in || (Math.floor(Date.now() / 1_000) >= (this.userID.expires_in + 30 * 24 * 60 * 60)))) {
+          delete opts.headers.Authorization
         }
-      } else {
-        printError('Search Failed', 'Failed making request to Anilist! Try again in a minute.', res)
-      }
+        validateToken(opts.headers.Authorization)
+        if (status.value.match(/offline/i)) throw new Error('AniList API is temporarily disabled or network is offline')
+        const numberOfQueries = this.numberOfQueries
+        trace(`[${numberOfQueries}] requesting`, JSON.stringify(this.limiter.counts()), JSON.stringify({ ...opts, headers: { ...opts.headers, Authorization: opts.headers.Authorization ? '[redacted]' : undefined } }))
+        this.numberOfQueries++
+        let res = {}
+        try {
+          res = await fetch('https://graphql.anilist.co', opts)
+        } catch (e) {
+          if (!res || res.status !== 404) throw e
+        }
+        trace(`[${numberOfQueries}] request settled`, JSON.stringify({ status: res?.status, limit: res.headers?.get('x-ratelimit-limit'), remaining: res.headers?.get('x-ratelimit-remaining'), reset: res.headers?.get('x-ratelimit-reset'), retryAfter: res.headers?.get('retry-after') }))
+        if (!res.ok && (res.status === 429 || res.status >= 500)) {
+          throw res
+        }
+        let json = null
+        try {
+          json = await res.json()
+        } catch (error) {
+          if (res.ok) printError('Search Failed', 'Failed making request to Anilist!', error)
+        }
+        if (!res.ok && res.status !== 404) {
+          if (json) {
+            for (const error of json?.errors || []) {
+              if (error.status === 400 && error.message?.match(/invalid token/i) && opts.headers.Authorization && !validateToken(opts.headers.Authorization, true)) {
+                return { data: null, errors: [{ message: 'AniList session has expired. Please go to Profiles and log in again to continue syncing.', status: 401 }] }
+              }
+              printError('Search Failed', 'Failed making request to Anilist!', error)
+            }
+          } else {
+            printError('Search Failed', 'Failed making request to Anilist!', res)
+          }
+        }
+        return json || res
+      })
+    } catch (error) {
+      if (error?.status !== 429) throw error
+      return this.handleRequest(opts)
     }
-    return json || res
-  })
+  }
 
   /**
    * @param {string} query
@@ -311,7 +349,7 @@ class AnilistClient {
   /** @returns {Promise<import('./al.d.ts').Query<{ Viewer: import('./al.d.ts').Viewer }>>} */
   viewer (variables = {}) {
     debug('Getting viewer')
-    const query = /* js */` 
+    const query = /* js */`
     query {
       Viewer {
         avatar {
@@ -428,7 +466,7 @@ class AnilistClient {
     if (cachedEntry) return cachedEntry
 
     this.mutationQueue.isFetchingList = true
-    const query = /* js */` 
+    const query = /* js */`
       query($id: Int, $sort: [MediaListSort]) {
         MediaListCollection(userId: $id, type: ANIME, sort: $sort, forceSingleCompletedList: true) {
           lists {
@@ -646,7 +684,7 @@ class AnilistClient {
     query(${queryVariables}) {
       ${fragmentQueries}
     }
-    
+
     fragment&nbsp;med&nbsp;on&nbsp;Media {
       id,
       title {
@@ -697,7 +735,7 @@ class AnilistClient {
     debug(`Searching ${JSON.stringify(variables)}`)
     const cachedEntry = cache.cachedEntry(caches.QUERY_SEARCH, JSON.stringify(variables), status.value.match(/offline/i))
     if (cachedEntry) return cachedEntry
-    const query = /* js */` 
+    const query = /* js */`
     query($page: Int, $perPage: Int, $sort: [MediaSort], $search: String, $onList: Boolean, $status: [MediaStatus], $status_not: [MediaStatus], $season: MediaSeason, $year: Int, $genre: [String], $genre_not: [String], $tag: [String], $tag_not: [String], $format: [MediaFormat], $format_not: [MediaFormat], $id_not: [Int], $idMal_not: [Int], $id: [Int], $idMal: [Int], $isAdult: Boolean) {
       Page(page: $page, perPage: $perPage) {
         pageInfo {
@@ -725,8 +763,8 @@ class AnilistClient {
     debug(`Searching for ID: ${variables?.id || variables?.idMal}`)
     const cachedEntry = cache.cachedEntry(caches.QUERY_SEARCH_IDS, JSON.stringify(variables), status.value.match(/offline/i))
     if (cachedEntry) return cachedEntry
-    const query = /* js */` 
-    query($id: Int, $idMal: Int) { 
+    const query = /* js */`
+    query($id: Int, $idMal: Int) {
       Media(id: $id, idMal: $idMal, type: ANIME) {
         ${queryObjects}${settings.value.queryComplexity === 'Complex' ? `, ${queryComplexObjects}` : ``}
       }
@@ -754,8 +792,8 @@ class AnilistClient {
     debug(`Searching for IDs ${JSON.stringify(variables)}`)
     const cachedEntry = !variables.skipCache && cache.cachedEntry(caches.QUERY_SEARCH_IDS, JSON.stringify(variables), status.value.match(/offline/i))
     if (cachedEntry) return cachedEntry
-    const query = /* js */` 
-    query($id: [Int], $idMal: [Int], $id_not: [Int], $page: Int, $perPage: Int, $status: [MediaStatus], $onList: Boolean, $sort: [MediaSort], $search: String, $season: MediaSeason, $year: Int, $genre: [String], $genre_not: [String], $tag: [String], $tag_not: [String], $format: [MediaFormat], $isAdult: Boolean) { 
+    const query = /* js */`
+    query($id: [Int], $idMal: [Int], $id_not: [Int], $page: Int, $perPage: Int, $status: [MediaStatus], $onList: Boolean, $sort: [MediaSort], $search: String, $season: MediaSeason, $year: Int, $genre: [String], $genre_not: [String], $tag: [String], $tag_not: [String], $format: [MediaFormat], $isAdult: Boolean) {
       Page(page: $page, perPage: $perPage) {
         pageInfo {
           hasNextPage
@@ -900,7 +938,7 @@ class AnilistClient {
     debug(`Toggling favourite for ${variables.id}`)
     const query = /* js */`
       mutation($id: Int) {
-        ToggleFavourite(animeId: $id) { anime { nodes { id } } } 
+        ToggleFavourite(animeId: $id) { anime { nodes { id } } }
       }`
     const cachedMedia = cache.getMedia(variables.id)
     if (cachedMedia) cachedMedia.isFavourite = variables.isFavourite

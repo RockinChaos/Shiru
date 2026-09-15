@@ -16,22 +16,20 @@
   import UpdateModal from '@/modals/UpdateModal.svelte'
   import ProfilesModal from '@/modals/ProfilesModal.svelte'
   import NotificationModal from '@/modals/notification/NotificationModal.svelte'
+  import { status, previousStatus } from '@/modules/networking.js'
   import MinimizeModal from '@/modals/MinimizeModal.svelte'
   import Status from '@/components/Status.svelte'
-  import { status } from '@/modules/networking.js'
   import Toaster from '@/components/toast/Toaster.svelte'
   import { onMount, onDestroy } from 'svelte'
   import '@/modules/themes.js'
 
-  let currentStatus = status.value
   let transitionTimer
   const unsubscribeMonitor = status.subscribe(value => {
-    if (value !== currentStatus) {
+    if (value !== previousStatus.value) {
       clearTimeout(transitionTimer)
       statusTransition.set(true)
       transitionTimer = setTimeout(() => statusTransition.set(false), 2_500)
       transitionTimer.unref?.()
-      currentStatus = value
     }
   })
 

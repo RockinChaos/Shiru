@@ -4,7 +4,7 @@ import Bottleneck from 'bottleneck'
 import { malToken, refreshMalToken, settings } from '@/modules/settings.js'
 import { mediaCache } from '@/modules/cache.js'
 import { sleep, uniqueStore } from '@/modules/util.js'
-import { printError, status } from '@/modules/networking.js'
+import { printError, status, previousStatus } from '@/modules/networking.js'
 import { MutationQueue } from '@/modules/providers/lib/mutationqueue.js'
 import Helper from '@/modules/providers/helper.js'
 import Debug from 'debug'
@@ -84,7 +84,7 @@ class MALClient {
       }, 1_000 * 60 * 15)
       // update userLists and flush queued offline mutations when back online
       uniqueStore(status).subscribe(value => {
-        if (value !== 'online') return
+        if (!(previousStatus.value.match(/offline/i) && value === 'online')) return
         debug(`Back online${this.mutationQueue.hasPending ? ' with pending mutations' : ''}, refreshing user lists`)
         this.getUserLists({ sort: 'list_updated_at' }).then(updatedLists => {
           this.userLists.value = Promise.resolve(updatedLists)
@@ -93,7 +93,7 @@ class MALClient {
       })
     } else {
       uniqueStore(status).subscribe(value => {
-        if (value !== 'online' || !this.mutationQueue.hasPending) return
+        if (!(previousStatus.value.match(/offline/i) && value === 'online') || !this.mutationQueue.hasPending) return
         debug('Back online with pending mutations, flushing mutation queue...')
         this.#flushMutationQueue()
       })
@@ -323,7 +323,7 @@ class MALClient {
         }
       }
     }
-    if (status.value.match(/offline/i) && settings.value.offlineSync) {
+    if (status.value === 'offline' && settings.value.offlineSync) {
       debug(`We are offline and offline syncing is enabled, queuing entry update for media ${variables.idMal}`)
       this.mutationQueue.enqueue('entry', variables.idMal, variables, null, this.mutationQueue.getProgressBefore(variables.idMal) ?? variables.episode ?? null, false)
       return entryData
@@ -342,7 +342,7 @@ class MALClient {
   async delete (variables) {
     debug(`Deleting entry for ${variables.idMal}`)
 
-    if (status.value.match(/offline/i) && settings.value.offlineSync) {
+    if (status.value === 'offline' && settings.value.offlineSync) {
       debug(`We are offline and offline syncing is enabled, queuing entry deletion for media ${variables.idMal}`)
       this.mutationQueue.enqueue('delete', variables.idMal, variables, null, null, false)
       return []

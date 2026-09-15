@@ -612,7 +612,7 @@ class Cache {
      */
     const run = async () => {
       if (running || timeout) return
-      if (this.status?.value?.match(/offline/i) || (this.page?.value === this.page?.PLAYER && document.fullscreenElement)) {
+      if (this.status?.value === 'offline' || (this.page?.value === this.page?.PLAYER && document.fullscreenElement)) {
         debug('Eviction: Skipping run, offline or player is fullscreen, retrying in 30s')
         timeout = setTimeout(() => {
           timeout = null

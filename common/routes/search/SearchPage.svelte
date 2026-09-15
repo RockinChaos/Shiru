@@ -159,7 +159,7 @@
   })
 </script>
 
-<div bind:this={container} class='bg-dark h-full w-full overflow-y-scroll d-flex flex-wrap flex-row root overflow-x-hidden justify-content-center align-content-start' class:mt-safe-area={!$search.fileEdit && !$status.match(/offline/i)} class:bg-very-dark={$search.fileEdit} use:trackResize use:trackMutations on:scroll={handleScroll}>
+<div bind:this={container} class='bg-dark h-full w-full overflow-y-scroll d-flex flex-wrap flex-row root overflow-x-hidden justify-content-center align-content-start' class:mt-safe-area={!$search.fileEdit && $status === 'online'} class:bg-very-dark={$search.fileEdit} use:trackResize use:trackMutations on:scroll={handleScroll}>
   <SearchBar bind:search={$search} clearNow={$clearNow} on:input={update} />
   <div bind:this={keyContainer} class='w-full d-grid d-md-flex flex-wrap flex-row px-20 px-md-40 justify-content-center align-content-start pt-10'>
     {#key $key}

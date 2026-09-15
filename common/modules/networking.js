@@ -9,6 +9,10 @@ const OFFLINE_ABORT_REASON = new DOMException('Failed to fetch: client is offlin
 
 export const status = writable(navigator.onLine ? 'online' : 'offline')
 
+/** The status value immediately before the current one. */
+export const previousStatus = writable(status.value)
+let _status = status.value
+
 /**
  * @param {string} title
  * @param {string} description
@@ -26,9 +30,13 @@ export async function printError(title, description, error, duration = 10_000) {
   })
 }
 
-// When we go offline, abort all in-flight requests and reset the controller
-status.subscribe(_status => {
-  if (_status === 'offline') {
+// Track status transitions and abort all in-flight requests when the network goes offline.
+status.subscribe(value => {
+  if (value !== _status) {
+    previousStatus.set(_status)
+    _status = value
+  }
+  if (value === 'offline') {
     offlineController.abort(OFFLINE_ABORT_REASON)
     offlineController = new AbortController()
   }

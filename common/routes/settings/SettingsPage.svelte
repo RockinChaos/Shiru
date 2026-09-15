@@ -109,7 +109,7 @@
 
 <Tabs>
   <div class='d-flex w-full h-full position-relative settings root flex-md-row flex-column'>
-    <div class='tab-container bg-dark position-absolute position-lg-relative h-lg-full w-full w-lg-300 br-10 z-10 pb-1' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-lg-28px={SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-safe-area={SUPPORTS.isAndroid && !$status.match(/offline/i)}>
+    <div class='tab-container bg-dark position-absolute position-lg-relative h-lg-full w-full w-lg-300 br-10 z-10 pb-1' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && $status === 'online'} class:pt-lg-28px={SUPPORTS.isAndroid && $status === 'online'} class:pt-safe-area={SUPPORTS.isAndroid && $status === 'online'}>
       <div class='d-flex flex-column flex-lg-shrink-0 h-lg-full w-full w-lg-300 bb-10'>
         <div class='px-20 py-5 font-size-24 font-weight-semi-bold position-absolute d-none d-lg-block'>Settings</div>
         <div class='mt-lg-20 py-lg-20 py-10 d-flex flex-lg-column flex-row justify-content-center justify-content-lg-start align-items-center align-items-lg-start'>
@@ -127,7 +127,7 @@
         </div>
       </div>
     </div>
-    <div class='mt-75 mt-lg-0 w-full overflow-y-auto overflow-y-md-hidden pr-notch-safe-area' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && !$status.match(/offline/i)} class:scroll-container={!SUPPORTS.isAndroid && !$status.match(/offline/i)} class:pt-safe-area={SUPPORTS.isAndroid && !$status.match(/offline/i)}>
+    <div class='mt-75 mt-lg-0 w-full overflow-y-auto overflow-y-md-hidden pr-notch-safe-area' class:status-transition={statusTransition} class:pt-28px={!SUPPORTS.isAndroid && $status === 'online'} class:scroll-container={!SUPPORTS.isAndroid && $status === 'online'} class:pt-safe-area={SUPPORTS.isAndroid && $status === 'online'}>
       <Tab>
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='page pb-100'>

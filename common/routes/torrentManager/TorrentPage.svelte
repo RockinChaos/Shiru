@@ -408,7 +408,7 @@
 </script>
 
 <div class='root bg-dark d-flex flex-column h-full w-full overflow-y-scroll overflow-x-hidden' bind:this={container} on:scroll={handleScroll}>
-  <div class='header w-full pl-20 position-sticky top-0 bg-dark z-20 pb-10 mb-15' class:status-transition={statusTransition} class:pt-28px={!$status.match(/offline/i)} class:pt-15={$status.match(/offline/i)}>
+  <div class='header w-full pl-20 position-sticky top-0 bg-dark z-20 pb-10 mb-15' class:status-transition={statusTransition} class:pt-28px={$status === 'online'} class:pt-15={$status !== 'online'}>
     <h4 class='font-weight-bold m-0 mb-10'>Manage Torrents</h4>
     <div class='d-flex align-items-center'>
       <div class='input-group wm-600'>
@@ -473,7 +473,7 @@
   </div>
 
   <div class='d-flex flex-column flex-1 w-full text-wrap text-break-word font-scale-16'>
-    <div class='t-grid labels position-sticky bg-dark z-20 bt-10 font-scale-18 mb-5' class:status-transition={statusTransition} style='top: calc(9rem + {!$status.match(/offline/i) ? `28px` : `1.5rem`})'>
+    <div class='t-grid labels position-sticky bg-dark z-20 bt-10 font-scale-18 mb-5' class:status-transition={statusTransition} style='top: calc(9rem + {$status === 'online' ? `28px` : `1.5rem`})'>
       <button type='button' class='sort-header border-0 bg-transparent pointer font-weight-bold p-5 d-flex ml-20 mb-0 pb-0 no-scale' disabled={$loadingSession} class:active={sortOrder.key === 'name'} class:desc={sortOrder.key === 'name' && sortOrder.direction === 'desc'} on:click={() => toggleSort('name')}>
         <span>Name</span>
       </button>

@@ -88,7 +88,7 @@
   $: checkInvite(joinText)
 </script>
 
-<div class='d-flex h-full align-items-center flex-column px-md-20 overflow-y-auto' class:pt-safe-area={!$status.match(/offline/i)}>
+<div class='d-flex h-full align-items-center flex-column px-md-20 overflow-y-auto' class:pt-safe-area={$status === 'online'}>
   {#if !$state}
     <div class='alert bg-warning border-warning-dim text-warning-very-dim p-10 pl-15 mb-5 d-flex mt-10'>
       <TriangleAlert size='1.8rem' />
