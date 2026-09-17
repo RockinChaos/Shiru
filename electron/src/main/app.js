@@ -69,6 +69,22 @@ export default class App {
     ipcMain.handle('common:isWindowVisible', () => this.mainWindow.isVisible())
     ipcMain.on('electron:openTorrentDevTools', () => this.webtorrentWindow.webContents.openDevTools({ mode: 'detach' }))
     ipcMain.on('electron:openDevTools', ({ sender }) => sender.openDevTools({ mode: 'detach' }))
+    ipcMain.on('electron:showTextContextMenu', ({ sender }, { editable, textField, hasSelection, canUndo, canRedo }) => {
+      Menu.buildFromTemplate(editable ? [
+        { role: 'undo', enabled: canUndo },
+        { role: 'redo', enabled: canRedo },
+        { type: 'separator' },
+        { role: 'cut', enabled: hasSelection },
+        { role: 'copy', enabled: hasSelection },
+        { role: 'paste' },
+        { role: 'delete', enabled: hasSelection },
+        { type: 'separator' },
+        { role: 'selectAll' }
+      ] : [
+        { role: 'copy', enabled: hasSelection },
+        textField ? { role: 'selectAll' } : { label: 'Select All', click: () => sender.send('electron:onSelectContextText') }
+      ]).popup({ window: this.mainWindow })
+    })
     ipcMain.on('electron:hideWindow', () => this.mainWindow.hide())
     ipcMain.on('electron:showAndFocus', () => this.showAndFocus())
     ipcMain.on('minimize', () => this.mainWindow?.minimize())

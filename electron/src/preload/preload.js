@@ -161,5 +161,7 @@ contextBridge.exposeInMainWorld('electron', {
   setDiscordRPC: (state) => ipcRenderer.send('electron:setDiscordRPC', state),
   setPresence: (activity) => ipcRenderer.send('electron:setPresence', activity),
   clearPresence: () => ipcRenderer.send('electron:clearPresence'),
+  showTextContextMenu: (options) => ipcRenderer.send('electron:showTextContextMenu', options),
+  onSelectContextText: (callback) => ipcRenderer.on('electron:onSelectContextText', callback),
   getYouTube: () => ipcRenderer.invoke('electron:getYouTube')
 })

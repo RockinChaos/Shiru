@@ -105,6 +105,8 @@ const electronDefaults = {
   setDiscordRPC: noopVoid,
   setPresence: noopVoid,
   clearPresence: noopVoid,
+  showTextContextMenu: noopVoid,
+  onSelectContextText: noopVoid,
   getYouTube: async () => 'https://www.youtube-nocookie.com'
 }
 

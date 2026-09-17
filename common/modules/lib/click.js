@@ -1,11 +1,12 @@
 import { SUPPORTS } from '@/modules/support.js'
-import { ANDROID } from '@/modules/bridge.js'
+import { ANDROID, ELECTRON } from '@/modules/bridge.js'
 
 let lastTapElement = null
 let lastTapTarget = null
 let lastTapCurrent = null
 let lastHoverElement = null
 let lastInteractionMethod = 'mouse'
+let contextSelectionRegion = null
 
 const noop = _ => {}
 
@@ -51,6 +52,46 @@ document.addEventListener('selectionchange', () => {
   const isTextInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)
   if (!isTextInput && (window.getSelection()?.toString()?.trim() === '')) window.getSelection()?.removeAllRanges()
 })
+// handles text selection/deselection
+if (!SUPPORTS.isAndroid) {
+  ELECTRON?.onSelectContextText?.(() => {
+    if (!contextSelectionRegion?.isConnected) return
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.selectAllChildren(contextSelectionRegion)
+  })
+  document.addEventListener('contextmenu', (e) => {
+    if (!ELECTRON?.showTextContextMenu || !e.target?.closest) return
+    const textField = e.target.closest(`input:not(:is([type='button'], [type='submit'], [type='reset'], [type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='image'])), textarea, [contenteditable]:not([contenteditable='false'])`)
+    const selectionRegion = textField || e.target.closest('.select-text')
+    if (!selectionRegion) return
+    if (!textField) {
+      const excludedTarget = e.target.closest(`a[href], button, input, label, select, option, summary, [role='button'], [role='menuitem'], [draggable='true'], [controls], .pointer, .grab, .touch-none, img, svg`)
+      if (excludedTarget && selectionRegion.contains(excludedTarget) && excludedTarget !== selectionRegion) return
+    }
+
+    let hasSelection
+    if (textField instanceof HTMLInputElement || textField instanceof HTMLTextAreaElement) {
+      hasSelection = textField.selectionStart !== null && textField.selectionEnd > textField.selectionStart
+    } else {
+      const selection = window.getSelection()
+      hasSelection = Boolean(selection?.toString().trim() && Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index)).some(range => range.intersectsNode(e.target)))
+    }
+
+    const editable = textField && !textField.matches(`:disabled, [readonly], [contenteditable='false']`)
+    contextSelectionRegion = textField ? null : selectionRegion
+
+    e.preventDefault()
+    e.stopPropagation()
+    ELECTRON.showTextContextMenu({
+      editable: Boolean(editable),
+      textField: Boolean(textField),
+      hasSelection,
+      canUndo: Boolean(editable && document.queryCommandEnabled('undo')),
+      canRedo: Boolean(editable && document.queryCommandEnabled('redo'))
+    })
+  }, true)
+}
 
 if (SUPPORTS.isAndroid) {
   document.addEventListener('touchstart', ANDROID.hideStatusBar, { passive: true })

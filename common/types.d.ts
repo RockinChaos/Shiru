@@ -113,6 +113,8 @@ declare global {
       setDiscordRPC: (state: any) => void
       setPresence: (activity: any) => void
       clearPresence: () => void
+      showTextContextMenu: (options: { editable: boolean; textField: boolean; hasSelection: boolean; canUndo: boolean; canRedo: boolean }) => void
+      onSelectContextText: (callback: () => void) => void
       getYouTube: () => Promise<string>
     }
   }
