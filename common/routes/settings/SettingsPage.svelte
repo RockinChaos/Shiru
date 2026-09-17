@@ -121,7 +121,7 @@
             </TabLabel>
           {/each}
         </div>
-        <div class='d-none d-lg-block mt-auto'>
+        <div class='d-none d-lg-block mt-auto select-text'>
           <p class='text-muted px-20 py-10 m-0'>Not sure what a setting does? Leave it as default. Some settings require the app to be restarted to take effect.</p>
           <p class='text-muted px-20 m-0 mb-lg-20'>{version ? `v${version} ${semver.prerelease(version) ? `(Nightly)` : ``}` : ``} {platformMap[COMMON.getPlatformInfo().platform] || 'dev'} {COMMON.getPlatformInfo().arch || 'dev'} {capitalize(COMMON.getPlatformInfo().session) || ''}</p>
         </div>

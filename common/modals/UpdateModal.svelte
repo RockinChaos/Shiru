@@ -151,7 +151,7 @@
         <div class='update-container'>
           <h3 class='font-weight-bold text-white font-scale-34 mb-0 d-flex align-items-center'>Update Available</h3>
           <div class='d-flex mt-5'>
-            <span class='font-scale-18 text-muted'>v{$updateVersion}</span>
+            <span class='font-scale-18 text-muted select-text'>v{$updateVersion}</span>
             <span class='badge nightly-badge ml-15 d-none align-items-center justify-content-center font-weight-semi-bold text-white font-scale-12' class:d-flex={isNightlyVersion}>
               <Flame size='1.4rem' class='mr-5'/>
               <span class=''>NIGHTLY</span>
@@ -163,7 +163,7 @@
         <div class='skeloader rounded w-120 h-20 bg-ske'/>
       {:then changelog}
         {#if changelog?.entry?.date}
-          <div class='font-size-14 text-muted'>{new Date(changelog.entry.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+          <div class='font-size-14 text-muted select-text'>{new Date(changelog.entry.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
         {/if}
       {:catch}
         <div class='skeloader rounded w-120 h-20 bg-ske'/>
@@ -180,8 +180,8 @@
           <TriangleAlert class='mr-10 flex-shrink-0' size='2rem' />
           <div>
             <strong class='d-block mb-5'>Nightly Build</strong>
-            <div>This pre-release version may contain experimental features and bugs, use at your own risk. {!semver.prerelease(version) ? 'You are currently on a stable release, once updated you will not be able to downgrade.' : ''}</div>
-            <div class='mt-10' class:d-none={!isLesser}>It looks like you're upgrading from an earlier version, consider checking out the <span class='custom-link' use:click={() => COMMON.openURI(atob('aHR0cHM6Ly9yZWxlYXNlcy5zaGlydS5hcHAv'))}>previous release notes</span></div>
+            <div class='select-text'>This pre-release version may contain experimental features and bugs, use at your own risk. {!semver.prerelease(version) ? 'You are currently on a stable release, once updated you will not be able to downgrade.' : ''}</div>
+            <div class='mt-10 select-text' class:d-none={!isLesser}>It looks like you're upgrading from an earlier version, consider checking out the <span class='custom-link' use:click={() => COMMON.openURI(atob('aHR0cHM6Ly9yZWxlYXNlcy5zaGlydS5hcHAv'))}>previous release notes</span></div>
           </div>
         </div>
       {/if}
@@ -189,7 +189,7 @@
         <Info class='mr-10 flex-shrink-0' size='2rem' />
         <div class='upgrade-notice'>
           <strong class='d-block mb-5'>Upgrade Notice</strong>
-          <span>It looks like you're upgrading from an earlier version, consider checking out the <span class='custom-link' use:click={() => COMMON.openURI(atob('aHR0cHM6Ly9yZWxlYXNlcy5zaGlydS5hcHAv'))}>previous release notes</span>.</span>
+          <span class='select-text'>It looks like you're upgrading from an earlier version, consider checking out the <span class='custom-link' use:click={() => COMMON.openURI(atob('aHR0cHM6Ly9yZWxlYXNlcy5zaGlydS5hcHAv'))}>previous release notes</span>.</span>
         </div>
       </div>
       {#if manualInstall}
@@ -206,7 +206,7 @@
         </div>
       {/if}
       <hr class='my-20' class:d-none={!isNightlyVersion && !isLesser && !manualInstall}/>
-      <span>Consider <span class='custom-link' use:click={() => COMMON.openURI('https://contribute.shiru.app/')}>donating on GitHub</span> to help support future Shiru development.</span>
+      <span class='select-text'>Consider <span class='custom-link' use:click={() => COMMON.openURI('https://contribute.shiru.app/')}>donating on GitHub</span> to help support future Shiru development.</span>
       <hr class='my-20'/>
       {#if changelog?.entry?.body?.trim().length}
         <div class='whats-new'>

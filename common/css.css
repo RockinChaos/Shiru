@@ -534,6 +534,9 @@ a[href]:active, button:not([disabled], .not-reactive):active, fieldset:not([disa
 .cursor-wait {
   cursor: wait !important;
 }
+.cursor-text {
+  cursor: text;
+}
 .cursor-default {
   cursor: default;
 }
@@ -677,8 +680,19 @@ a[href]:active, button:not([disabled], .not-reactive):active, fieldset:not([disa
 body {
   scroll-behavior: smooth;
   overscroll-behavior: none;
+  -webkit-user-select: none;
   user-select: none;
   font-family: 'Nunito Variable';
+}
+
+:where(a[href], button, label, select, option, summary, [role='button'], [role='menuitem'], [tabindex], [draggable='true'], [controls], .pointer, .grab, .touch-none) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:where(input:not([type]), input[type='text'], input[type='search'], input[type='email'], input[type='url'], input[type='tel'], input[type='password'], input[type='number'], textarea, [contenteditable]:not([contenteditable='false']), .select-text) {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 *::-webkit-scrollbar-track {
@@ -842,10 +856,6 @@ img {
 
 .ratio-16-9 {
     aspect-ratio: 16/9;
-}
-
-.select-all {
-  user-select: all;
 }
 
 img[src=''], img[src=' '] {

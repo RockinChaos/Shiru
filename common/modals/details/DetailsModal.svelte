@@ -174,7 +174,7 @@
               </div>
             </div>
             <div class='pl-sm-20 ml-sm-20'>
-              <h1 class='font-weight-very-bold text-white select-all mb-0 font-scale-40'>{anilistClient.title(staticMedia)}</h1>
+              <h1 class='font-weight-very-bold text-white select-text mb-0 font-scale-40'>{anilistClient.title(staticMedia)}</h1>
               <div class='d-flex flex-row font-size-18 flex-wrap mt-5'>
                 {#if staticMedia.averageScore && (!hasSpoiler || !['strict', 'hermit'].includes($settings.spoilers))}
                   <div class='d-flex flex-row mt-10' title='{staticMedia.averageScore / 10} by {anilistClient.reviews(staticMedia)} reviews'>
@@ -250,14 +250,14 @@
             {#each staticMedia.tags as tag}
               {#if !(hasSpoiler && ((tag.isGeneralSpoiler && ['strict', 'hermit'].includes($settings.spoilers)) || (tag.isMediaSpoiler && ['moderate', 'strict', 'hermit'].includes($settings.spoilers))))}
                 <div class='bg-dark-light px-20 py-10 mr-10 rounded text-nowrap d-flex align-items-center'>
-                  <Hash class='mr-5' size='1.8rem' /><span class='font-weight-bolder select-all'>{tag.name}</span><span class='font-weight-light'>: {tag.rank}%</span>
+                  <Hash class='mr-5' size='1.8rem' /><span class='font-weight-bolder select-text'>{tag.name}</span><span class='font-weight-light'>: {tag.rank}%</span>
                 </div>
               {/if}
             {/each}
           </div>
           <div use:resetScroll={staticMedia?.id} class='m-0 px-20 pb-0 pt-10 d-flex flex-row text-nowrap overflow-x-scroll text-capitalize align-items-start'>
             {#each staticMedia.genres as genre}
-              <div class='bg-dark-light px-20 py-10 mr-10 rounded text-nowrap d-flex align-items-center select-all'><svelte:component this={genreIcons[genre]} class='mr-5' size='1.8rem' /> {genre}</div>
+              <div class='bg-dark-light px-20 py-10 mr-10 rounded text-nowrap d-flex align-items-center select-text'><svelte:component this={genreIcons[genre]} class='mr-5' size='1.8rem' /> {genre}</div>
             {/each}
           </div>
           {#if staticMedia.description}

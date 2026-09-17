@@ -433,13 +433,13 @@
   <div class='mx-20 mb-10'>
     <div class='alert bg-warning border-warning-dim text-warning-very-dim p-10 px-15 mb-25 d-none' class:d-inline-flex={disableRescan}>
       <TriangleAlert class='flex-shrink-0' size='1.8rem' />
-      <span class='ml-10'>You've reached your pre-download limit. To pre-download more torrents, stop seeding some, increase your seeding limit, or enable Persist Files in Client Settings.</span>
+      <span class='ml-10 select-text'>You've reached your pre-download limit. To pre-download more torrents, stop seeding some, increase your seeding limit, or enable Persist Files in Client Settings.</span>
     </div>
     <div class='disk-bar mb-15 wm-726 text-muted'>
       <div class='d-flex align-items-center justify-content-between'>
         <div class='d-flex align-items-end overflow-hidden text-white gap-5'>
           <HardDrive size='2rem' strokeWidth='2.4' class='flex-shrink-0 mb-3'/>
-          <span class='font-size-13 text-truncate' title={$settings.torrentPathNew ?? 'tmp'}>{$settings.torrentPathNew ?? 'tmp'}</span>
+          <span class='font-size-13 text-truncate select-text' title={$settings.torrentPathNew ?? 'tmp'}>{$settings.torrentPathNew ?? 'tmp'}</span>
         </div>
       <span class='font-size-13 flex-shrink-0 ml-15' title='{formatBytes($diskSpace?.free)} free of {formatBytes($diskSpace?.total)}'>
         <span class='font-scale-16 font-weight-bold' class:text-white={!lowDiskSpace && !noDiskSpace} class:text-warning={lowDiskSpace} class:text-danger={noDiskSpace}>{formatBytes($diskSpace?.free)}</span> free of {formatBytes($diskSpace?.total)}

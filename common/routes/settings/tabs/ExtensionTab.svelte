@@ -198,7 +198,7 @@
         <div class='card m-0 p-15 mb-10 solid-border bg-error'>
           <div class='d-flex'>
             <TriangleAlert size='4.3rem' />
-            <div class='ml-10 mb-5 mb-md-0'>
+            <div class='ml-10 mb-5 mb-md-0 select-text'>
               <div class='font-size-18 font-weight-bold'>No Extensions Installed</div>
               <div class='text-muted pre-wrap'>This is not a bug, extensions are not included by default. Visit the <u>Sources</u> tab to add an extension source.</div>
             </div>
@@ -230,7 +230,7 @@
                 {/if}
                 <div class='ml-10 mb-5 mb-md-0 w-full'>
                   <div class='d-flex'>
-                    <div class='font-size-18 font-weight-bold d-flex align-items-center text-break-word' title={extensionName}>
+                    <div class='font-size-18 font-weight-bold d-flex align-items-center text-break-word select-text' title={extensionName}>
                       {extensionName}
                     </div>
                     <div class='d-flex ml-auto pl-10 align-items-center gap-10 h-20'>
@@ -255,13 +255,13 @@
                     </div>
                   </div>
                   {#if extension?.description}
-                    <div class='text-muted pre-wrap text-break-word'>
+                    <div class='text-muted pre-wrap text-break-word select-text'>
                       {@html parseSafeMarkdown(extension.description.slice(0, 500) + (extension.description.length > 500 ? '...' : ''))}
                     </div>
                   {/if}
                 </div>
               </div>
-              <div class='d-flex flex-wrap align-items-end'>
+              <div class='d-flex flex-wrap align-items-end select-text'>
                 <span class='badge border-0 bg-light pl-10 pr-10 mr-10 mt-10 font-scale-16'>{extension?.version}</span>
                 {#if extension?.type}<span class='badge border-0 bg-light pl-10 pr-10 mr-10 mt-10 font-scale-16'>{capitalize(extension?.type)}</span>{/if}
                 {#if extension?.speed}<span class='badge border-0 bg-light pl-10 pr-10 mr-10 mt-10 font-scale-16' data-toggle='tooltip' data-placement='top' data-title='How quickly query results are received'>{capitalize(extension?.speed)}</span>{/if}
@@ -277,12 +277,12 @@
                         {@const fieldDefault = Array.isArray(field.default) ? field.default.map(value => typeof value === 'string' ? value.slice(0, 100) : value) : typeof field.default === 'string' ? field.default.slice(0, 100) : field.default}
                         <div class='d-flex flex-column flex-md-row align-items-md-center justify-content-between' class:mb-15={index < extension.settings.length - 1}>
                           <div class='mr-md-80 mb-5 mb-md-0'>
-                            <label class='font-weight-semi-bold font-scale-16 mb-0' for='ext-setting-{key}-{fieldKey}'>
+                            <label class='font-weight-semi-bold font-scale-16 mb-0 select-text cursor-text' for='ext-setting-{key}-{fieldKey}'>
                               {@html parseSafeMarkdown(field.label.slice(0, 35) + (field.label.length > 35 ? '...' : ''))}
                               {#if field.required}<span class='text-danger ml-5'>*</span>{/if}
                             </label>
                             {#if field.description}
-                              <div class='text-muted font-scale-14'>
+                              <div class='text-muted font-scale-14 select-text'>
                                 {@html parseSafeMarkdown(field.description.slice(0, 300) + (field.description.length > 300 ? '...' : ''))}
                               </div>
                             {/if}
@@ -373,12 +373,12 @@
 {:else}
   <div class='alert bg-warning border-warning-dim text-warning-very-dim wm-1200 p-10 pl-15 mb-5 d-flex'>
     <TriangleAlert size='1.8rem' />
-    <span class='ml-10'>Extensions are sandboxed and should be safe from attacks, but it is not recommended to add <u>unknown</u> or <u>untrusted</u> extensions.</span>
+    <span class='ml-10 select-text'>Extensions are sandboxed and should be safe from attacks, but it is not recommended to add <u>unknown</u> or <u>untrusted</u> extensions.</span>
   </div>
   {#if failedSource}
     <div class='alert bg-error border-error-light wm-1200 p-10 pl-15 mb-5 d-flex'>
       <CircleX size='1.8rem' />
-      <span class='ml-10'>{failedSource}</span>
+      <span class='ml-10 select-text'>{failedSource}</span>
     </div>
   {/if}
   <div class='input-group wm-1200 mb-20'>
@@ -400,8 +400,8 @@
               <FileQuestion size='2.2rem' />
             {/if}
           </div>
-          <span class='font-weight-semi-bold ml-10 overflow-hidden text-truncate mr-5 font-scale-18'>{(extension.locale || extension.host).replace(VALID_SCHEMES, '').replace(/^\/+/, '')}</span>
-          <span class='font-weight-semi-bold ml-auto text-muted text-nowrap text-truncate'>{extension.count} Extensions</span>
+          <span class='font-weight-semi-bold ml-10 overflow-hidden text-truncate mr-5 font-scale-18 select-text'>{(extension.locale || extension.host).replace(VALID_SCHEMES, '').replace(/^\/+/, '')}</span>
+          <span class='font-weight-semi-bold ml-auto text-muted text-nowrap text-truncate select-text'>{extension.count} Extensions</span>
           <ConfirmButton click={() => removeSource(extension.host)} title='Remove Source' class='btn btn-square d-flex align-items-center justify-content-center bg-transparent shadow-none border-0 {pendingSource ? `cursor-wait` : ``} text-danger' disabled={pendingSource} primaryClass='ml-10' confirmText='' cancelText='' confirmClass='btn-square text-success w-auto' cancelClass='ml-10 text-muted w-auto' actionClass='d-inline-flex flex-row-reverse'>
             <Trash2 size='1.8rem' />
           </ConfirmButton>
@@ -425,8 +425,8 @@
               <FileQuestion size='2.2rem' />
             {/if}
           </div>
-          <span class='font-weight-semi-bold ml-10 overflow-hidden text-truncate mr-5 font-scale-18'>{sourceUrl.replace(VALID_SCHEMES, '').replace(/^\/+/, '')}</span>
-          <span class='font-weight-semi-bold ml-auto text-muted text-nowrap text-truncate'>{availableSources[sourceUrl].length} Sources</span>
+          <span class='font-weight-semi-bold ml-10 overflow-hidden text-truncate mr-5 font-scale-18 select-text'>{sourceUrl.replace(VALID_SCHEMES, '').replace(/^\/+/, '')}</span>
+          <span class='font-weight-semi-bold ml-auto text-muted text-nowrap text-truncate select-text'>{availableSources[sourceUrl].length} Sources</span>
           <ConfirmButton click={() => removeSource(sourceUrl, true)} title='Remove Repository' class='btn btn-square d-flex align-items-center justify-content-center bg-transparent shadow-none border-0 {pendingSource ? `cursor-wait` : ``} text-danger' disabled={pendingSource} primaryClass='ml-10' confirmText='' cancelText='' confirmClass='btn-square text-success w-auto' cancelClass='ml-10 text-muted w-auto' actionClass='d-inline-flex flex-row-reverse'>
             <Trash2 size='1.8rem' />
           </ConfirmButton>
@@ -458,7 +458,7 @@
                   <FileQuestion size='2.2rem' />
                 {/if}
               </div>
-              <span class='font-weight-semi-bold ml-10 font-scale-18'>{source.replace(VALID_SCHEMES, '').replace(/^\/+/, '')}</span>
+              <span class='font-weight-semi-bold ml-10 font-scale-18 select-text'>{source.replace(VALID_SCHEMES, '').replace(/^\/+/, '')}</span>
               <button type='button' use:click={() => { addSource(source); if (missingSources.length <= 1) viewSources = !viewSources }} class='btn btn-square d-flex align-items-center justify-content-center ml-10 bg-transparent shadow-none border-0 ml-auto' title='Add Source' style='color: var(--success-color)' disabled={pendingSource} class:cursor-wait={pendingSource}><SquarePlus size='1.8rem' /></button>
             </div>
           {/each}

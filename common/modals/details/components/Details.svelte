@@ -78,7 +78,7 @@
             </div>
           {/if}
           <div class='d-flex flex-column justify-content-center text-nowrap'>
-            <div class='font-weight-bold select-all line-height-normal'>
+            <div class='font-weight-bold select-text line-height-normal'>
               {#if detail.custom === 'property'}
                 {getCustomProperty(detail.property, media)}
               {:else}

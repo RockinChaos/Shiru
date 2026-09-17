@@ -21,11 +21,18 @@ export function getInteractionMethod() {
 
 document.addEventListener('mousedown', () => lastInteractionMethod = 'mouse')
 document.addEventListener('touchstart', () => lastInteractionMethod = 'touch', { passive: true })
+document.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch' || !lastTapCurrent || !e.target || lastTapCurrent.contains(e.target)) return
+  const tappedElement = lastTapElement
+  tappedElement?.(false)
+  if (lastHoverElement !== tappedElement) lastHoverElement?.(false)
+  lastTapElement = null
+  lastHoverElement = null
+  lastTapCurrent = null
+  lastTapTarget = null
+}, true)
 document.addEventListener('focusin', (e) => {
   if (lastInteractionMethod !== 'dpad') return
-  const activeEl = document.activeElement
-  const isTextInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)
-  if (!isTextInput && !e.target?.closest('.select-all')) window.getSelection()?.removeAllRanges()
   if (lastTapTarget !== e.target && (!lastTapCurrent || !e.target || !lastTapCurrent.contains(e.target))) {
     lastTapElement?.(false)
     lastTapElement = null
@@ -47,11 +54,6 @@ document.addEventListener('pointercancel', (e) => {
   }
 })
 
-document.addEventListener('selectionchange', () => {
-  const activeEl = document.activeElement
-  const isTextInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)
-  if (!isTextInput && (window.getSelection()?.toString()?.trim() === '')) window.getSelection()?.removeAllRanges()
-})
 // handles text selection/deselection
 if (!SUPPORTS.isAndroid) {
   ELECTRON?.onSelectContextText?.(() => {
@@ -92,13 +94,21 @@ if (!SUPPORTS.isAndroid) {
     })
   }, true)
 }
+document.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || !e.target?.closest) return
+  const selectionRegion = e.target.closest('.select-text')
+  const excludedTarget = e.target.closest(`a[href], button, input, label, select, option, summary, [role='button'], [role='menuitem'], [draggable='true'], [controls], .pointer, .grab, .touch-none, img, svg`)
+  if (!selectionRegion || (excludedTarget && excludedTarget !== selectionRegion && selectionRegion.contains(excludedTarget))) {
+    window.getSelection()?.removeAllRanges()
+  }
+}, true)
 
 if (SUPPORTS.isAndroid) {
   document.addEventListener('touchstart', ANDROID.hideStatusBar, { passive: true })
 } else {
   // don't focus what we can't even tab to, fixes function keys being used to focus.
   document.addEventListener('focusin', (e) => {
-    if (e.target.getAttribute('tabindex') === '-1' && !e.target.draggable) e.target.blur()
+    if (['keyboard', 'dpad'].includes(lastInteractionMethod) && e.target.getAttribute('tabindex') === '-1' && !e.target.draggable) e.target.blur()
   }, true)
 }
 /** @typedef {{element: Element, x: number, y: number, inViewport: boolean}} ElementPosition  */

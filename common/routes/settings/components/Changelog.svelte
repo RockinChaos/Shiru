@@ -190,7 +190,7 @@
     COMMON.openURI(anchor.href)
   }
 </script>
-<div class='changelog {$$restProps.class}' tabindex='-1' use:click={hrefListener}>{@html sanitize(body)}</div>
+<div class='changelog select-text {$$restProps.class}' tabindex='-1' use:click={hrefListener}>{@html sanitize(body)}</div>
 
 <style>
   .changelog :global(a) {

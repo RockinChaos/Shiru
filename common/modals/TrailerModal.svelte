@@ -35,7 +35,7 @@
 </button>
 <SoftModal class='pointer-events-none w-full scrollbar-none align-items-center mb-30' css='top-0 left-0 position-fixed' bind:showModal={$modal[modal.TRAILER]} shouldRender={true} {close} id={modal.TRAILER}>
   <div class='pointer-events-auto d-flex align-items-center rounded-top-5 w-full wm-calc bg-dark h-40'>
-    <span class='title ml-20 font-weight-very-bold text-muted select-all mr-20 font-scale-18'>{anilistClient.title(staticMedia)}</span>
+    <span class='title ml-20 font-weight-very-bold text-muted select-text mr-20 font-scale-18'>{anilistClient.title(staticMedia)}</span>
     <button type='button' class='btn btn-square bg-transparent shadow-none border-0 d-flex align-items-center justify-content-center ml-auto mr-5' use:click={close}><X size='1.7rem' strokeWidth='3'/></button>
   </div>
   <div class='pointer-events-auto ratio-16-9 position-relative w-full wm-calc overflow-hidden rounded-bottom-5'>
