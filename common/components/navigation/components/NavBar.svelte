@@ -94,7 +94,7 @@
   function onPointerDown(event) {
     if (!drawerOpen) return
     if ((sidebar ? event.target.closest('.sidebar') : event.target.closest('.navbar')) || event.target.closest('.drawer')) return
-    if (event.target.closest('.more-icon')) return
+    if (event.target.closest('.more-button')) return
     closeDrawer()
   }
 
@@ -131,7 +131,7 @@
     {#if sidebar && !firstBottom}
       <div class='mt-md-h-auto' />
     {/if}
-    <NavLink {sidebar} click={() => drawerOpen = !drawerOpen} text='More' class={`${drawerActive ? 'active' : ''} ${sidebar ? 'my-sm-h-auto' : ''}`}>
+    <NavLink {sidebar} click={() => drawerOpen = !drawerOpen} text='More' class={`more-button ${drawerActive ? 'active' : ''} ${sidebar ? 'my-sm-h-auto' : ''}`}>
       <div class='more-icon d-flex flex-column align-items-center justify-content-center flex-shrink-0 m-5' class:open={drawerOpen} class:active={drawerActive}>
         <span /><span /><span />
       </div>
