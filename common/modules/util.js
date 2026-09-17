@@ -570,6 +570,81 @@ export function fadeOut(node, { delay = 0, duration = 200, y = 1.2, endScale = 0
 }
 
 /**
+ * Horizontally shifts an element just enough to keep it inside the viewport.
+ * The individual translate property intentionally stays separate from transition transforms.
+ *
+ * @param {HTMLElement} node The element to keep visible.
+ * @param {number} [padding=0] Minimum distance from the viewport edge in pixels.
+ * @returns {{ destroy: () => void }} Svelte action lifecycle methods.
+ */
+export function clampToViewport(node, padding = 0) {
+  let frame
+  let scrollTimeout
+  let transitionTimeout
+  let shift = 0
+  const scrollContainer = node.closest('.gallery')
+  const originalTransition = {
+    value: node.style.getPropertyValue('transition'),
+    priority: node.style.getPropertyPriority('transition')
+  }
+
+  function restoreTransition() {
+    if (originalTransition.value) node.style.setProperty('transition', originalTransition.value, originalTransition.priority)
+    else node.style.removeProperty('transition')
+  }
+
+  function update() {
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(() => {
+      const rect = node.getBoundingClientRect()
+      const containerRect = scrollContainer?.getBoundingClientRect()
+      const leftEdge = Math.max(padding, (containerRect?.left ?? 0) + padding)
+      const rightEdge = Math.min(window.innerWidth - padding, (containerRect?.right ?? window.innerWidth) - padding)
+      const baseCenter = ((rect.left + rect.right) / 2) - shift
+      const baseLeft = baseCenter - (node.offsetWidth / 2)
+      const baseRight = baseCenter + (node.offsetWidth / 2)
+
+      if (node.offsetWidth > rightEdge - leftEdge || baseLeft < leftEdge) shift = leftEdge - baseLeft
+      else if (baseRight > rightEdge) shift = rightEdge - baseRight
+      else shift = 0
+
+      node.style.translate = `${shift}px 0`
+    })
+  }
+
+  function handleScroll() {
+    clearTimeout(scrollTimeout)
+    clearTimeout(transitionTimeout)
+    restoreTransition()
+    scrollTimeout = setTimeout(() => {
+      node.style.setProperty('transition', 'translate 120ms ease-out')
+      update()
+      transitionTimeout = setTimeout(restoreTransition, 180)
+      transitionTimeout.unref?.()
+    }, 120)
+    scrollTimeout.unref?.()
+  }
+
+  const resizeObserver = new ResizeObserver(update)
+  resizeObserver.observe(node)
+  window.addEventListener('resize', update)
+  scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
+  update()
+
+  return {
+    destroy() {
+      cancelAnimationFrame(frame)
+      clearTimeout(scrollTimeout)
+      clearTimeout(transitionTimeout)
+      restoreTransition()
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', update)
+      scrollContainer?.removeEventListener('scroll', handleScroll)
+    }
+  }
+}
+
+/**
  * General work-around for preventing the reactive animations for specific classes when they are not needed.
  * Importing this and adding {$reactive ? `` : `not-reactive`} will disable reactivity for the added element when a trigger class is clicked.
  *

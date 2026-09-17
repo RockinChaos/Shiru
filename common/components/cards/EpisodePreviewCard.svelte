@@ -5,11 +5,11 @@
   import { CalendarDays, Play, Tv, RefreshCwOff } from 'lucide-svelte'
 </script>
 <script>
+  import { since, fadeIn, fadeOut, isValidNumber, clampToViewport } from '@/modules/util.js'
   import { statusColorMap, formatMap } from '@/modules/anime/anime.js'
   import { episodesList } from '@/modules/episodes.js'
   import { click } from '@/modules/lib/click.js'
   import { getHash } from '@/modules/anime/animehash.js'
-  import { since, fadeIn, fadeOut, isValidNumber } from '@/modules/util.js'
   import { liveAnimeEpisodeProgress } from '@/modules/anime/animeprogress.js'
   import { anilistClient } from '@/modules/providers/anilist/anilist.js'
   import { settings } from '@/modules/settings.js'
@@ -36,7 +36,7 @@
   $: resolvedHash = media?.id && !data.failed && getHash(media.id, { episode: data?.episode, client: true, batchGuess: true }, false, true)
 </script>
 
-<div class='position-absolute w-400 mw-full mh-400 absolute-container top-0 m-auto bg-dark-light z-30 rounded overflow-hidden pointer d-flex flex-column fade-change' in:fadeIn out:fadeOut on:introend={() => animating = false} on:outrostart={() => animating = true} bind:this={element}>
+<div class='position-absolute w-400 mw-full mh-400 absolute-container top-0 m-auto bg-dark-light z-30 rounded overflow-hidden pointer d-flex flex-column fade-change' use:clampToViewport in:fadeIn out:fadeOut on:introend={() => animating = false} on:outrostart={() => animating = true} bind:this={element}>
   <div class='image h-200 w-full position-relative d-flex justify-content-between align-items-end text-white'>
     <SmartImage class='img-cover w-full h-full position-absolute rounded p-0 m-0 {!(data.episodeData?.image || media?.bannerImage) && media?.genres?.includes(`Hentai`) ? `cover-rotated cr-400` : ``}' color={media?.coverImage?.color || 'var(--tertiary-color)'} images={[episodeThumbnail, (!media ? './404_episode.jpg' : './no_image_episode.jpg')]}/>
     {#if data.episodeData?.video && !animating}
@@ -191,6 +191,7 @@
     will-change: transform, opacity, bottom;
     left: -100%;
     right: -100%;
+    max-width: calc(100vw - 2rem) !important;
   }
   .title {
     display: -webkit-box;
