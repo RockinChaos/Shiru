@@ -194,7 +194,7 @@
       </div>
       <div class='p-5 d-none d-md-block font-weight-semi-bold align-self-center' class:watched>{data.eta > 0 && data.progress < 1 ? eta(new Date(Date.now() + data.eta)) : '∞'}</div>
 
-      <div class={`react-${infoHash} mr-5 mr-md-20 h-auto z-20`} class:d-none={!infoHash}>
+      <div class={`react-${infoHash} mr-5 mr-md-20 h-auto`} class:d-none={!infoHash}>
         <NestedDropdown title='Options' direction='left' alignStart={true} panelWidth={20} panelHeightPadding={3} containerEl={container} bind:isOpen={viewOptions} items={[
           ...(!current && infoHash ? [{
             label: 'Play',

@@ -53,24 +53,42 @@
 
 {#if list?.length}
   {@const canToggle = settings.value.toggleList && list.length > previewLength}
+  {@const isScrollable = !settings.value.toggleList && list.length > 2}
   <span class='d-flex align-items-end mt-20' aria-hidden='true' tabindex='-1' class:pointer={canToggle} class:not-reactive={!canToggle} use:click={toggleList}>
     <ToggleTitle title={title} class={canToggle ? `more` : ``}/>
   </span>
-  <div class='pt-10 text-capitalize d-flex gallery'
-       class:justify-content-center={list.length <= 2 || settings.value.toggleList}
-       class:justify-content-start={list.length > 2 && !settings.value.toggleList}
-       class:scroll={!settings.value.toggleList && list.length > 2}
-       class:flex-row={!settings.value.toggleList}
-       class:flex-wrap={settings.value.toggleList}
-       use:trackLayout>
-    {#each !settings.value.toggleList ? list : (showMore ? list : list.slice(0, previewLength)) as item}
-      <slot {item} {promise} />
-    {/each}
+  <div class:position-relative={isScrollable} class:scrollable={isScrollable}>
+    <div class='pt-10 text-capitalize d-flex gallery'
+         class:justify-content-center={list.length <= 2 || settings.value.toggleList}
+         class:justify-content-start={isScrollable}
+         class:scroll={isScrollable}
+         class:flex-row={!settings.value.toggleList}
+         class:flex-wrap={settings.value.toggleList}
+         use:trackLayout>
+      {#each !settings.value.toggleList ? list : (showMore ? list : list.slice(0, previewLength)) as item}
+        <slot {item} {promise} />
+      {/each}
+    </div>
   </div>
   <ToggleFooter {showMore} {toggleList} size={settings.value.toggleList && list.length} rowSize={previewLength} />
 {/if}
 
 <style>
+  .scrollable::before,
+  .scrollable::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    height: 100%;
+    width: 2rem;
+    z-index: 32;
+    background: var(--details-section-end-gradient);
+    pointer-events: none;
+  }
+  .scrollable::before {
+    left: -1px;
+    transform: scaleX(-1);
+  }
   .scroll {
     overflow-x: scroll;
     flex-shrink: 0;

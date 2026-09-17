@@ -176,24 +176,31 @@ export function focus(node, focusUpdate = noop) {
   node.role = 'button'
   let focusTimeout
   let blurTimeout
+  let active = false
   function clearTimeouts() {
     clearTimeout(focusTimeout)
     clearTimeout(blurTimeout)
   }
+  function deactivate() {
+    if (!active) return
+    active = false
+    clearTimeouts()
+    focusUpdate(false)
+    lastTapElement = null
+    lastTapCurrent = null
+    document.removeEventListener('pointerup', handleOutsideClick, true)
+  }
   function handleOutsideClick(e) {
     const focused = e.target
     if (node && focused?.offsetParent != null && !node.contains(focused)) {
-      clearTimeouts()
-      focusUpdate(false)
-      lastTapElement = null
-      lastTapCurrent = null
-      document.removeEventListener('pointerup', handleOutsideClick)
+      deactivate()
     }
   }
   node.addEventListener('pointerleave', clearTimeouts)
   node.addEventListener('focus', () => {
     clearTimeouts()
-    document.addEventListener('pointerup', handleOutsideClick)
+    active = true
+    document.addEventListener('pointerup', handleOutsideClick, true)
     focusTimeout = setTimeout(() => focusUpdate(true), 800)
     focusTimeout.unref?.()
   })
@@ -202,10 +209,7 @@ export function focus(node, focusUpdate = noop) {
     blurTimeout = setTimeout(() => {
       const focused = document.activeElement
       if (node && focused?.offsetParent != null && !node.contains(focused)) {
-        focusUpdate(false)
-        lastTapElement = null
-        lastTapCurrent = null
-        document.removeEventListener('pointerup', handleOutsideClick)
+        deactivate()
       }
     })
     blurTimeout.unref?.()

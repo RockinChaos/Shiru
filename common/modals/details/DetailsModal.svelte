@@ -151,7 +151,7 @@
   <button class='btn btn-square rounded-circle w-40 h-40 close pointer z-30 bg-dark-very-light top-20 right-0 position-fixed mr-navigation-safe-area d-flex align-items-center justify-content-center text-white' type='button' use:click={() => close()}>
     <X size='1.7rem' strokeWidth='3' />
   </button>
-  <div bind:this={container} class='overflow-y-auto position-relative'>
+  <div bind:this={container} class='overflow-y-auto overflow-x-hidden position-relative'>
     <SmartImage class='w-full cover-img anime-details position-absolute' images={[
       staticMedia.bannerImage,
       ...(staticMedia.trailer?.id ? [
@@ -266,7 +266,7 @@
               <div class='font-size-18 font-weight-semi-bold px-20 text-white'>Synopsis</div>
               <hr class='w-full' />
             </div>
-            <div class='font-size-16 pt-20 select-all' class:text-spoiler={hasSpoiler && ['strict', 'hermit'].includes($settings.spoilers)}>
+            <div class='font-size-16 pt-20 select-text overflow-hidden' class:line-4={hasSpoiler && ['strict', 'hermit'].includes($settings.spoilers)} class:text-spoiler={hasSpoiler && ['strict', 'hermit'].includes($settings.spoilers)}>
               {@html sanitize(staticMedia.description)}
             </div>
           {/if}

@@ -407,7 +407,7 @@
 {#if isOpen}
   <div
       bind:this={panelEl}
-      class='nd-panel position-absolute z-10 cursor-default not-reactive'
+      class='nd-panel position-absolute z-20 cursor-default not-reactive'
       style={panelStyle}
       style:--panel-color={panelColor}
       role='dialog'

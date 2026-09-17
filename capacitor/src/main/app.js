@@ -14,6 +14,7 @@ import Dialog from './dialog.js'
 
 import { development, loadingClient } from './util.js'
 import { ipcWire } from './ipc.js'
+import './scrollbars.js'
 
 export default class App {
   protocol = new Protocol()

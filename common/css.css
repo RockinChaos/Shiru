@@ -137,7 +137,8 @@
   --episode-preview-card-gradient: linear-gradient(180deg, hsla(var(--black-color-hsl), 0) 0%, hsla(var(--black-color-hsl), 0) 80%, var(--dark-color-light) 100%);
   --preview-card-end-gradient: linear-gradient(180deg, hsla(var(--black-color-hsl), 0) 0%, hsla(var(--black-color-hsl), 0) 85%, hsla(var(--dark-color-light-hsl), 0.85) 95%, var(--dark-color-light) 98%);
   --preview-card-trailer-gradient: linear-gradient(180deg, hsla(var(--black-color-hsl), 0) 0%, hsla(var(--black-color-hsl), 0) 85%, hsla(var(--dark-color-light-hsl), 0.85) 95%, var(--dark-color-light) 98%, var(--dark-color-light) 100%);
-  --section-end-gradient: linear-gradient(270deg, hsla(var(--dark-color-hsl), 1) 0%, hsla(var(--dark-color-light-hsl), 0) 100%);
+  --section-end-gradient: linear-gradient(270deg, hsla(var(--dark-color-hsl), .92) 0%, hsla(var(--dark-color-hsl), .68) 24%, hsla(var(--dark-color-light-hsl), .28) 52%, hsla(var(--dark-color-light-hsl), .1) 72%, hsla(var(--dark-color-light-hsl), 0) 88%, hsla(var(--dark-color-light-hsl), 0) 100%);
+  --details-section-end-gradient: linear-gradient(270deg, hsla(var(--dark-color-dim-hsl), .92) 0%, hsla(var(--dark-color-dim-hsl), .68) 24%, hsla(var(--dark-color-dim-hsl), .28) 52%, hsla(var(--dark-color-dim-hsl), .1) 72%, hsla(var(--dark-color-dim-hsl), 0) 88%, hsla(var(--dark-color-dim-hsl), 0) 100%);
 
   --theme-color: var(--dark-color) !important;
   color-scheme: dark;
@@ -371,10 +372,6 @@
 }
 .opacity-ts-3 {
   transition: opacity .3s ease-in-out;
-}
-
-.scrollbar-none {
-  scrollbar-width: none;
 }
 
 .flex-1 {
@@ -697,6 +694,32 @@ body {
 
 *::-webkit-scrollbar-track {
   margin-top: var(--scrollbar-title-offset, 0px);
+}
+
+.android-scrollbar-thumb {
+  position: fixed;
+  z-index: 9999;
+  border-radius: var(--webkit-scrollbar-thumb-border-radius);
+  background-color: var(--dm-webkit-scrollbar-thumb-bg-color);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease-out;
+}
+
+.android-scrollbar-thumb.active {
+  opacity: 1;
+}
+
+.android-scrollbar-thumb-vertical {
+  width: .4rem;
+}
+
+.android-scrollbar-thumb-horizontal {
+  height: .4rem;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
 }
 
 .font-size-13 {
@@ -1052,6 +1075,9 @@ img[src=''], img[src=' '] {
 }
 .pr-30 {
   padding-right: 3rem;
+}
+.pr-35 {
+  padding-right: 3.5rem;
 }
 .pl-30 {
   padding-left: 3rem;

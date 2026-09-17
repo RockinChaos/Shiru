@@ -101,7 +101,7 @@
   })
 </script>
 
-<span class='d-flex px-20 align-items-end text-decoration-none' class:mv-10={lastEpisode} use:deferredLoad>
+<span class='section-header position-relative d-flex px-20 align-items-end text-decoration-none' class:mv-10={lastEpisode} use:deferredLoad>
   <div class='font-scale-24 font-weight-semi-bold glow text-muted pointer' aria-hidden='true' use:click={_click}>{opts.title}</div>
   <div class='ml-auto pr-5 pl-5 font-size-12 glow text-muted pointer btn d-none align-items-center justify-content-center' class:d-flex={!SUPPORTS.isAndroid} aria-hidden='true' use:click={() => scrollCarousel('left')}><ChevronLeft strokeWidth='3' size='2rem' /></div>
   <div class='pr-5 pl-5 ml-10 font-size-12 glow text-muted pointer btn d-none align-items-center justify-content-center' class:d-flex={!SUPPORTS.isAndroid} aria-hidden='true' use:click={() => scrollCarousel('right')}><ChevronRight strokeWidth='3' size='2rem' /></div>
@@ -144,19 +144,39 @@
       color: var(--dm-link-text-color-hover) !important;
     }
   }
+  .position-relative.isRSS .gallery::before,
   .position-relative.isRSS .gallery::after {
     height: calc(100% - 10rem) !important;
-    z-index: 1;
   }
-  .gallery:after {
+  .gallery::before,
+  .gallery::after {
     content: '';
     position: absolute;
     right: 0;
     height: 100%;
-    width: 8rem;
-    z-index: 30;
+    width: 2rem;
+    z-index: 32;
     background: var(--section-end-gradient);
     pointer-events: none;
+  }
+  .gallery::before {
+    left: -1px;
+    transform: scaleX(-1);
+  }
+  .section-header::before,
+  .section-header::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    height: 100%;
+    width: 2rem;
+    z-index: 32;
+    background: var(--section-end-gradient);
+    pointer-events: none;
+  }
+  .section-header::before {
+    left: -1px;
+    transform: scaleX(-1);
   }
   .gallery {
     overflow-x: scroll;
@@ -164,14 +184,13 @@
     min-height: 25rem;
     cursor: grab;
   }
-  .mv-10 {
-    margin-top: -10rem !important;
-    z-index: 0 !important;
-  }
   .gallery :global(.item.small-card) {
     width: 19rem !important;
   }
   .gallery::-webkit-scrollbar {
     display: none;
+  }
+  .mv-10 {
+    margin-top: -10rem !important;
   }
 </style>

@@ -427,7 +427,7 @@
       <Search size='2.6rem' strokeWidth='2.5' class='position-absolute z-10 text-dark-light h-full pl-10 pointer-events-none' />
       <input
         type='search'
-        class='form-control bg-dark-very-light pl-40 pr-30 rounded-3 h-40 text-truncate'
+        class='form-control bg-dark-very-light pl-40 pr-35 rounded-3 h-40 text-truncate'
         autocomplete='off'
         spellcheck='false'
         data-option='search'
@@ -452,7 +452,7 @@
               })),
             }
           ]}>
-          <button type='button' class='options h-full bg-transparent shadow-none border-0 pointer p-0 pr-10 muted d-flex align-items-center' title='More Options'>
+          <button type='button' class='options h-full bg-transparent shadow-none border-0 pointer p-0 pr-10 muted d-flex align-items-center z-10' title='More Options'>
             <EllipsisVertical size='2rem' />
           </button>
         </NestedDropdown>
