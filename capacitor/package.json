@@ -19,14 +19,14 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^8.5.0",
+    "@capacitor/cli": "^8.5.2",
     "nodejs-mobile-gyp": "^0.4.0"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.0",
+    "@capacitor/android": "^8.5.2",
     "@capacitor/app": "^8.1.1",
     "@capacitor/browser": "^8.0.4",
-    "@capacitor/core": "^8.5.0",
+    "@capacitor/core": "^8.5.2",
     "@capacitor/device": "^8.0.3",
     "@capacitor/filesystem": "^8.1.3",
     "@capacitor/keyboard": "^8.0.5",
@@ -46,6 +46,6 @@
     "cordova-plugin-secure-logger": "^1.4.17",
     "es6-promise-plugin": "^4.2.2",
     "fake-indexeddb": "^6.2.5",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.1"
   }
 }
