@@ -1,7 +1,5 @@
 import _Metadata from '@rockinchaos/matroska-metadata'
-import { arr2hex, hex2bin } from 'uint8-util'
 import { fontRx } from '@/modules/util.js'
-import { SUPPORTS } from '@/modules/support.js'
 import Debug from 'debug'
 const debug = Debug('torrent:parser')
 
@@ -54,12 +52,12 @@ export default class Metadata {
       debug(`Found ${files?.length} attachments`)
       for (const file of files) {
         if (fontRx.test(file.filename) || file.mimetype?.toLowerCase().includes('font')) {
-          const data = hex2bin(arr2hex(file.data))
-          if (SUPPORTS.isAndroid && data.length > 15_000_000) {
-            debug('Skipping large font file on Android: ' + file?.filename)
-            continue
-          }
-          this.client.dispatch('file', data)
+          this.client.createAttachmentURL(file.data, this)
+            .then(url => this.client?.dispatch('file', { url }))
+            .catch(error => {
+              if (this.destroyed) return
+              debug('Failed to expose embedded font:', error)
+            })
         }
       }
     })
@@ -92,9 +90,10 @@ export default class Metadata {
       return
     }
     debug('Destroying Parser')
+    this.destroyed = true
+    this.client?.clearAttachments(this)
     this.metadata?.removeAllListeners()
     this.metadata?.destroy()
-    this.destroyed = true
     this.metadata = null
     this.client = null
     this.file = null

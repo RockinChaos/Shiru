@@ -61,9 +61,6 @@ importers:
       semver:
         specifier: ^7.8.5
         version: 7.8.5
-      uint8-util:
-        specifier: ^2.3.2
-        version: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       webpack:
         specifier: ^5.110.3
         version: 5.110.3(postcss@8.5.15)(webpack-cli@7.2.3)
@@ -180,6 +177,9 @@ importers:
       parse-torrent:
         specifier: ^11.0.24
         version: 11.0.24
+      uint8-util:
+        specifier: ^2.3.2
+        version: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
       webtorrent:
         specifier: ^3.0.21
         version: 3.0.21(bare-url@2.4.3)

@@ -4,8 +4,10 @@ import Client from 'bittorrent-tracker'
 import { hex2bin, arr2hex, text2arr } from 'uint8-util'
 import { makeHash, getInfoHash, hasIntegrity, getProgressAndSize, stringifyQuery, errorToString, TMP, isFlatpak, getStats } from '@client/lib/util.js'
 import { fontRx, sleep, subRx, videoRx, isValidNumber, getRandomInt } from '@/modules/util.js'
+import { createServer as createHTTPServer } from 'node:http'
 import { SUPPORTS } from '@/modules/support.js'
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import Metadata from '@client/lib/metadata.js'
 import Cache from '@client/lib/torrentcache.js'
 import Debug from 'debug'
@@ -21,6 +23,9 @@ export default class TorrentClient extends WebTorrent {
   networking = 'online'
   intervals = []
   timeouts = []
+  attachments = new Map()
+  attachmentServer = null
+  attachmentServerReady = null
 
   /**
    * Creates a new TorrentClient instance.
@@ -68,6 +73,8 @@ export default class TorrentClient extends WebTorrent {
     this.serverMode = serverMode
     this.diskSpace = diskSpace
     this.currentFile = null
+
+    this.createAttachmentServer()
 
     const statsInterval = setInterval(() => {
       if (this.destroyed) return
@@ -155,8 +162,9 @@ export default class TorrentClient extends WebTorrent {
   /**
    * Searches the current torrent for embedded font files and sends them to the renderer for use.
    * @param {object} targetFile - File currently being processed.
+   * @param {Metadata} owner - Metadata lifecycle that owns the extracted fonts.
    */
-  async findFontFiles(targetFile) {
+  async findFontFiles(targetFile, owner) {
     const currentTorrent = this.torrents.find(torrent => torrent.current)
     if (!currentTorrent?.files) return
     const fontFiles = currentTorrent.files.filter(file => fontRx.test(file.name))
@@ -172,7 +180,74 @@ export default class TorrentClient extends WebTorrent {
     for (const file of Object.values(map)) {
       const data = await file.arrayBuffer()
       if (targetFile !== this.currentFile) return
-      this.dispatch('file', { data: new Uint8Array(data) }, [data])
+      try {
+        const url = await this.createAttachmentURL(new Uint8Array(data), owner)
+        if (targetFile !== this.currentFile) return
+        this.dispatch('file', { url })
+      } catch (error) {
+        if (!this.destroyed) debug('Failed to expose font file:', error)
+      }
+    }
+  }
+
+  /** Starts a loopback server for transferring attachments to the renderer */
+  createAttachmentServer() {
+    this.attachmentServer = createHTTPServer((req, res) => {
+      const pathname = new URL(req.url, 'http://127.0.0.1').pathname
+      const id = pathname.startsWith('/attachment/') ? pathname.slice('/attachment/'.length) : ''
+      const attachment = this.attachments.get(id)
+
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+      res.setHeader('Access-Control-Allow-Private-Network', 'true')
+      res.setHeader('Cache-Control', 'no-store')
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204)
+        res.end()
+        return
+      }
+      if (req.method !== 'GET' || !attachment) {
+        res.writeHead(404)
+        res.end()
+        return
+      }
+
+      res.setHeader('Content-Type', 'application/octet-stream')
+      res.setHeader('Content-Length', attachment.data.byteLength)
+      res.once('finish', () => this.attachments.delete(id))
+      res.end(attachment.data)
+    })
+    this.attachmentServerReady = new Promise((resolve, reject) => {
+      this.attachmentServer.once('error', reject)
+      this.attachmentServer.listen(0, '127.0.0.1', () => {
+        this.attachmentServer.removeListener('error', reject)
+        this.attachmentServer.on('error', this.dispatchError.bind(this))
+        resolve()
+      })
+    })
+  }
+
+  /**
+   * Makes an attachment available to the renderer through a short-lived loopback URL.
+   * @param {Uint8Array} data - Attachment bytes.
+   * @param {Metadata} owner - Metadata lifecycle that owns the attachment.
+   * @returns {Promise<string>} URL that can be fetched once by the renderer.
+   */
+  async createAttachmentURL(data, owner) {
+    await this.attachmentServerReady
+    if (owner.destroyed) throw new Error('Attachment owner was destroyed')
+    const id = randomUUID()
+    this.attachments.set(id, { data, owner })
+    return `http://127.0.0.1:${this.attachmentServer.address().port}/attachment/${id}`
+  }
+
+  /**
+   * Removes every unrequested attachment owned by a metadata parser.
+   * @param {Metadata} [owner] - Owner to clear, or all owners when omitted.
+   */
+  clearAttachments(owner) {
+    for (const [id, attachment] of this.attachments) {
+      if (!owner || attachment.owner === owner) this.attachments.delete(id)
     }
   }
 
@@ -515,7 +590,7 @@ export default class TorrentClient extends WebTorrent {
           if (!(data.data.external && (SUPPORTS.isAndroid || this.player))) {
             this.metadata = new Metadata(this, found)
             this.findSubtitleFiles(found)
-            this.findFontFiles(found)
+            this.findFontFiles(found, this.metadata)
           } else this.dispatch('externalReady')
         }
         break
@@ -848,6 +923,8 @@ export default class TorrentClient extends WebTorrent {
     }
     this.tracker?.destroy(() => null)
     this.metadata?.destroy?.()
+    this.clearAttachments()
+    this.attachmentServer?.close?.()
     this.server?.close?.()
     super.destroy(() => {
       this.ipc?.send('destroyed')

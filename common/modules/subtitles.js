@@ -1,5 +1,4 @@
 import JASSUB from 'jassub'
-import { hex2arr, bin2hex } from 'uint8-util'
 import { toTS, subRx, videoRx } from '@/modules/util.js'
 import { settings } from '@/modules/settings.js'
 import clipboard from '@/modules/lib/clipboard.js'
@@ -40,12 +39,10 @@ export default class Subtitles {
     this.videoFiles = files.filter(file => videoRx.test(file.name))
     this.subtitleFiles = []
     this.timeout = null
-    this.handleFile = (detail) => {
-      if (this.selected) {
-        const uint8 = hex2arr(bin2hex(detail))
-        this.fonts.push(uint8)
-        this.renderer?.addFont(uint8)
-      }
+    this.handleFile = detail => {
+      if (!this.selected || !detail?.url) return
+      this.fonts.push(detail.url)
+      this.renderer?.addFont(detail.url)
     }
     this.handleSubtitle = ({ subtitle, trackNumber }) => {
       if (this.selected) {
