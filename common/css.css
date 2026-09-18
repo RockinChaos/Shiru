@@ -64,6 +64,10 @@
   --white-color-dim: hsl(var(--white-color-dim-hsl));
   --white-color-very-dim-hsl: var(--white-color-hue), var(--white-color-saturation), 50%;
   --white-color-very-dim: hsl(var(--white-color-very-dim-hsl));
+  --slateblue-color-base-hue: 215;
+  --slateblue-color-base-saturation: 55%;
+  --slateblue-color-hsl: var(--slateblue-color-base-hue), var(--slateblue-color-base-saturation), 68%;
+  --slateblue-color: hsl(var(--slateblue-color-hsl));
   --warning-color-base-hue: 48;
   --warning-color-base-saturation: 80%;
   --warning-color-hsl: var(--warning-color-base-hue), var(--warning-color-base-saturation), 46%;
@@ -423,6 +427,14 @@ a[href]:active, button:not([disabled], .not-reactive):active, fieldset:not([disa
   --dm-button-secondary-bg-color: var(--white-color) !important;
   --dm-button-secondary-bg-color-hover: var(--white-color-dim) !important;
   --dm-button-secondary-bg-color-focus: var(--dm-button-secondary-bg-color) !important;
+}
+
+.btn-secondary:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--black-color) !important;
+}
+
+.btn-highlight {
+  filter: drop-shadow(0 0 1.5px hsla(var(--black-color-hsl), .5)) drop-shadow(0 0 1.5px hsla(var(--black-color-hsl), .5));
 }
 
 .first-audio {
@@ -917,10 +929,6 @@ img[src=''], img[src=' '] {
     opacity: 0;
     transition: opacity 0.2s;
   }
-}
-
-.btn-secondary:focus-visible {
-  box-shadow: inset 0 0 0 1.5px var(--black-color) !important;
 }
 
 .modal-soft-ellipse {

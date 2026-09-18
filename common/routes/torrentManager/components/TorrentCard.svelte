@@ -168,7 +168,7 @@
                 statusLabel === 'Stalled' ? 'var(--octonary-color)' :
                 statusLabel === 'Scanning' ? 'var(--white-color)' :
                 statusLabel === 'Seeding' ? 'var(--success-color)' :
-                statusLabel === 'Completed' ? 'var(--gray-color-light)' :
+                statusLabel === 'Completed' ? 'var(--slateblue-color)' :
                 'var(--error-color-light)'
               }
         />

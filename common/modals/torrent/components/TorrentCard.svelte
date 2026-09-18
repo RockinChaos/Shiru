@@ -445,7 +445,7 @@
           <span class='overflow-hidden text-truncate'>{fileName}</span>
         {/await}
         <span class='ml-auto mr-5 w-30 h-10 flex-shrink-0'/>
-        <TorrentButton class='position-absolute btn btn-square shadow-none bg-transparent bd-highlight h-40 w-40 right-0 mr--8 z-1' hash={result.hash} torrentID={result.link} search={{ media, episode: (media?.format !== 'MOVIE' && result.type !== 'batch') && episode }} size={'2.5rem'} strokeWidth={'2.3'}/>
+        <TorrentButton class='position-absolute btn btn-square btn-highlight shadow-none border-0 bg-transparent bd-highlight h-40 w-40 right-0 mr--8 z-1' hash={result.hash} torrentID={result.link} search={{ media, episode: (media?.format !== 'MOVIE' && result.type !== 'batch') && episode }} size={'2.5rem'} strokeWidth={'2.3'}/>
       {/if}
     </div>
     {#if type !== 'error'}
