@@ -1,8 +1,8 @@
 import 'quartermoon/css/quartermoon-variables.css'
 import '@fontsource-variable/nunito'
-import { cacheReady, migrationStatus } from '@/modules/cache.js'
+import { cache, cacheReady, migrationStatus } from '@/modules/cache.js'
 import { SUPPORTS } from '@/modules/support.js'
-import { COMMON } from '@/modules/bridge.js'
+import { COMMON, ELECTRON } from '@/modules/bridge.js'
 import '@/css.css'
 import '@/themes.css'
 import '@/typography.css'
@@ -23,6 +23,14 @@ const unsubscribe = migrationStatus.subscribe(value => {
 })
 
 await cacheReady()
+ELECTRON.onFlushCache(async () => {
+  try {
+    await cache.flush()
+  } finally {
+    ELECTRON.cacheFlushed()
+  }
+})
+
 unsubscribe()
 const target = migration ?? splash
 if (target) {

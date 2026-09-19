@@ -16,7 +16,6 @@
     if ($modal[modal.MINIMIZE_PROMPT]?.data) {
       ELECTRON.hideWindow()
       $settings.closeAction = 'Close'
-      await new Promise(res => setTimeout(res, 2050))
     }
     ELECTRON.exit()
   }

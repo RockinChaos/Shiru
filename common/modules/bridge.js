@@ -89,6 +89,7 @@ const androidDefaults = {
 }
 const electronDefaults = {
   exit: noopVoid,
+  cacheFlushed: noopVoid,
   setDoH: noopVoid,
   getAngle: async () => 'default',
   setAngle: noopVoid,
@@ -99,6 +100,7 @@ const electronDefaults = {
   hideWindow: noopVoid,
   showAndFocus: noopVoid,
   onExitIntent: noopVoid,
+  onFlushCache: noopVoid,
   openTorrentDevTools: noopVoid,
   openDevTools: noopVoid,
   setUnreadCount: noopVoid,

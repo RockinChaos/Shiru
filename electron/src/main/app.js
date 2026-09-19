@@ -187,7 +187,9 @@ export default class App {
 
     this.mainWindow.loadURL(development ? 'http://localhost:5000/app.html' : `file://${join(__dirname, '/app.html')}`)
 
-    if (development) this.mainWindow.webContents.once('did-finish-load', () => this.mainWindow.webContents.openDevTools({ mode: 'detach' }))
+    if (development) this.mainWindow.webContents.once('did-finish-load', () => {
+      if (!this.destroyed && !this.mainWindow.isDestroyed()) this.mainWindow.webContents.openDevTools({ mode: 'detach' })
+    })
 
     let crashcount = 0
     this.mainWindow.webContents.on('render-process-gone', async (e, { reason }) => {
@@ -208,8 +210,10 @@ export default class App {
       await this.torrentLoad
       return new Promise(resolve => {
         ipcMain.once('webtorrent-heartbeat', () => {
+          if (this.destroyed || this.webtorrentWindow?.isDestroyed()) return resolve()
           this.webtorrentWindow.webContents.postMessage('main-heartbeat', settings)
           ipcMain.once('torrentRequest', () => {
+            if (this.destroyed || this.webtorrentWindow?.isDestroyed() || event.sender.isDestroyed()) return resolve()
             this.webtorrentWindow.webContents.postMessage('torrent:port', null, [port1])
             event.sender.postMessage('electron:torrentPort', null, [port2])
             this.torrentAlive = true
@@ -218,7 +222,10 @@ export default class App {
         })
       })
     })
-    ipcMain.on('torrent:reload', () => { if (!this.mainWindow?.isDestroyed() && !this.webtorrentWindow?.isDestroyed()) this.webtorrentWindow.webContents.postMessage('torrent:reload', null) })
+    ipcMain.on('torrent:reload', () => {
+      if (this.destroyed || this.mainWindow?.isDestroyed() || this.webtorrentWindow?.isDestroyed()) return
+      this.webtorrentWindow.webContents.postMessage('torrent:reload', null)
+    })
 
     let authWindow
     ipcMain.handle('common:linkAccount', (event, url) => {
@@ -248,7 +255,7 @@ export default class App {
         authWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
         authWindow.webContents.on('did-finish-load', () => authWindow.show())
         authWindow.webContents.on('did-start-loading', () => authWindow.webContents.insertCSS
-          (`
+        (`
             ::-webkit-scrollbar {
               width: 6px;
               height: 6px;
@@ -317,7 +324,9 @@ export default class App {
         this.webtorrentWindow = this.makeWebTorrentWindow()
       }
       this.torrentLoad = this.webtorrentWindow.loadURL(development ? 'http://localhost:5000/background.html' : `file://${join(__dirname, '/background.html')}`)
-      if (development) this.webtorrentWindow.webContents.once('did-finish-load', () => this.webtorrentWindow.webContents.openDevTools({ mode: 'detach' }))
+      if (development) this.webtorrentWindow.webContents.once('did-finish-load', () => {
+        if (!this.destroyed && !this.mainWindow.isDestroyed() && !this.webtorrentWindow.isDestroyed()) this.webtorrentWindow.webContents.openDevTools({ mode: 'detach' })
+      })
       if (crashed) this.mainWindow.webContents.send('torrent:onCrash')
       this.webtorrentWindow.on('closed', () => this.destroy())
       this.webtorrentWindow.webContents.on('render-process-gone', async (e, { reason }) => {
@@ -340,6 +349,18 @@ export default class App {
     clearTimeout(this.stateTimeout)
     saveWindowState(this.mainWindow)
     youtubeServer?.close?.()
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        let flushTimeout
+        await new Promise(resolve => {
+          ipcMain.once('electron:cacheFlushed', resolve)
+          flushTimeout = setTimeout(resolve, 5_000)
+          flushTimeout.unref?.()
+          this.mainWindow.webContents.send('electron:onFlushCache')
+        })
+        clearTimeout(flushTimeout)
+      }
+    } catch {} // The renderer may already be gone during a forced shutdown.
     try {
       if (this.webtorrentWindow && !this.webtorrentWindow.isDestroyed()) { // WebTorrent shouldn't ever be destroyed before main, but it's better to be safe.
         this.webtorrentWindow.webContents?.closeDevTools?.()
@@ -410,7 +431,7 @@ export default class App {
   }
 
   showAndFocus(ready = false) {
-    if (!this.ready && !ready) return
+    if ((!this.ready && !ready) || this.destroyed) return
     if (!this.ready) {
       this.ready = true
       this.setTrayMenu()

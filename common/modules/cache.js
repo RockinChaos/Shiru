@@ -330,6 +330,7 @@ function createBatchWriter(dbName, firstFlushDelay = 10_000, subsequentFlushDela
   const pending = new Map()
   const retryMap = new Map()
   let flushTimer = null
+  let flushPromise = Promise.resolve()
   let batchAt = null
   let initialFlush = true
 
@@ -377,6 +378,17 @@ function createBatchWriter(dbName, firstFlushDelay = 10_000, subsequentFlushDela
     }
   }
 
+  /**
+   * Queues an immediate flush after any in-progress flush completes.
+   *
+   * @returns {Promise<void>} Resolves once this flush has completed.
+   */
+  function flushNow() {
+    const nextFlush = flushPromise.then(flush)
+    flushPromise = nextFlush.catch(() => {})
+    return nextFlush
+  }
+
   return {
     /**
      * Enqueues a cache entry for a specific cache and key.
@@ -393,7 +405,7 @@ function createBatchWriter(dbName, firstFlushDelay = 10_000, subsequentFlushDela
       if (!batchAt) {
         batchAt = Date.now()
         flushTimer = setTimeout(() => {
-          flush().finally(() => {
+          flushNow().finally(() => {
             flushTimer = null
             batchAt = null
           })
@@ -405,7 +417,7 @@ function createBatchWriter(dbName, firstFlushDelay = 10_000, subsequentFlushDela
      * Immediately flushes all queued cache entries to IndexedDB.
      */
     async flushNow() {
-      await flush()
+      await flushNow()
     },
     /**
      * Returns the total number of queued cache entries across all caches.
@@ -795,7 +807,7 @@ class Cache {
   destroy() {
     this.subscribers.forEach((unsubscribe) => unsubscribe())
     this.#pending.clear()
-    batchWriters.get(this.cacheID)?.flushNow().finally(() => {
+    this.flush().finally(() => {
       openDBs.get(this.cacheID)?.then(database => database.close()).catch(() => {})
       openDBs.delete(this.cacheID)
       batchWriters.delete(this.cacheID)
@@ -816,6 +828,19 @@ class Cache {
     this.query_rss = null
     mediaCache = null
     debug(`Cache with ID ${this.cacheID} has been destroyed.`)
+  }
+
+  /**
+   * Immediately persists queued user and shared cache writes to IndexedDB.
+   *
+   * @returns {Promise<void>} Resolves after all pending writes have completed.
+   */
+  async flush() {
+    await this.isReady
+    await Promise.all([
+      batchWriters.get(this.cacheID)?.flushNow(),
+      batchWriters.get(SHARED_DB_NAME)?.flushNow()
+    ])
   }
 
   /**

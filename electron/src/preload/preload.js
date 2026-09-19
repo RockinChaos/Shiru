@@ -145,6 +145,7 @@ contextBridge.exposeInMainWorld('common', {
 })
 contextBridge.exposeInMainWorld('electron', {
   exit: () => ipcRenderer.send('electron:Exit'),
+  cacheFlushed: () => ipcRenderer.send('electron:cacheFlushed'),
   setDoH: (url) => ipcRenderer.send('electron:setDoH', url),
   getAngle: () => ipcRenderer.invoke('electron:getAngle'),
   setAngle: (angle) => ipcRenderer.send('electron:setAngle', angle),
@@ -155,6 +156,7 @@ contextBridge.exposeInMainWorld('electron', {
   hideWindow: () => ipcRenderer.send('electron:hideWindow'),
   showAndFocus: () => ipcRenderer.send('electron:showAndFocus'),
   onExitIntent: (callback) => ipcRenderer.on('electron:onExitIntent', callback),
+  onFlushCache: (callback) => ipcRenderer.on('electron:onFlushCache', callback),
   openTorrentDevTools: () => ipcRenderer.send('electron:openTorrentDevTools'),
   openDevTools: () => ipcRenderer.send('electron:openDevTools'),
   setUnreadCount: (notificationCount) => ipcRenderer.send('electron:setUnreadCount', notificationCount),
