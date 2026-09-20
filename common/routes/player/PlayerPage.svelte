@@ -65,6 +65,7 @@
   let video = null
   let container = null
   let current = null
+  const errorToasts = new Set()
   let subs = null
   let duration = 0.1
   let muted = false
@@ -128,6 +129,11 @@
     }
   })
 
+  function dismissErrorToasts() {
+    for (const id of errorToasts) toast.dismiss(id, { silent: true })
+    errorToasts.clear()
+  }
+
   function setupAudio() {
     if (!audioCtx) {
       audioCtx = new AudioContext()
@@ -152,10 +158,10 @@
     }
     if ('audioTracks' in HTMLVideoElement.prototype) {
       if (src && !video.audioTracks.length) {
-        toast.error('Audio Codec Unsupported', {
+        errorToasts.add(toast.error('Audio Codec Unsupported', {
           description: "This torrent's audio codec is not supported, try a different release by disabling Autoplay Torrents in RSS settings.",
           force: true
-        })
+        }))
       } else if (src && video.audioTracks.length > 1) {
         const preferredTrack = [...video.audioTracks].find(({ language }) => language === $settings.audioLanguage)
         if (preferredTrack) return selectAudio(preferredTrack.id)
@@ -255,6 +261,7 @@
         }
       }
     } else {
+      dismissErrorToasts()
       src = ''
       buffering = true
       current = null
@@ -292,6 +299,7 @@
   $: loadDeband($settings.playerDeband, video)
 
   async function handleCurrent (file) {
+    dismissErrorToasts()
     cancelHoldState()
     paused = true
     canPlay = false
@@ -1682,6 +1690,7 @@
       return
     }
     // video playback failed - show a message saying why
+    let toastId
     switch (target.error?.code) {
       case target.error.MEDIA_ERR_ABORTED:
         debug('You aborted the video playback.')
@@ -1689,38 +1698,45 @@
       case target.error.MEDIA_ERR_NETWORK:
         debug('A network error caused the video download to fail part-way.', target.error)
         saveAnimeProgress(true)
-        toast.error('Video Network Error', {
+        toastId = toast.error('Video Network Error', {
           description: 'A network error caused the video download to fail part-way. Dismiss this toast to reload the video.',
           duration: Infinity,
           force: true,
-          onDismiss: () => target.load()
+          onDismiss: () => {
+            errorToasts.delete(toastId)
+            target.load()
+          }
         })
         break
       case target.error.MEDIA_ERR_DECODE:
         debug('The video playback was aborted due to a corruption problem or because the video used features your browser did not support.', target.error)
         saveAnimeProgress(true)
-        toast.error('Video Decode Error', {
+        toastId = toast.error('Video Decode Error', {
           description: 'The video playback was aborted due to a corruption problem. Dismiss this toast to reload the video.',
           duration: Infinity,
           force: true,
-          onDismiss: () => target.load()
+          onDismiss: () => {
+            errorToasts.delete(toastId)
+            target.load()
+          }
         })
         break
       case target.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
         if (target.error.message !== 'MEDIA_ELEMENT_ERROR: Empty src attribute') {
           debug('The video could not be loaded, either because the server or network failed or because the format is not supported.', target.error)
           saveAnimeProgress(true)
-          toast.error('Video Codec Unsupported', {
+          errorToasts.add(toast.error('Video Codec Unsupported', {
             description: 'The video could not be loaded, either because the server or network failed or because the format is not supported. Try a different release by disabling Autoplay Torrents in RSS settings.',
             duration: 30_000,
             force: true
-          })
+          }))
         }
         break
       default:
         debug('An unknown video playback error occurred.')
         break
     }
+    if (toastId) errorToasts.add(toastId)
   }
 
   function handleSeekbarKey (e) {

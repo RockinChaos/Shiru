@@ -20,7 +20,7 @@ import { writable } from 'simple-store-svelte'
 /**
  * @typedef {object} ToastMethods
  * @property {(options: Object) => string} show
- * @property {(id: string) => void} dismiss
+ * @property {(id: string, options?: {silent?: boolean}) => void} dismiss
  * @property {(position?: string) => void} dismissAll
  * @property {(id: string, options: Object) => void} update
  * @property {(id: string) => void} pause
@@ -152,18 +152,19 @@ function show(options) {
 }
 
 /**
- * Dismisses a toast by id, clearing its timer and firing its onDismiss callback if any.
+ * Dismisses a toast by id, clearing its timer and firing its onDismiss callback unless silenced.
  *
  * @param {string} id
+ * @param {{silent?: boolean}} [options]
  */
-function dismiss(id) {
+function dismiss(id, { silent = false } = {}) {
   clearTimer(id)
   let dismissed
   toasts.update(all => {
     dismissed = all.find(toast => toast.id === id)
     return all.filter(toast => toast.id !== id)
   })
-  dismissed?.onDismiss?.(id)
+  if (!silent) dismissed?.onDismiss?.(id)
 }
 
 /**
