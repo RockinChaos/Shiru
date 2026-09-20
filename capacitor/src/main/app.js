@@ -1,4 +1,3 @@
-/* globals AndroidFullScreen, PictureInPicture */
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { SystemBars, SystemBarType } from '@capacitor/core'
 import { SplashScreen } from '@capacitor/splash-screen'
@@ -98,7 +97,7 @@ export default class App {
     LocalNotifications.checkPermissions().then(value => {
       if (value?.display !== 'granted') {
         try {
-          LocalNotifications.requestPermissions().then(() => this.canNotify = true)
+          LocalNotifications.requestPermissions().then(() => (this.canNotify = true))
         } catch (error) {
           console.debug(error)
         }

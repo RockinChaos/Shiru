@@ -66,7 +66,7 @@
 </script>
 
 <div bind:this={scrollDetails} class='card m-0 px-20 pb-0 pt-10 d-flex flex-row overflow-x-scroll text-capitalize align-items-start bg-dark-light'>
-  {#each detailsMap as detail}
+  {#each detailsMap as detail (detail.property)}
     {#await getProperty(detail.property, media) then property}
       {#if property}
         <div class='d-flex flex-row mx-10 py-5 justify-content-center'>

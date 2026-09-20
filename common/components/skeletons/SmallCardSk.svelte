@@ -1,6 +1,6 @@
 <script>
   export let variables = null
-  let _variables = variables
+  const _variables = variables
 </script>
 <div class='d-flex px-md-20 px-sm-10 px-5 py-20 p-15 wrapper content-visibility-auto'>
   <div class='item load-in d-flex flex-column h-full small-card'>

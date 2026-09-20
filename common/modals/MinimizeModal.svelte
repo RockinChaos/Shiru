@@ -36,7 +36,7 @@
   <div class='mb-20 modal-body d-flex flex-column justify-content-center align-items-center'>
     <div class='custom-switch fit-content'>
       <input type='checkbox' id='remember-choice' bind:checked={$modal[modal.MINIMIZE_PROMPT].data} />
-      <label for='remember-choice'>{'Don\'t ask again'}</label>
+      <label for='remember-choice'>Don't ask again</label>
     </div>
   </div>
   <div class='mt-20 d-flex justify-content-center w-auto'>

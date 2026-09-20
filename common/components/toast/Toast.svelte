@@ -143,6 +143,7 @@
     </div>
     {#if data.action}
       <button
+        type='button'
         class='toast-action position-absolute tr-6 flex-shrink-0 border-0 pointer font-size-12 font-weight-semi-bold text-white'
         on:click|stopPropagation={() => {
           data.action?.onClick?.()
@@ -151,8 +152,8 @@
         {data.action.label}
       </button>
     {:else}
-      <button class='toast-close position-absolute tr-6 d-flex align-items-center justify-content-center rounded-2 border-0 text-muted bg-transparent pointer m-0 p-0' aria-label='Dismiss' on:click|stopPropagation={dismiss}>
-        <X size={'1.8rem'} strokeWidth={2.5} />
+      <button type='button' class='toast-close position-absolute tr-6 d-flex align-items-center justify-content-center rounded-2 border-0 text-muted bg-transparent pointer m-0 p-0' aria-label='Dismiss' on:click|stopPropagation={dismiss}>
+        <X size='1.8rem' strokeWidth={2.5} />
       </button>
     {/if}
   </div>

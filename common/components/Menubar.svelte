@@ -89,7 +89,7 @@
   onMount(() => {
     ELECTRON.isFullScreen().then(isFullScreen => {
       fullScreen = isFullScreen
-      ELECTRON.onFullScreen((isFullScreen) => fullScreen = isFullScreen)
+      ELECTRON.onFullScreen((isFullScreen) => (fullScreen = isFullScreen))
     })
     if (!SUPPORTS.isAndroid) {
       tagScrollbarOffsets()

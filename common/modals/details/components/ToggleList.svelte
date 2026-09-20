@@ -65,7 +65,7 @@
          class:flex-row={!settings.value.toggleList}
          class:flex-wrap={settings.value.toggleList}
          use:trackLayout>
-      {#each !settings.value.toggleList ? list : (showMore ? list : list.slice(0, previewLength)) as item}
+      {#each !settings.value.toggleList ? list : (showMore ? list : list.slice(0, previewLength)) as item, itemIndex (itemIndex)}
         <slot {item} {promise} />
       {/each}
     </div>

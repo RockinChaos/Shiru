@@ -55,7 +55,7 @@ contextBridge.exposeInMainWorld('torrent', {
   onFiles: (callback) => addListener('files', callback),
   onMagnet: (callback) => addListener('magnet', callback),
   onTracks: (callback) => addListener('tracks', callback),
-  offTracks: () => listeners['tracks'] = [],
+  offTracks: () => (listeners['tracks'] = []),
   onSubtitles: (cbSubtitle, cbFont, cbFiles) => {
     addListener('subtitle', cbSubtitle)
     addListener('file', cbFont)
@@ -69,9 +69,9 @@ contextBridge.exposeInMainWorld('torrent', {
   onChapters: (callback) => addListener('chapters', callback),
   onProgress: (callback) => addListener('progress', callback),
   onCurrentStats: (callback) => addListener('stats', callback),
-  onExternalReady: (callback) => listeners['externalReady'] = [callback],
-  onExternalWatched: (callback) => listeners['externalWatched'] = [callback],
-  onAndroidExternal: (callback) => listeners['androidExternal'] = [callback],
+  onExternalReady: (callback) => (listeners['externalReady'] = [callback]),
+  onExternalWatched: (callback) => (listeners['externalWatched'] = [callback]),
+  onAndroidExternal: (callback) => (listeners['androidExternal'] = [callback]),
   onLoaded: (callback) => addListener('loaded', callback),
   onUntrack: (callback) => addListener('untrack', callback),
   onStage: (callback) => addListener('staging', callback),

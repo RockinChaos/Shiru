@@ -15,7 +15,7 @@
   function onOrientation() {
     if ($status !== 'online') {
       transition = false
-      requestAnimationFrame(() => transition = true)
+      requestAnimationFrame(() => (transition = true))
     }
   }
 

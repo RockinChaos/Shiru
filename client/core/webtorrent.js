@@ -891,7 +891,7 @@ export default class TorrentClient extends WebTorrent {
   dispatchError(e) {
     const error = errorToString(e)
     console.error('Error: ' + error, e)
-    for (const exclude of ['WebSocket', 'User-Initiated Abort, reason=', 'Connection failed.']) {
+    for (const exclude of ['WebSocket', 'User-Initiated Abort, reason=', 'Connection failed.', 'UTP_ECONNRESET']) {
       if (error.startsWith(exclude)) return
     }
     this.dispatch('error', error)

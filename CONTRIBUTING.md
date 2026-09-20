@@ -204,6 +204,7 @@ pnpm build:app
 
 ### 🧪 Testing
 
+- Run `pnpm check` from the repository root before submitting.
 - Test your changes on all relevant platforms before submitting
 - Include steps to test in your PR description
 - Report any edge cases or limitations

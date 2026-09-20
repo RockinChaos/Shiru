@@ -332,7 +332,7 @@
     TORRENT.rescan()
       .then((/** @type {{ missingCount: number, removedCount: number }} */ { missingCount, removedCount }) => toast.update(id, { type: 'success', title: 'Rescan Complete', description: `Found ${missingCount} missing torrents and ${removedCount} removed from cache.`, duration: 6000 }))
       .catch(() => toast.update(id, { type: 'error', title: 'Rescan Failed', description: 'Torrent cache rescan failed, please try again.', duration: 6000 }))
-      .finally(() => $loadingSession = false)
+      .finally(() => ($loadingSession = false))
   }
 
   /**

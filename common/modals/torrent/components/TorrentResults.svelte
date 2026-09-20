@@ -169,7 +169,7 @@
   let timeoutHandle
   const maxEpisode = 10_000
   const updateEpisode = debounce((value) => { if (search.episode !== value) search.episode = value }, 500)
-  $: episodeSearch = search?.episode
+  let episodeSearch = search?.episode
 
   /**
    * @param {ReturnType<typeof getBest>} promise
@@ -198,7 +198,7 @@
   }
 
   const movie = isMovie(search.media)
-  let batch = search.media.status === 'FINISHED' && (!settings.value.preferDubs || dubFinished()) && (!movie || getMediaMaxEp(search.media) > 1)
+  const batch = search.media.status === 'FINISHED' && (!settings.value.preferDubs || dubFinished()) && (!movie || getMediaMaxEp(search.media) > 1)
 
   const results = writable({})
   function addResults(newItems, source) {
@@ -207,9 +207,10 @@
     return ''
   }
 
-  $: errorCardOnly = search && false
+  const errorCardOnly = writable(false)
+  $: if (search) $errorCardOnly = false
   function hideErrors() {
-    errorCardOnly = true
+    $errorCardOnly = true
     return ''
   }
 
@@ -221,7 +222,7 @@
       const torrent = torrents.find(torrent => equalsIgnoreCase(torrent.infoHash, cached.hash))
       if (!torrent) continue
       const title = AnimeResolver.cleanFileName(torrent.name)
-      let searchEpisode = search?.episode
+      const searchEpisode = search?.episode
       let isLocked = cached.locked ?? (cached.files?.length === 1 && (cached.files[0].locked || cached.files[0].parseObject?.locked)) ?? false
       if (!isLocked && Array.isArray(cached.files) && searchEpisode != null) {
         const normalizedEpisode = Number.isFinite(Number(searchEpisode)) ? Number(searchEpisode) : searchEpisode
@@ -265,7 +266,7 @@
       promises = await getTorrentResults({ ...request, batch, movie, resolution })
     } catch (error) {
       if (search != null && search.media?.id === request?.media?.id && search.episode === request?.episode) {
-        errors = Promise.resolve({ errors: [error] })
+        $errors = Promise.resolve({ errors: [error] })
         results.update(r => ({...r, resolved: true}))
       }
     }
@@ -326,13 +327,15 @@
   }
 
   $: resolution = $settings.rssQuality
-  $: queries = queryExtensions({...search}, resolution)
-  $: errors = getErrors({...search}, queries)
+  const queries = writable(null)
+  const errors = writable(null)
+  $: $queries = queryExtensions({...search}, resolution)
+  $: $errors = getErrors({...search}, $queries)
   $: queryResults = sortResults($results?.torrents, $settings.torrentSort, batch)
   $: lookup = queryResults?.results
   $: (episodeSearch || resolution || $settings.torrentSort || $settings.audioLanguage) && scrollTop()
 
-  $: best = null
+  let best = null
   let current = 0
   let bestPromiseId = current
   $: {
@@ -345,7 +348,7 @@
   }
 
   $: lookupHidden = queryResults?.hiddenResults
-  $: viewHidden = false
+  let viewHidden = false
 
   $: if (!$settings.rssAutoplay) clearTimeout(timeoutHandle)
   $: autoPlay(best, $results?.resolved)
@@ -395,7 +398,7 @@
     current = 0
     bestPromiseId = 0
     scraping = false
-    errorCardOnly = false
+    $errorCardOnly = false
   })
 </script>
 
@@ -438,7 +441,7 @@
               icon: Paintbrush,
               label: 'Auto-Scrape Results',
               value: $settings.torrentAutoScrape ? 'On' : 'Off',
-              onSelect: () => $settings.torrentAutoScrape = !$settings.torrentAutoScrape
+              onSelect: () => ($settings.torrentAutoScrape = !$settings.torrentAutoScrape)
             },
             {
               icon: ListMusic,
@@ -448,7 +451,7 @@
                 label: language.label,
                 value: language.value === $settings.audioLanguage ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => $settings.audioLanguage = language.value
+                onSelect: () => ($settings.audioLanguage = language.value)
               })),
             }
           ]}>
@@ -482,7 +485,7 @@
           <button type='button' class='btn btn-square bg-dark-very-light ml-auto d-flex align-items-center justify-content-center rounded-2 flex-shrink-0' use:click={handleScrape} disabled={!$results?.resolved || !$results?.torrents?.length || scraping}><Radio size='1.8rem' class={scraping ? 'pulsing' : ''} /></button>
         </div>
         <div class='d-flex align-items-center mr-5' data-toggle='tooltip' data-placement='top' data-title='Refresh Search Results'>
-          <button type='button' class='btn btn-square bg-dark-very-light ml-auto d-flex align-items-center justify-content-center rounded-2 flex-shrink-0' use:click={() => queries = queryExtensions({...search}, resolution)} disabled={!$results?.resolved}><RefreshCw size='1.8rem' class={!$results?.resolved ? 'spinning' : ''} /></button>
+          <button type='button' class='btn btn-square bg-dark-very-light ml-auto d-flex align-items-center justify-content-center rounded-2 flex-shrink-0' use:click={() => ($queries = queryExtensions({...search}, resolution))} disabled={!$results?.resolved}><RefreshCw size='1.8rem' class={!$results?.resolved ? 'spinning' : ''} /></button>
         </div>
         <div class='d-flex align-items-center pr-5' title='Sorting Preference'>
           <ArrowDownWideNarrow size='2.75rem' class='position-absolute z-10 text-dark-light pl-10 pointer-events-none' />
@@ -509,7 +512,7 @@
     </div>
   </div>
   <div bind:this={container} class='scroll-container h-full px-30 overflow-y-scroll'>
-    {#await errors then errorResult}
+    {#await $errors then errorResult}
       {#if errorResult?.errorCardOnly && $results?.resolved && !$results?.torrents?.length}
         <div class='mt-80'>
           {hideErrors()}
@@ -522,20 +525,20 @@
     {:else if $results?.torrents?.length}
       {#if best}<TorrentCard type='best' countdown={$settings.rssAutoplay && $results?.resolved ? countdown : -1} result={best} {play} media={search.media} episode={search.episode} />{/if}
       {#if lastMagnet}
-        {#each filterResults(lookup, searchText) as result}
+        {#each filterResults(lookup, searchText) as result (result)}
           {#if (equalsIgnoreCase(result.link, lastMagnet.link) || equalsIgnoreCase(result.hash, lastMagnet.hash)) && (result.seeders ?? 0) > 1 && (!equalsIgnoreCase(best?.link, lastMagnet.link) && !equalsIgnoreCase(best?.hash, lastMagnet.hash)) }
             <TorrentCard type='magnet' result={result} {play} media={search.media} episode={search.episode} />
           {/if}
         {/each}
       {/if}
     {/if}
-    {#each filterResults(lookup, searchText) as result}
+    {#each filterResults(lookup, searchText) as result (result)}
       {#if (!equalsIgnoreCase(best?.link, result.link) && !equalsIgnoreCase(best?.hash, result.hash)) && (!lastMagnet || ((!equalsIgnoreCase(result.link, lastMagnet.link) || !equalsIgnoreCase(result.hash, lastMagnet.hash)) || (result.seeders ?? 0) <= 1))}
         <TorrentCard {result} {play} media={search.media} episode={search.episode} />
       {/if}
     {/each}
-    {#if queries}
-      {#await queries then queries}
+    {#if $queries}
+      {#await $queries then queries}
         {#each queries as [key, extension] (key)}
           {@const extensionName = `${(extension.name).slice(0, 25)}${extension?.name?.length > 25 ? '...' : ''}`}
           {#await extension.promise}
@@ -549,7 +552,7 @@
       {/await}
     {/if}
     {#if !$results?.resolved}
-      {#each Array.from({ length: $results?.torrents?.length ? Math.max(15 - $results.torrents.length, 0) : 15 }) as _}
+      {#each Array.from({ length: $results?.torrents?.length ? Math.max(15 - $results.torrents.length, 0) : 15 }) as _, skeletonIndex (skeletonIndex)}
         <TorrentCardSk />
       {/each}
     {/if}
@@ -559,15 +562,15 @@
         <svelte:component this={ viewHidden ? ChevronUp : ChevronDown } class='ml-auto mr-10' size='2.2rem' />
       </button>
       {#if viewHidden}
-        {#each filterResults(lookupHidden, searchText) as result}
+        {#each filterResults(lookupHidden, searchText) as result (result)}
           {#if (!best || (!equalsIgnoreCase(best.link, result.link) && !equalsIgnoreCase(best.hash, result.hash))) && (!lastMagnet || ((!equalsIgnoreCase(result.link, lastMagnet.link) || !equalsIgnoreCase(result.hash, lastMagnet.hash)) || (result.seeders ?? 0) <= 1))}
             <div class='unavailable'><TorrentCard {result} {play} media={search.media} episode={search.episode} /></div>
           {/if}
         {/each}
       {/if}
     {/if}
-    {#if queries && !errorCardOnly}
-      {#await queries then queries}
+    {#if $queries && !$errorCardOnly}
+      {#await $queries then queries}
         {#each queries as [key, extension] (key)}
           {@const extensionName = `${(extension.name).slice(0, 25)}${extension?.name?.length > 25 ? '...' : ''}`}
           {#await extension.promise then resolved}

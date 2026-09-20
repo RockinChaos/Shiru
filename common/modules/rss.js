@@ -20,13 +20,13 @@ export function parseRSSNodes (nodes) {
     const pubDate = item.querySelector('pubDate')?.textContent
     const torrentLink = item.querySelector('enclosure')?.attributes.url.value || item.querySelector('link')?.textContent || '?'
     const title = item.querySelector('title')?.textContent || '?'
-    let tracker = torrentLink?.includes(atob('bnlhYQ==')) ? encodeURIComponent(atob('aHR0cDovL255YWEudHJhY2tlci53Zjo3Nzc3L2Fubm91bmNl')) : torrentLink?.includes(atob('c3VrZWJlaQ==')) ? encodeURIComponent(atob('aHR0cDovL3N1a2ViZWkudHJhY2tlci53Zjo4ODg4L2Fubm91bmNl')) : ''
+    const tracker = torrentLink?.includes(atob('bnlhYQ==')) ? encodeURIComponent(atob('aHR0cDovL255YWEudHJhY2tlci53Zjo3Nzc3L2Fubm91bmNl')) : torrentLink?.includes(atob('c3VrZWJlaQ==')) ? encodeURIComponent(atob('aHR0cDovL3N1a2ViZWkudHJhY2tlci53Zjo4ODg4L2Fubm91bmNl')) : ''
     let infoHash = item.querySelector('infoHash')?.textContent
     if (!infoHash) {
       try {
         const match = torrentLink.match(/\b([a-fA-F0-9]{40}|[A-Z2-7]{32})\b/)
         if (match) {
-          let foundHash = match[1].toLowerCase()
+          const foundHash = match[1].toLowerCase()
           if (foundHash.length === 32) infoHash = base32toHex(foundHash)
           else infoHash = foundHash
         }

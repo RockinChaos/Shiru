@@ -76,7 +76,7 @@ export class MutationQueue {
    */
   enqueue(type, mediaId, variables, result, progressBefore = null, executed = true) {
     if (executed && !this.isFetchingList) return false
-    let updatedVariables = { ...(variables ? variables : {}) }
+    const updatedVariables = { ...(variables || {}) }
     const userToken = updatedVariables.token
     if (userToken) {
       const profile = profiles.value.find(profile => profile?.token === userToken && profile?.viewer?.data?.Viewer?.id)

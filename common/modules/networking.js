@@ -58,7 +58,7 @@ status.subscribe(value => {
 const fetch = window.fetch
 const fetchError = (error) => isOffline(error) || isAnilistDown(error)
 window.fetch = async (...args) => {
-  let [url, options = {}] = args
+  const [url, options = {}] = args
 
   // Do not intercept local/wasm/blob fetches, only external URLs
   const urlString = typeof url === 'string' ? url : url?.url ?? ''

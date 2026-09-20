@@ -25,14 +25,13 @@
 
   let preview = false
   let ignoreFocus = false
-  let zeroEpisode = false
-  let prompt = writable(false)
-  let clicked = writable(false)
+  const prompt = writable(false)
+  const clicked = writable(false)
 
   /** @type {import('@/modules/providers/anilist/al.d.ts').Media | null} */
   let media
   $: media = fromCache($mediaCache, media ?? mediaCache.value[data.media?.id])
-  $: checkForZero(media).then(_zeroEpisode => zeroEpisode = _zeroEpisode)
+  let zeroEpisode = checkForZero(media).then(_zeroEpisode => (zeroEpisode = _zeroEpisode))
   $: episodeRange = episodesList.handleArray(data?.episode, data?.parseObject?.file_name)
   $: lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || (isValidNumber(data?.episode) && (data?.episode + (zeroEpisode ? 1 : 0))) || (media?.episodes === 1 && media?.episodes)
   $: hasSpoiler = $settings.spoilerStatus.includes(media?.mediaListEntry?.status ?? 'NOTONLIST')
@@ -117,10 +116,11 @@
   }
 
   let sinceInterval
-  $: timeSince = data?.date && since(data?.date)
+  const timeSince = writable(null)
   onMount(() => {
     container.addEventListener('focusout', handleBlur)
-    sinceInterval = setInterval(() => timeSince = data?.date && since(data?.date), 60_000)
+    timeSince.set(data?.date && since(data?.date))
+    sinceInterval = setInterval(() => (timeSince.set(data?.date && since(data?.date))), 60_000)
     sinceInterval.unref?.()
   })
   onDestroy(() => {
@@ -149,7 +149,7 @@
       <div class='pr-15 pb-10 font-size-16 font-weight-medium z-10' class:hidden={isSpoiler && ['hermit'].includes($settings.spoilers)}>
         {#if media?.duration}
           {#if (data.episodeRange || data.parseObject?.episodeRange)}
-            {media.duration * (((data.episodeRange || data.parseObject?.episodeRange).last - (data.episodeRange || data.parseObject?.episodeRange).first) + 1)}m
+            {media.duration * (((data.episodeRange || data.parseObject?.episodeRange)?.last - (data.episodeRange || data.parseObject?.episodeRange)?.first) + 1)}m
           {:else if episodeRange && isValidNumber(episodeRange.first) && isValidNumber(episodeRange.last)}
             {media.duration * ((episodeRange.first - episodeRange.last) + 1)}m
           {:else}
@@ -210,7 +210,7 @@
               </div>
             {/if}
             <div class='text-muted font-size-12 title overflow-hidden'>
-              {timeSince}
+              {$timeSince}
             </div>
           {:else if data.similarity}
             {#if settings.value.cardAudio}
@@ -244,6 +244,7 @@
   }
   .title {
     display: -webkit-box;
+    line-clamp: 1;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     word-break: break-all;

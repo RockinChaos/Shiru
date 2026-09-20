@@ -36,7 +36,7 @@
   $: resolvedHash = media?.id && !data.failed && getHash(media.id, { episode: data?.episode, client: true, batchGuess: true }, false, true)
 </script>
 
-<div class='position-absolute w-400 mw-full mh-400 absolute-container top-0 m-auto bg-dark-light z-30 rounded overflow-hidden pointer d-flex flex-column fade-change' use:clampToViewport in:fadeIn out:fadeOut on:introend={() => animating = false} on:outrostart={() => animating = true} bind:this={element}>
+<div class='position-absolute w-400 mw-full mh-400 absolute-container top-0 m-auto bg-dark-light z-30 rounded overflow-hidden pointer d-flex flex-column fade-change' use:clampToViewport in:fadeIn out:fadeOut on:introend={() => (animating = false)} on:outrostart={() => (animating = true)} bind:this={element}>
   <div class='image h-200 w-full position-relative d-flex justify-content-between align-items-end text-white'>
     <SmartImage class='img-cover w-full h-full position-absolute rounded p-0 m-0 {!(data.episodeData?.image || media?.bannerImage) && media?.genres?.includes(`Hentai`) ? `cover-rotated cr-400` : ``}' color={media?.coverImage?.color || 'var(--tertiary-color)'} images={[episodeThumbnail, (!media ? './404_episode.jpg' : './no_image_episode.jpg')]}/>
     {#if data.episodeData?.video && !animating}
@@ -58,14 +58,14 @@
     {#if data.hash || resolvedHash}
       <div class='pr-5 pt-5 z-10 position-absolute top-0 right-0 text-danger icon-shadow'>
         <button type='button' tabindex='-1' class='position-absolute episode-safe-area top-0 right-0 h-50 w-50 bg-transparent border-0 shadow-none not-reactive' use:click={() => {}}/>
-        <TorrentButton class='btn btn-square btn-highlight shadow-none bg-transparent bd-highlight h-40 w-40 z-1 position-relative' hash={[...(data.hash && data.hash !== resolvedHash ? [data.hash] : []), ...(resolvedHash ? [resolvedHash] : [])]} torrentID={data.link} search={{ media, episode: data.episode, episodeRange: episodeRange }} size={'3rem'} strokeWidth={'2.3'}/>
+        <TorrentButton class='btn btn-square btn-highlight shadow-none bg-transparent bd-highlight h-40 w-40 z-1 position-relative' hash={[...(data.hash && data.hash !== resolvedHash ? [data.hash] : []), ...(resolvedHash ? [resolvedHash] : [])]} torrentID={data.link} search={{ media, episode: data.episode, episodeRange: episodeRange }} size='3rem' strokeWidth='2.3'/>
       </div>
     {/if}
     <Play class='mb-5 ml-5 pl-10 pb-10 z-10' fill='currentColor' size='3rem' />
     <div class='pr-20 pb-10 font-size-16 font-weight-medium z-10' class:hidden={isSpoiler && ['hermit'].includes($settings.spoilers)}>
       {#if media?.duration}
         {#if (data.episodeRange || data.parseObject?.episodeRange)}
-          {media.duration * (((data.episodeRange || data.parseObject?.episodeRange).last - (data.episodeRange || data.parseObject?.episodeRange).first) + 1)}m
+          {media.duration * (((data.episodeRange || data.parseObject?.episodeRange)?.last - (data.episodeRange || data.parseObject?.episodeRange)?.first) + 1)}m
         {:else if episodeRange && isValidNumber(episodeRange.first) && isValidNumber(episodeRange.last)}
           {media.duration * ((episodeRange.first - episodeRange.last) + 1)}m
         {:else}
@@ -145,7 +145,7 @@
     </div>
     <div class='w-full description overflow-hidden pt-15' class:text-muted={!isSpoiler || !['moderate', 'strict', 'hermit'].includes($settings.spoilers)} class:text-spoiler={isSpoiler && ['strict', 'hermit'].includes($settings.spoilers)}>
       {#if data.episodeData?.summary || data.episodeData?.overview}
-        {(data.episodeData?.summary || data.episodeData?.overview).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()}
+        {(data.episodeData?.summary || data.episodeData?.overview)?.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()}
       {:else}
         {(media?.description || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()}
       {/if}
@@ -171,7 +171,7 @@
         Your Current Progress Is At <b>Episode {media?.mediaListEntry?.progress - (zeroEpisode ? 1 : 0)}</b>
       {/if}
     </p>
-    <button class='cont-button btn btn-lg btn-secondary w-250 text-dark font-weight-bold shadow-none border-0 d-flex align-items-center justify-content-center mt-10' tabindex={!prompt ? '-1' : '0'} use:click={() => { data.onclick() || modal.open(modal.ANIME_DETAILS, media) }}>
+    <button type='button' class='cont-button btn btn-lg btn-secondary w-250 text-dark font-weight-bold shadow-none border-0 d-flex align-items-center justify-content-center mt-10' tabindex={!prompt ? '-1' : '0'} use:click={() => { data.onclick() || modal.open(modal.ANIME_DETAILS, media) }}>
       <Play class='mr-10' fill='currentColor' size='1.6rem' />
       Continue Anyway?
     </button>
@@ -184,6 +184,7 @@
   }
   .description {
     display: -webkit-box !important;
+    line-clamp: 3;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
   }
@@ -195,6 +196,7 @@
   }
   .title {
     display: -webkit-box;
+    line-clamp: 1;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     word-break: break-all;

@@ -68,10 +68,9 @@
 
 <script>
   import Lobby from '@/routes/w2g/components/Lobby.svelte'
-  import { Plus, UserPlus } from 'lucide-svelte'
+  import { Plus, UserPlus, TriangleAlert } from 'lucide-svelte'
   import { W2GClient } from '@/routes/w2g/components/w2g.js'
   import { click } from '@/modules/lib/click.js'
-  import { TriangleAlert } from 'lucide-svelte'
 
   let joinText
 
@@ -100,12 +99,12 @@
         <UserPlus size='6rem' class='d-flex align-items-center h-full' />
         <h2 class='font-weight-bold font-scale-34'>Join Lobby</h2>
         <input
-          type='text'
-          class='form-control h-80 text-center'
-          autocomplete='off'
-          bind:value={joinText}
-          data-option='search'
-          placeholder='Lobby Code or Link' />
+            type='text'
+            class='form-control h-80 text-center'
+            autocomplete='off'
+            bind:value={joinText}
+            data-option='search'
+            placeholder='Lobby Code or Link' />
       </div>
       <div class='card d-flex flex-column align-items-center w-300 h-300 justify-content-end'>
         <Plus size='6rem' class='d-flex align-items-center h-full' />

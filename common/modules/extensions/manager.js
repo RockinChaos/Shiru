@@ -358,7 +358,7 @@ class ExtensionManager {
   async getExtensionCode(key, worker) {
     const generation = this.whenReady
     const extension = (cache.getEntry(caches.EXTENSIONS, 'extensionSources') || {})[key]
-    let newCode = await getExtension(extension?.name || extension?.id, [extension?.main].flat().map(main => !main || VALID_SCHEMES.test(main) ? main : `${extension?.locale || [extension?.update].flat()[0]}/${main}`))
+    const newCode = await getExtension(extension?.name || extension?.id, [extension?.main].flat().map(main => !main || VALID_SCHEMES.test(main) ? main : `${extension?.locale || [extension?.update].flat()[0]}/${main}`))
     if (this.whenReady !== generation) {
       worker.terminate()
     } else if (newCode && typeof newCode === 'string' && newCode.trim().length > 0) {
@@ -378,7 +378,7 @@ class ExtensionManager {
           }
         } catch (error) {
           if (!this.inactiveWorkers.value[key]) worker.terminate()
-          throw new Error(error)
+          throw new Error(error, { cause: error })
         }
         this.activeWorkers.update(value => ({ ...value, [key]: worker }))
       }
@@ -604,7 +604,7 @@ class ExtensionManager {
         if (!settings.value.extensionsNew[key]?.enabled) return
         if (!modules[key]) {
           const extension = extensions[key]
-          let newCode = await getExtension(extension?.name || extension?.id, [extension?.main].flat().map(main => !main || VALID_SCHEMES.test(main) ? main : `${extension?.locale || [extension?.update].flat()[0]}/${main}`))
+          const newCode = await getExtension(extension?.name || extension?.id, [extension?.main].flat().map(main => !main || VALID_SCHEMES.test(main) ? main : `${extension?.locale || [extension?.update].flat()[0]}/${main}`))
           if (newCode && typeof newCode === 'string' && newCode.trim().length > 0) {
             if (!extension.locale) {
               modules[key] = await cache.cacheEntry(caches.EXTENSIONS, key, { mappings: true }, newCode, Date.now() + getRandomInt(7, 14) * 24 * 60 * 60 * 1_000)
@@ -673,7 +673,7 @@ class ExtensionManager {
               this.activeWorkers.update(value => ({ ...value, [key]: remoteWorker }))
             } catch (error) {
               if (!this.inactiveWorkers.value[key]) worker.terminate()
-              throw new Error(error)
+              throw new Error(error, { cause: error })
             }
           } catch (error) {
             await printError(`Failed to load extension ${key}`, 'Initialization has failed', error)

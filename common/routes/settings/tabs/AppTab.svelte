@@ -121,7 +121,7 @@
     <button type='button' use:click={() => { if ($updateState !== 'ready') updateState.set('ready'); else modal.open(modal.UPDATE_PROMPT) }} class='btn btn-primary mt-5 d-none align-items-center justify-content-center bg-success-light' class:d-flex={$updateState === 'ready' || $updateState === 'ignored' || $updateState === 'aborted'}><span class='text-truncate'>Update Available!</span></button>
   </div>
 </SettingCard>
-<SettingCard title='Update Channel' description={'Choose which type of updates you receive. Stable provides tested releases only, while Nightly includes frequent pre-release builds with the latest features and fixes but may include bugs.\n\nOnce you switch to Nightly and update you cannot downgrade back to the previous stable release. Nightly users automatically receive stable updates when available.'}>
+<SettingCard title='Update Channel' description={'Choose which type of updates you receive. Stable provides tested releases only, while Nightly includes frequent pre-release builds with the latest features and fixes but may include bugs.' + '\n\n' + 'Once you switch to Nightly and update you cannot downgrade back to the previous stable release. Nightly users automatically receive stable updates when available.'}>
   <div>
     <select class='form-control bg-dark mw-150 w-150 text-truncate' bind:value={settings.updateChannel}>
       <option value='stable'>Stable</option>
@@ -130,7 +130,7 @@
   </div>
 </SettingCard>
 {#if SUPPORTS.discord}
-  <SettingCard title='Discord Rich Presence' description={'Enables the use of Discord rich presence to display app activity.\nFull enables complete rich presence support showing anime details, limited reduces what is seen not showing the currently played anime and episode, disabled completely disables rich presence.'}>
+  <SettingCard title='Discord Rich Presence' description={'Enables the use of Discord rich presence to display app activity.' + '\n' + 'Full enables complete rich presence support showing anime details, limited reduces what is seen not showing the currently played anime and episode, disabled completely disables rich presence.'}>
     <select class='form-control bg-dark w-100 mw-full text-truncate' bind:value={settings.enableRPC}>
       <option value='full' selected>Full</option>
       <option value='limited'>Limited</option>

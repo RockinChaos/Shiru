@@ -210,7 +210,7 @@ export async function refreshMalToken (token) {
         duration: Infinity
       })
     }
-    debug(`Failed to refresh MyAnimeList User Token ${ !refresh || refresh.length <= 0 ? 'as the refresh token could not be fetched!' : 'the refresh token has likely expired: ' + JSON.stringify(response)}`)
+    debug(`Failed to refresh MyAnimeList User Token ${!refresh || refresh.length <= 0 ? 'as the refresh token could not be fetched!' : 'the refresh token has likely expired: ' + JSON.stringify(response)}`)
     if (malToken?.token === token) {
       malToken.reauth = true
       localStorage.setItem('MALviewer', JSON.stringify(malToken))

@@ -34,7 +34,7 @@
   /** @type {boolean} */
   $: active = (!modal ? ((!$_modal || !_modal.length) && $_page === page) : modal === _modal.focused && (modal !== _modal.ANIME_DETAILS || ($_modal[_modal.ANIME_DETAILS]?.data?.id === $nowPlaying?.media?.id))) || $$restProps.class?.match('active')
 
-  onMount(() => useHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches)
+  onMount(() => (useHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches))
 </script>
 
 <div

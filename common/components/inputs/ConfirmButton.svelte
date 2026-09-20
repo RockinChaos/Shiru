@@ -50,7 +50,7 @@
       cleanup()
     } else {
       if (disabled) return
-      intervalId = setInterval(() => timeRemaining -= 100, 100)
+      intervalId = setInterval(() => (timeRemaining -= 100), 100)
       timeoutId = setTimeout(cleanup, timeout)
     }
   }

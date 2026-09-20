@@ -267,7 +267,7 @@
         toListHeight: measureListHeight(newDepth),
         fromHeaderHeight: headerHeight,
         toHeaderHeight: targetHeaderHeight(newDepth),
-        onComplete: () => isSliding = false
+        onComplete: () => (isSliding = false)
       })
     })
     observer.observe(trackEl, { childList: true })
@@ -400,7 +400,7 @@
   onDestroy(close)
 </script>
 
-<button bind:this={triggerWrapEl} class='nd-trigger-wrap d-inline-flex align-items-center bg-transparent border-0 p-0 pointer h-full' use:click={toggle}>
+<button type='button' bind:this={triggerWrapEl} class='nd-trigger-wrap d-inline-flex align-items-center bg-transparent border-0 p-0 pointer h-full' use:click={toggle}>
   <slot {isOpen} {toggle} />
 </button>
 
@@ -430,7 +430,7 @@
     <div class='nd-card w-full rounded-5 overflow-hidden mw-0 {$$restProps.class}'>
       <div class='nd-header d-flex align-items-center overflow-hidden flex-shrink-0 mw-0 pr-20 pl-10' style='height: {headerHeight}rem; opacity: {headerHeight / HEADER_HEIGHT};'>
         {#if depth !== 0}
-          <button class='nd-back d-flex align-items-center justify-content-center border-0 rounded-circle bg-transparent pointer flex-shrink-0 p-0' use:click={drillBack} title='Back' aria-label='Back' style='transform: scale({headerHeight / HEADER_HEIGHT});'>
+          <button type='button' class='nd-back d-flex align-items-center justify-content-center border-0 rounded-circle bg-transparent pointer flex-shrink-0 p-0' use:click={drillBack} title='Back' aria-label='Back' style='transform: scale({headerHeight / HEADER_HEIGHT});'>
             <ChevronLeft size='2rem' strokeWidth='2.5' />
           </button>
         {/if}

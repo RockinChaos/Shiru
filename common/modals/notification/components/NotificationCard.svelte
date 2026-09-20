@@ -66,7 +66,7 @@
 
   /** Closes continue anyway prompt if active */
   function dismissPrompt() {
-    if (prompt) setTimeout(() => prompt = false).unref?.()
+    if (prompt) setTimeout(() => (prompt = false)).unref?.()
   }
 </script>
 
@@ -90,12 +90,12 @@
     on:contextmenu|preventDefault={handleContextMenu}>
   {#if notification.heroImg}
     <div class='position-absolute top-0 left-0 w-full h-full'>
-      <SmartImage class={`img-cover w-full h-full`} images={[notification.heroImg, media?.bannerImage, (media?.trailer?.id && `https://i.ytimg.com/vi/${media?.trailer?.id}/hqdefault.jpg`)]} style='border-radius: .75rem;'/>
+      <SmartImage class='img-cover w-full h-full' images={[notification.heroImg, media?.bannerImage, (media?.trailer?.id && `https://i.ytimg.com/vi/${media?.trailer?.id}/hqdefault.jpg`)]} style='border-radius: .75rem;'/>
       <div class='position-absolute rounded-5 opacity-transition-hack' style='background: var(--notification-card-gradient)' />
     </div>
   {/if}
   <div class='rounded-5 d-flex justify-content-center align-items-center overflow-hidden mr-10 z-10 icon-container'>
-    <SmartImage class={`rounded-5 w-auto`} images={[notification.iconXL, notification.icon, media?.coverImage?.extraLarge, media?.coverImage?.medium, (!media ? './404_cover.jpg' : './no_image_cover.jpg')]} color='var(--status-color)' style='height: 100%; object-fit: cover; object-position: center;'/>
+    <SmartImage class='rounded-5 w-auto' images={[notification.iconXL, notification.icon, media?.coverImage?.extraLarge, media?.coverImage?.medium, (!media ? './404_cover.jpg' : './no_image_cover.jpg')]} color='var(--status-color)' style='height: 100%; object-fit: cover; object-position: center;'/>
   </div>
   <div class='notification-content z-10 w-full'>
     <div class='d-flex'>
@@ -205,8 +205,16 @@
     text-overflow: ellipsis;
     word-wrap: break-word;
   }
-  .line-clamp-1 { line-height: 1.8; -webkit-line-clamp: 1; }
-  .line-clamp-2 { line-height: 1.2; -webkit-line-clamp: 2; }
+  .line-clamp-1 {
+    line-height: 1.8;
+    line-clamp: 1;
+    -webkit-line-clamp: 1;
+  }
+  .line-clamp-2 {
+    line-height: 1.2;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+  }
 
   .icon-container {
     width: 6rem;

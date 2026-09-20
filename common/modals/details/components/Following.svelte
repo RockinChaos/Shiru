@@ -12,9 +12,9 @@
   {@const following = [...new Map(res?.data?.Page?.mediaList.filter(item => !Helper.isAuthorized() || item.user.id !== Helper.getUser().id).map(item => [item.user.name, item])).values()]}
   {#if following?.length}
     <div class='position-relative mt-10 d-flex flex-wrap align-items-center justify-content-center justify-content-sm-start'>
-      {#each following.slice(0, 11) as user, i}
+      {#each following.slice(0, 11) as user, index (user.user.id ?? index)}
         <div class='avatar z-5'>
-          <User user={{...user.user, score: user.score, status: user.status, progress: user.progress }} style='z-index: {i + 1}; margin-left: {i > 0 ? `-1rem` : `0`}'/>
+          <User user={{...user.user, score: user.score, status: user.status, progress: user.progress }} style='z-index: {index + 1}; margin-left: {index > 0 ? `-1rem` : `0`}'/>
         </div>
       {/each}
       {#if following.length > 11}

@@ -399,8 +399,8 @@ class AnilistClient {
           })
         }
       }
+      if ((newNotifications?.length > 0) || (lastNotified <= 1)) cache.setEntry(caches.NOTIFICATIONS, 'lastAni', Date.now() / 1_000)
     }
-    if ((newNotifications?.length > 0) || (lastNotified <= 1)) cache.setEntry(caches.NOTIFICATIONS, 'lastAni', Date.now() / 1_000)
   }
 
   /** @returns {Promise<import('./al.d.ts').PagedQuery<{ notifications: { id: number, type: string, createdAt: number, episode: number, media: import('./al.d.ts').Media}[] }>>} */
@@ -514,13 +514,14 @@ class AnilistClient {
           return entry?.media?.mediaListEntry?.startedAt ? (entry.media.mediaListEntry.startedAt.year || 0) * 10_000 + (entry.media.mediaListEntry.startedAt.month || 0) * 100 + (entry.media.mediaListEntry.startedAt.day || 0) : 0
         case 'FINISHED_ON_DESC':
           return entry?.media?.mediaListEntry?.completedAt ? (entry.media.mediaListEntry.completedAt.year || 0) * 10_000 + (entry.media.mediaListEntry.completedAt.month || 0) * 100 + (entry.media.mediaListEntry.completedAt.day || 0) : 0
-        case 'PROGRESS_DESC':
+        case 'PROGRESS_DESC': {
           const totalEpisodes = entry?.media?.episodes ?? getMediaMaxEp(entry?.media) ?? 0
           const progress = entry?.media?.mediaListEntry?.progress ?? 0
           if (progress === 0) return Infinity
           if (totalEpisodes === 0) return -progress
           const distance = totalEpisodes - progress
           return distance <= 0 ? -Infinity : distance
+        }
         case 'USER_SCORE_DESC': // doesn't exist, AniList uses SCORE_DESC for both MediaSort and MediaListSort.
           return entry?.media?.mediaListEntry?.score || 0
         case 'UPDATED_TIME_DESC':
@@ -827,7 +828,7 @@ class AnilistClient {
     let currentPage = 1
     let failedRes
     while (true) { // cycle until all paged ids are resolved.
-      const res = await this.searchIDS({ ...variables, page: currentPage, perPage: 50, ...( variables?.id && variables?.id?.length !== 0 ? { id: [...new Set(variables.id)] } : { idMal: [...new Set(variables.idMal)] }) })
+      const res = await this.searchIDS({ ...variables, page: currentPage, perPage: 50, ...(variables?.id && variables?.id?.length !== 0 ? { id: [...new Set(variables.id)] } : { idMal: [...new Set(variables.idMal)] }) })
       if (!res?.data && res?.errors) { failedRes = res }
       if (res?.data?.Page.media) fetchedIDS = fetchedIDS.concat(res?.data?.Page.media)
       if (!res?.data?.Page.pageInfo.hasNextPage) break
@@ -1130,7 +1131,7 @@ class AnilistClient {
             return (b.mediaListEntry?.startedAt ? (b.mediaListEntry.startedAt.year || 0) * 10_000 + (b.mediaListEntry.startedAt.month || 0) * 100 + (b.mediaListEntry.startedAt.day || 0) : 0) - (a.mediaListEntry?.startedAt ? (a.mediaListEntry.startedAt.year || 0) * 10_000 + (a.mediaListEntry.startedAt.month || 0) * 100 + (a.mediaListEntry.startedAt.day || 0) : 0)
           case 'UPDATED_TIME_DESC':
             return (b.mediaListEntry?.updatedAt || 0) - (a.mediaListEntry?.updatedAt || 0)
-          case 'PROGRESS_DESC':
+          case 'PROGRESS_DESC': {
             const getSortValue = (media) => {
               const progress = media?.mediaListEntry?.progress ?? 0
               const totalEpisodes = media?.episodes ?? getMediaMaxEp(media) ?? 0
@@ -1140,6 +1141,7 @@ class AnilistClient {
               return distance <= 0 ? -Infinity : distance
             }
             return getSortValue(a) - getSortValue(b)
+          }
           case 'USER_SCORE_DESC': // doesn't exist, AniList uses SCORE_DESC for both MediaSort and MediaListSort.
             return (b.mediaListEntry?.score || 0) - (a.mediaListEntry?.score || 0)
           default:

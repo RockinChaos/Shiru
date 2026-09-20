@@ -6,10 +6,9 @@
   import SmartImage from '@/components/visual/SmartImage.svelte'
   import Helper from '@/modules/providers/helper.js'
   import { onDestroy } from 'svelte'
-  import { since, capitalize, fadeIn, fadeOut } from '@/modules/util.js'
+  import { since, capitalize, fadeIn, fadeOut, getAvatar } from '@/modules/util.js'
   import { click, hover, focus } from '@/modules/lib/click.js'
   import { copyToClipboard } from '@/modules/lib/clipboard.js'
-  import { getAvatar } from '@/modules/util.js'
   import { COMMON } from '@/modules/bridge.js'
 
   export let user = {}
@@ -42,7 +41,7 @@
   onDestroy(() => clearTimeout(hideTimeout))
 </script>
 <div class='popover h-50 w-50 d-inline-block not-reactive rounded-circle {$$restProps.class}' style={style} use:hover={handleHover} use:focus={(state) => activePopover.set(state ? user.id : null)}>
-  <button class='avatar h-50 w-50 align-items-center justify-content-center p-0 rounded-circle bg-dark-light overflow-hidden pointer not-reactive flex-shrink-0' tabindex='-1' style='border: .3rem solid hsla(var(--dark-color-hsl), 0.9);'>
+  <button type='button' class='avatar h-50 w-50 align-items-center justify-content-center p-0 rounded-circle bg-dark-light overflow-hidden pointer not-reactive flex-shrink-0' tabindex='-1' style='border: .3rem solid hsla(var(--dark-color-hsl), 0.9);'>
     {#if avatar}
       <SmartImage class='w-full h-full cover-img' images={[avatar, `./${getAvatar(user.id)}`]}/>
     {:else}
@@ -96,7 +95,7 @@
                 </div>
                 {#if user.moderatorRoles}
                   <div class='d-flex flex-wrap gap-5 align-items-center mt-2'>
-                    {#each user.moderatorRoles as moderatorRole}
+                    {#each user.moderatorRoles as moderatorRole, roleIndex (roleIndex)}
                       <div class='badge text-white font-weight-bold px-8 py-2 text-break-word text-truncate' style='border-color: var(--theme-base-color); background-color: var(--theme-base-color)'>
                         {capitalize(moderatorRole.replace('_', ' ').toLowerCase())}
                       </div>

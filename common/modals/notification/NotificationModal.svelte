@@ -135,11 +135,11 @@
   {/if}
   <div bind:this={container} class='notification-list mt-10 overflow-y-auto' on:scroll={handleScroll}>
     {#if $localNotifications?.length && !currentNotifications.length}
-      {#each { length: NOTIFICATION_PAGE_SIZE } as _, index}
+      {#each { length: NOTIFICATION_PAGE_SIZE } as _, index (index)}
         <NotificationCardSk {index}/>
       {/each}
     {:else}
-      {#each currentNotifications as notification, index}
+      {#each currentNotifications as notification, index (notification.uid ?? index)}
         {@const media = cache.getMedia(notification?.id)}
         {#if !media?.id}
           {#await cache.requestMedia(notification?.id)}

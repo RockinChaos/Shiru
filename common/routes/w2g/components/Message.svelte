@@ -27,7 +27,7 @@
         {time.toLocaleTimeString()}
       </div>
     </div>
-    {#each messages as message}
+    {#each messages as message, messageIndex (messageIndex)}
       <div class='bg-dark-light py-10 px-15 rounded-top rounded-right mb-5 select-text pre-wrap text-break-word' style='max-width: calc(100% - 10rem)'
         class:bg-dark-light={incoming} class:bg-accent={!incoming}
         class:rounded-right={incoming} class:rounded-left={!incoming}>

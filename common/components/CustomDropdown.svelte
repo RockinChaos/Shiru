@@ -22,7 +22,7 @@
 
     function getOptionDisplay(option) {
         if (Array.isArray(options) && options.every(item => typeof item === 'string' || typeof item === 'number')) return String(option)
-        else if (typeof options === 'object' && options != null) return options.hasOwnProperty(option) ? options[option] : null
+        else if (typeof options === 'object' && options != null) return Object.prototype.hasOwnProperty.call(options, option) ? options[option] : null
     }
 
     const dropdown = writable(false)
@@ -54,8 +54,8 @@
         let found = false
         if ((trigger === 'keydown' && (event.key === 'Enter' || event.code === 'Enter')) || (trigger === 'input' && bestMatch)) {
             if (!bestMatch || inputValue.endsWith('*')) bestMatch = (inputValue.endsWith('*') && inputValue.slice(0, -1)) || getOptions().find(item => getOptionDisplay(item)?.toLowerCase().startsWith(inputValue.toLowerCase())) || getOptions().find(item => getOptionDisplay(item)?.toLowerCase().endsWith(inputValue.toLowerCase()))
-            let targetValue = isAlt ? altValue : value
-            let oppositeValue = isAlt ? value : altValue
+            const targetValue = isAlt ? altValue : value
+            const oppositeValue = isAlt ? value : altValue
             if (bestMatch && (!targetValue || !includes(targetValue, bestMatch))) {
                 if (isAlt) altValue = arrayValue ? [...targetValue, bestMatch] : bestMatch
                 else value = arrayValue ? [...targetValue, bestMatch] : bestMatch
@@ -114,7 +114,20 @@
             return !state
         })
     }
-    $: displayedOptions = 0
+
+    function getDisplayedSections(searchInput) {
+        const sections = headerSections.length ? headerSections : [{ header: null, start: 0, end: getOptions()?.length || 1 }]
+        let displayedOptions = 0
+        return sections.map(({ header, start, end }) => {
+            const limit = Math.max((headerSections.length ? end : displaySize) - displayedOptions, 0)
+            const sectionOptions = getOptions().slice(start, end)
+                .filter((option) => !searchInput || includes(getOptionDisplay(option)?.toLowerCase(), searchInput.startsWith('!') ? searchInput.slice(1) : searchInput))
+                .sort((a, b) => ((includes(value, a) ? -1 : 1) - (includes(value, b) ? -1 : 1)) || ((includes(altValue, a) ? 0 : 1) - (includes(altValue, b) ? 0 : 1)))
+                .slice(0, limit)
+            displayedOptions += sectionOptions.length
+            return { header, start, options: sectionOptions }
+        })
+    }
 </script>
 
 <div class='custom-dropdown w-full'>
@@ -140,11 +153,10 @@
     {#if $dropdown}
         {@const searchInput = searchTextInput ? searchTextInput.toLowerCase() : null}
         <div class='custom-dropdown-menu position-absolute mh-300 overflow-y-auto w-full bg-dark custom-menu-{id}'>
-            {#each headerSections?.length ? headerSections : [{ header: null, start: 0, end: getOptions()?.length || 1 }] as { header, start, end }}
-                {@const options = getOptions().slice(start, end).filter((val) => !searchInput || includes(getOptionDisplay(val)?.toLowerCase(), searchInput.startsWith('!') ? searchInput.slice(1) : searchInput)).sort((a, b) => ((includes(value, a) ? -1 : 1) - (includes(value, b) ? -1 : 1)) || ((includes(altValue, a) ? 0 : 1) - (includes(altValue, b) ? 0 : 1))).slice(0, ((headerSections?.length ? end : displaySize) - displayedOptions))}
+            {#each getDisplayedSections(searchInput) as { header, start, options } (start)}
                 {#if options.length > 0}
                     {#if header}<span class='not-reactive font-weight-bold p-5'>{header}</span>{/if}
-                    {#each options as option}
+                    {#each options as option, optionIndex (optionIndex)}
                         <div role='button' tabindex='0' class='custom-dropdown-item {!headers ? `text-center` : `pl-20`} not-reactive pointer custom-menu-{id}' class:custom-dropdown-item-selected={includes(value, option)} class:custom-dropdown-item-alt-selected={includes(altValue, option)}
                              use:click={() => {
                                  if (includes(value, option)) value = arrayValue ? value.filter(item => item !== option) : null
@@ -170,7 +182,6 @@
                             <span class='not-reactive'>{getOptionDisplay(option)}</span>
                         </div>
                     {/each}
-                    {(displayedOptions += options.length) && ''}
                 {/if}
             {/each}
         </div>

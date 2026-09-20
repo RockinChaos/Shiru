@@ -392,18 +392,21 @@
 
 .line-2 {
   display: -webkit-box !important;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
 .line-3 {
   display: -webkit-box !important;
+  line-clamp: 3;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
 .line-4 {
   display: -webkit-box !important;
+  line-clamp: 4;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
 }

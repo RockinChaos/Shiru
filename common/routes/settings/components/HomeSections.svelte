@@ -1,27 +1,24 @@
 <script>
-  import { click } from '@/modules/lib/click.js'
-  import { SUPPORTS } from '@/modules/support.js'
-  import { sections } from '@/modules/sections.js'
-  import { ArrowDownUp, Trash2 } from 'lucide-svelte'
   import CustomDropdown from '@/components/CustomDropdown.svelte'
+  import { ArrowDownUp, Trash2 } from 'lucide-svelte'
+  import { sections } from '@/modules/sections.js'
+  import { SUPPORTS } from '@/modules/support.js'
+  import { click } from '@/modules/lib/click.js'
 
   $: allowedHomeSections = $sections.map(({ title, sort, format }) => [title, sort, format])
   export let homeSections
 
-  let touchStartY = null
   let isDraggingTouch = false
   let mouseYCoordinate = null
   let controlDragging = false
   let draggingItem = null
   let draggingItemIndex = null
   let hoveredItemIndex = null
-  let lastProcessedHoverIndex = null
   let distanceTopGrabbedVsPointer = null
 
   $: {
-    if (draggingItemIndex != null && hoveredItemIndex != null && draggingItemIndex !== hoveredItemIndex && lastProcessedHoverIndex !== hoveredItemIndex) {
+    if (draggingItemIndex != null && hoveredItemIndex != null && draggingItemIndex !== hoveredItemIndex) {
       swapItem(draggingItemIndex, hoveredItemIndex)
-      lastProcessedHoverIndex = hoveredItemIndex
       draggingItemIndex = hoveredItemIndex
     }
   }
@@ -66,7 +63,6 @@
       draggingItem = null
       draggingItemIndex = null
       hoveredItemIndex = null
-      lastProcessedHoverIndex = null
       return
     }
 
@@ -77,7 +73,6 @@
         draggingItem = null
         draggingItemIndex = null
         hoveredItemIndex = null
-        lastProcessedHoverIndex = null
       } else {
         controlDragging = true
         mouseYCoordinate = null
@@ -113,9 +108,7 @@
     draggingItem = null
     draggingItemIndex = null
     hoveredItemIndex = null
-    lastProcessedHoverIndex = null
     isDraggingTouch = false
-    touchStartY = null
   }
 
   function getListBounds() {
@@ -149,7 +142,7 @@
     </div>
   </div>
 {/if}
-{#each homeSections as item, index}
+{#each homeSections as item, index (index)}
   {#if index === 0}
     <div class='d-flex mb-5 w-509 mw-full'>
       <div class='flex-shrink-1 w-150 font-size-16 text-center font-weight-bold' style='margin-left: 2.5rem'>Section</div>
@@ -162,8 +155,8 @@
     <div class='input-group-prepend grab touch-none' class:tp={draggingItem === item} draggable='true' role='button' tabindex='0' data-drag-index={index} aria-label={controlDragging && draggingItemIndex === index ? 'Dragging. Use arrow keys to move, Space or Enter to drop, Escape to cancel' : 'Press Space or Enter to start dragging'}
          on:dragstart={({ clientY, target }) => { if (!SUPPORTS.isAndroid) { mouseYCoordinate = clientY; draggingItem = item; draggingItemIndex = index; distanceTopGrabbedVsPointer = target.offsetTop - clientY } }}
          on:drag={e => { if (e.clientY !== 0 && !SUPPORTS.isAndroid) { mouseYCoordinate = clampYCoordinate(e.clientY); hoveredItemIndex = calculateHoverIndexFromY(e.clientY) } }}
-         on:dragend={() => { if (!SUPPORTS.isAndroid) { mouseYCoordinate = null; draggingItem = null; hoveredItemIndex = null; lastProcessedHoverIndex = null } }}
-         on:touchstart={e => { const touch = e.touches[0]; touchStartY = touch.clientY; isDraggingTouch = true; mouseYCoordinate = touch.clientY; draggingItem = item; draggingItemIndex = index; distanceTopGrabbedVsPointer = e.currentTarget.offsetTop - touch.clientY }}
+         on:dragend={() => { if (!SUPPORTS.isAndroid) { mouseYCoordinate = null; draggingItem = null; hoveredItemIndex = null } }}
+         on:touchstart={e => { const touch = e.touches[0]; isDraggingTouch = true; mouseYCoordinate = touch.clientY; draggingItem = item; draggingItemIndex = index; distanceTopGrabbedVsPointer = e.currentTarget.offsetTop - touch.clientY }}
          on:touchmove={e => { if (!isDraggingTouch) return; const touch = e.touches[0]; mouseYCoordinate = clampYCoordinate(touch.clientY); hoveredItemIndex = calculateHoverIndexFromY(touch.clientY) }}
          on:touchend={handleTouchEnd}
          on:touchcancel={handleTouchEnd}
@@ -174,7 +167,7 @@
     </div>
     <div class='position-relative flex-shrink-1 w-170 mw-full'>
       <select class='form-control flex-shrink-1 bg-dark fix-border text-truncate w-full' on:change={(event) => { if (event.target.value !== homeSections[index][0]) homeSections[index] = allowedHomeSections.find(([title]) => title === event.target.value) }} bind:value={homeSections[index][0]}>
-        {#each allowedHomeSections as section}
+        {#each allowedHomeSections as section, sectionIndex (sectionIndex)}
           {#if !homeSections.some(([title]) => title === section[0]) || homeSections[index][0] === section[0]}
             <option>{section[0]}</option>
           {/if}

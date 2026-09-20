@@ -1,19 +1,17 @@
 <script>
   import { settings } from '@/modules/settings.js'
-  import { cache, caches } from '@/modules/cache.js'
+  import { cache, caches, mediaCache } from '@/modules/cache.js'
   import { page, modal, playPage } from '@/modules/navigation.js'
   import { getAnimeProgress, setAnimeProgress } from '@/modules/anime/animeprogress.js'
   import { playAnime } from '@/modals/torrent/TorrentModal.svelte'
   import { anilistClient } from '@/modules/providers/anilist/anilist.js'
   import { episodesList } from '@/modules/episodes.js'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
-  import { durationMap, getMediaMaxEp } from '@/modules/anime/anime.js'
+  import { durationMap, getMediaMaxEp, getChaptersAniSkip } from '@/modules/anime/anime.js'
   import { createEventDispatcher, onMount } from 'svelte'
   import Subtitles from '@/modules/subtitles.js'
   import { toTS, fastPrettyBytes, matchPhrase, videoRx, isValidNumber, debounce } from '@/modules/util.js'
   import { toast } from '@/modules/lib/toast.js'
-  import { getChaptersAniSkip } from '@/modules/anime/anime.js'
-  import { mediaCache } from '@/modules/cache.js'
   import Seekbar from '@/routes/player/components/Seekbar.svelte'
   import { click } from '@/modules/lib/click.js'
   import VideoDeband from 'video-deband'
@@ -53,7 +51,7 @@
 
   export let miniplayer = false
   $: viewAnime = $modal[modal.ANIME_DETAILS]
-  $: $condition = () => SUPPORTS.keybinds && $page === page.PLAYER && (((!miniplayer && (!$modal || !modal.length) && !document.querySelector('.modal.show') && (!SUPPORTS.isAndroid || immersed))) || viewAnime)
+  $condition = () => SUPPORTS.keybinds && $page === page.PLAYER && (((!miniplayer && (!$modal || !modal.length) && !document.querySelector('.modal.show') && (!SUPPORTS.isAndroid || immersed))) || viewAnime)
 
   export let files = []
   export let playableFiles = []
@@ -112,7 +110,7 @@
   let holdPlaybackSession = 0
   let externalPlayerReady = false
   $: $settings.volume = (String(volume || 0))
-  $: launchedExternal = false
+  let launchedExternal = false
   $: externalPlayback = ($settings.enableExternal || launchedExternal) && (SUPPORTS.isAndroid || $settings.playerPath)
   $: safeduration = externalPlayback ? ((current?.media?.media?.duration || (current?.media?.media?.format && durationMap[current?.media?.media?.format]) || 24) * 60) : (isFinite(duration) ? duration : currentTime)
   $: {
@@ -274,11 +272,6 @@
     }
   }
 
-  let loadInterval
-
-  function clearLoadInterval () {
-    clearInterval(loadInterval)
-  }
   /**
    * @type {VideoDeband}
    */
@@ -423,11 +416,11 @@
     subDelayText = subDelay > 0 ? `+${subDelay}s` : `${subDelay}s`;
     subDelayVisible = true;
     clearTimeout(subDelayTimeout);
-    subDelayTimeout = setTimeout(() => subDelayVisible = false, 600)
+    subDelayTimeout = setTimeout(() => (subDelayVisible = false), 600)
   }
 
   let currentTime = 0
-  $: progress = currentTime / safeduration * 100
+  let targetTime = 0
   $: targetTime = (!paused && currentTime) || targetTime
   function handleMouseDown ({ detail }) {
     if (wasPaused == null) {
@@ -571,7 +564,7 @@
     }
   }
   function setGain(event) {
-    let value = parseFloat(event.target.value)
+    const value = parseFloat(event.target.value)
     if (value <= 1) {
       gainNode.gain.value = 1
       volume = value
@@ -658,7 +651,7 @@
     if (updateText) volumeText = volume === 0 || muted ? 'Muted' : `${((gain > 1 ? gain : volume) * 100).toFixed(0)}%`
     volumeVisible = true
     clearTimeout(volumeTimeout)
-    volumeTimeout = setTimeout(() => volumeVisible = false, 600)
+    volumeTimeout = setTimeout(() => (volumeVisible = false), 600)
     volumeTimeout.unref?.()
   }
   function toggleFullscreen () {
@@ -958,7 +951,7 @@
     playbackRateText = `${rate.toFixed(1)}x`
     playbackRateVisible = true
     clearTimeout(playbackRateTimeout)
-    playbackRateTimeout = setTimeout(() => playbackRateVisible = false, 600)
+    playbackRateTimeout = setTimeout(() => (playbackRateVisible = false), 600)
     playbackRateTimeout.unref?.()
   }
 
@@ -1141,21 +1134,21 @@
       desc: 'Volume Down'
     },
     BracketLeft: {
-      fn: () => !viewAnime && !externalPlayback && (playbackRate = video.defaultPlaybackRate = Math.max(0.1, Number((video.defaultPlaybackRate - 0.1).toFixed(1)))),
+      fn: () => !viewAnime && !externalPlayback && (playbackRate = (video.defaultPlaybackRate = Math.max(0.1, Number((video.defaultPlaybackRate - 0.1).toFixed(1))))),
       id: 'history',
       icon: RotateCcw,
       type: 'icon',
       desc: 'Decrease Playback Rate'
     },
     BracketRight: {
-      fn: () => !viewAnime && !externalPlayback && (playbackRate = video.defaultPlaybackRate = Math.min(16, Number((video.defaultPlaybackRate + 0.1).toFixed(1)))),
+      fn: () => !viewAnime && !externalPlayback && (playbackRate = (video.defaultPlaybackRate = Math.min(16, Number((video.defaultPlaybackRate + 0.1).toFixed(1))))),
       id: 'update',
       icon: RotateCw,
       type: 'icon',
       desc: 'Increase Playback Rate'
     },
     Backslash: {
-      fn: () => !viewAnime && !externalPlayback && (playbackRate = video.defaultPlaybackRate = 1),
+      fn: () => !viewAnime && !externalPlayback && (playbackRate = (video.defaultPlaybackRate = 1)),
       icon: RefreshCcw,
       id: 'schedule',
       type: 'icon',
@@ -1195,6 +1188,7 @@
       video.cancelVideoFrameCallback(loop)
       canvas.remove()
     }
+    // eslint-disable-next-line svelte/no-dom-manipulating
     container.append(canvas)
     return { stream: canvas.captureStream(), destroy }
   }
@@ -1414,12 +1408,10 @@
   }
 
   let currentSkippable = null
-  $: currentSkippable && $settings.playerAutoSkip && skip()
   function checkSkippableChapters () {
     const current = findChapter(currentTime)
-    if (current) {
-      currentSkippable = isChapterSkippable(current)
-    }
+    currentSkippable = current ? isChapterSkippable(current) : null
+    if (currentSkippable && $settings.playerAutoSkip) skip()
   }
   const MAX_TOTAL_SKIP_TIME = 180
   const skippableChaptersRx = [
@@ -1534,7 +1526,7 @@
       const index = Math.floor(vid.currentTime / thumbnailData.interval)
       if (!thumbnailData.thumbnails[index]) {
         thumbnailData.context.drawImage(vid, 0, 0, 200, thumbnailData.canvas.height)
-        thumbnailData.canvas.toBlob(blob => thumbnailData.thumbnails[index] = URL.createObjectURL(blob), 'image/jpeg')
+        thumbnailData.canvas.toBlob(blob => (thumbnailData.thumbnails[index] = URL.createObjectURL(blob)), 'image/jpeg')
       }
     }
   }
@@ -1575,7 +1567,7 @@
           debug('Thumbnail generation process was interrupted due to a change in the video url, exiting...')
           return
         }
-        let dynamicDuration = (buffer / 100) * videoDraw.duration
+        const dynamicDuration = (buffer / 100) * videoDraw.duration
         if (!isFinite(dynamicDuration)) {
           debug('Video is still loading... waiting to generate thumbnails...')
           setTimeout(() => captureThumbnail(), 1_000)
@@ -1846,7 +1838,7 @@
     let mediaActionListener
     let appStateListener
     let pictureInPictureListener
-    ANDROID.onAppStateChange?.(isActive => appActive = isActive)?.then?.(listener => {
+    ANDROID.onAppStateChange?.(isActive => (appActive = isActive))?.then?.(listener => {
       if (destroyed) listener?.remove()
       else appStateListener = listener
     })
@@ -1959,7 +1951,6 @@
     on:loadedmetadata={() => autoPlay()}
     on:loadedmetadata={checkAudio}
     on:loadedmetadata={checkSubtitle}
-    on:loadedmetadata={clearLoadInterval}
     on:loadedmetadata={loadAnimeProgress}
     on:leavepictureinpicture={() => { pip = false }}
   ><track kind='captions' src='' srclang='en' label='English'/></video>
@@ -1983,7 +1974,7 @@
       {#if playableFiles?.length > 1}
         <div class='mt-10'>All files in this batch:</div>
         <div class='overflow-auto ml-10 mt-5' style='max-height: 200px;'>
-          {#each playableFiles as file}
+          {#each playableFiles as file, fileIndex (fileIndex)}
             <div class='ctrl rounded-10 pl-5 pr-5 pbf' title={file.name} use:click={() => playFile(file)}>
               {file.name || 'UNK'}
             </div>
@@ -2013,7 +2004,7 @@
           {:else if current && (videos?.length > 1)}
             Episode {videos.indexOf(current) + 1} of {videos.length} <!-- fallback for when the media fails to resolve and we also fail to resolve the episode numbers, best to indicate what file we are currently on. -->
           {/if}
-          {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle) && media?.media?.episodes !== 1)}{' - '}{/if}
+          {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle) && media?.media?.episodes !== 1)} - {/if}
           {#if media?.episodeTitle}{media.episodeTitle}{/if}
         </div>
       </div>
@@ -2100,7 +2091,7 @@
       </div>
       <span aria-hidden='true' class='icon ctrl align-items-center w-150 mw-full ml-auto' class:hidden={externalPlayback || (SUPPORTS.isAndroid && pip)} class:mb-50={!miniplayer} on:click={forward}><FastForward size='3rem' /></span>
       {#if currentSkippable}
-        <button class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold z-30 d-flex align-items-center justify-content-center' class:hidden={SUPPORTS.isAndroid && pip} use:click={skip}>
+        <button type='button' class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold z-30 d-flex align-items-center justify-content-center' class:hidden={SUPPORTS.isAndroid && pip} use:click={skip}>
           <FastForward size='1.8rem' fill='currentColor' /><span class='ml-5'>Skip {currentSkippable}</span>
         </button>
       {/if}
@@ -2126,7 +2117,7 @@
           {:else if current && (videos?.length > 1)}
             Episode {videos.indexOf(current) + 1} of {videos.length} <!-- fallback for when the media fails to resolve and we also fail to resolve the episode numbers, best to indicate what file we are currently on. -->
           {/if}
-          {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle) && media?.media?.episodes !== 1)}{' - '}{/if}
+          {#if (media?.episode === 0 || media?.episode) && media?.media?.format !== 'MOVIE' && (media?.episodeTitle && !new RegExp(`(?<![\\d.])${media.episode}(?![\\d.])`).test(media.episodeTitle) && media?.media?.episodes !== 1)} - {/if}
           {#if media?.episodeTitle}{media.episodeTitle}{/if}
         </div>
       </div>
@@ -2137,7 +2128,7 @@
         class='font-size-20'
         length={safeduration}
         {buffer}
-        bind:progress={progress}
+        progress={currentTime / safeduration * 100}
         on:seeking={handleMouseDown}
         on:seeked={handleMouseUp}
         chapters={sanitiseChapters(chapters, safeduration)}
@@ -2156,10 +2147,10 @@
           {/if}
         {/if}
       </span>
-      <button class='icon ctrl m-5 d-btn text-white bg-transparent border-0 no-scale' title='{hasLast ? `Last [B]` : `No Previous Episode`}' disabled={!hasLast} class:not-allowed={!hasLast} class:text-very-muted={!hasLast} use:click={playLast}>
+      <button type='button' class='icon ctrl m-5 d-btn text-white bg-transparent border-0 no-scale' title='{hasLast ? `Last [B]` : `No Previous Episode`}' disabled={!hasLast} class:not-allowed={!hasLast} class:text-very-muted={!hasLast} use:click={playLast}>
         <SkipBack size='2rem' fill='currentColor' />
       </button>
-      <button class='icon ctrl m-5 d-btn text-white bg-transparent border-0 no-scale' title='{hasNext ? `Next [N]` : `No Next Episode`}' disabled={!hasNext} class:not-allowed={!hasNext} class:text-very-muted={!hasNext} use:click={playNext}>
+      <button type='button' class='icon ctrl m-5 d-btn text-white bg-transparent border-0 no-scale' title='{hasNext ? `Next [N]` : `No Next Episode`}' disabled={!hasNext} class:not-allowed={!hasNext} class:text-very-muted={!hasNext} use:click={playNext}>
         <SkipForward size='2rem' fill='currentColor' />
       </button>
       <div class='d-none w-auto volume' class:d-flex={!externalPlayback}>
@@ -2186,7 +2177,7 @@
         <div class='ts mr-auto font-scale-20'>{playbackRate.toFixed(1)}x</div>
       {/if}
       <input type='file' class='d-none' id='search-subtitle' accept='.srt,.vtt,.ass,.ssa,.sub,.txt' on:input|preventDefault|stopPropagation={handleFile} bind:this={fileInput}/>
-      <NestedDropdown direction='top' panelHeightPadding={6} panelColor={'var(--dark-color-glass)'} containerEl={container} items={[
+      <NestedDropdown direction='top' panelHeightPadding={6} panelColor='var(--dark-color-glass)' containerEl={container} items={[
           ...(!externalPlayback ? [{
             icon: Gauge,
             label: 'Playback speed',
@@ -2196,67 +2187,67 @@
                 label: '0.25x',
                 value: playbackRate === 0.25 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 0.25
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 0.25))
               },
               {
                 label: '0.5x',
                 value: playbackRate === 0.5  ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 0.5
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 0.5))
               },
               {
                 label: '0.75x',
                 value: playbackRate === 0.75 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 0.75
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 0.75))
               },
               {
                 label: 'Normal',
                 value: playbackRate === 1 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 1
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 1))
               },
               {
                 label: '1.25x',
                 value: playbackRate === 1.25 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 1.25
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 1.25))
               },
               {
                 label: '1.5x',
                 value: playbackRate === 1.5  ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 1.5
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 1.5))
               },
               {
                 label: '2x',
                 value: playbackRate === 2 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 2
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 2))
               },
               {
                 label: '3x',
                 value: playbackRate === 3 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 3
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 3))
               },
               {
                 label: '4x',
                 value: playbackRate === 4 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 4
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 4))
               },
               {
                 label: '6x',
                 value: playbackRate === 6 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 6
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 6))
               },
               {
                 label: '8x',
                 value: playbackRate === 8 ? '✓' : undefined,
                 valueCSS: 'text-primary font-size-18 font-weight-very-bold',
-                onSelect: () => playbackRate = video.defaultPlaybackRate = 8
+                onSelect: () => (playbackRate = (video.defaultPlaybackRate = 8))
               }
             ]
           }] : []),
@@ -2347,7 +2338,7 @@
         </span>
       {/if}
       {#if 'audioTracks' in HTMLVideoElement.prototype && video?.audioTracks?.length > 1 && !externalPlayback}
-        <NestedDropdown title='Audio Tracks' direction='top' panelWidth={25} panelHeightPadding={6} panelColor={'var(--dark-color-glass)'} containerEl={container} items={Object.values(video.audioTracks).map((track, _, allTracks) => ({
+        <NestedDropdown title='Audio Tracks' direction='top' panelWidth={25} panelHeightPadding={6} panelColor='var(--dark-color-glass)' containerEl={container} items={Object.values(video.audioTracks).map((track, _, allTracks) => ({
           label: trackLabel(track, allTracks, 'label'),
           value: track.enabled ? '✓' : undefined,
           valueCSS: 'text-primary font-size-18 font-weight-very-bold',
@@ -2359,7 +2350,7 @@
         </NestedDropdown>
       {/if}
       {#if 'videoTracks' in HTMLVideoElement.prototype && video?.videoTracks?.length > 1 && !externalPlayback}
-        <NestedDropdown title='Video Tracks' direction='top' panelWidth={25} panelHeightPadding={6} panelColor={'var(--dark-color-glass)'} containerEl={container} items={Object.values(video.videoTracks).map((track, _, allTracks) => ({
+        <NestedDropdown title='Video Tracks' direction='top' panelWidth={25} panelHeightPadding={6} panelColor='var(--dark-color-glass)' containerEl={container} items={Object.values(video.videoTracks).map((track, _, allTracks) => ({
           label: trackLabel(track, allTracks, 'label'),
           value: track.selected ? '✓' : undefined,
           valueCSS: 'text-primary font-size-18 font-weight-very-bold',
@@ -2371,7 +2362,7 @@
         </NestedDropdown>
       {/if}
       {#if subHeaders?.length && !externalPlayback}
-        <NestedDropdown title='Subtitles/CC' direction='top' panelWidth={25} panelHeightPadding={3} panelColor={'var(--dark-color-glass)'} containerEl={container} items={[
+        <NestedDropdown title='Subtitles/CC' direction='top' panelWidth={25} panelHeightPadding={3} panelColor='var(--dark-color-glass)' containerEl={container} items={[
             {
               icon: Settings,
               label: 'Options',
@@ -2386,7 +2377,7 @@
                   min: -9999,
                   max: 9999,
                   value: subDelay,
-                  onInput: (/** @type {number} */ value) => subDelay = value
+                  onInput: (/** @type {number} */ value) => (subDelay = value)
                 },
                 {
                   icon: FilePlus2,

@@ -26,7 +26,7 @@
   <div class='drawer-handle pointer' tabindex='-1' use:click={closeDrawer} on:pointerdown={closeDrawer} />
   <div class='overflow-y-auto vh-60 mx-15 pb-5'>
     {#each $drawerItems as item (item)}
-      <NavItem {item} size={'2.4rem'} drawer={true} {closeDrawer} />
+      <NavItem {item} size='2.4rem' drawer={true} {closeDrawer} />
     {/each}
   </div>
 </div>

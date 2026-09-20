@@ -53,6 +53,7 @@
   let top = '0px'
   let container = null
   let dragging = false
+  let draggingPos = ''
   let resizing = false
   let dragId = 1
   let shelveLeft = false
@@ -67,13 +68,13 @@
   let lastEdgeEnterUnshelve = 0
   let windowFocused = document.hasFocus()
 
-  $: draggingPos = ''
   $: resize = !$isMobile
   $: if (!dragging) cache.setEntry(caches.GENERAL, 'posMiniplayer', $position)
   $: minWidthRatio = $isSuperSmall ? 0.25 : 0.15
   $: playerPage = $page === page.PLAYER && (!$modal || !modal.length || !modal.exists(modal.ANIME_DETAILS))
   $: shelveTabLeft = shelved ? shelveLeft : !!($position + draggingPos).match(/left/i)
   $: {
+    // eslint-disable-next-line svelte/infinite-reactive-loop
     if (active && !dragging && !resizing) idleShelve(playbackPaused, $settings.autoHideMiniplayer)
     else if (shelved && playerPage && (!$modal || !modal.length)) unshelve()
   }
@@ -134,7 +135,7 @@
       draggingPos = istop ? ' top' : ' bottom'
       draggingPos += isleft ? ' left' : ' right'
       dragId++
-      let currentDragId = dragId
+      const currentDragId = dragId
       timeout = setTimeout(() => {
         if (currentDragId === dragId) {
           $position += istop ? ' top' : ' bottom'
@@ -259,6 +260,7 @@
     clearTimeout(shelveTimeout)
     if (isPaused && !hovered && autoHide) {
       shelveTimeout = setTimeout(() => {
+        // eslint-disable-next-line svelte/infinite-reactive-loop
         if (playbackPaused && !hovered && active && !dragging && !resizing) triggerShelve()
       }, 5_000)
     } else if (!isPaused) unshelve()
@@ -266,6 +268,7 @@
   function triggerShelve() {
     const posStr = $position + draggingPos
     shelveLeft = !!(posStr.match(/left/i))
+    // eslint-disable-next-line svelte/infinite-reactive-loop
     shelved = true
     shelvingTime = Date.now()
     resetIdleBounce()
@@ -308,7 +311,7 @@
     if (shelved) {
       unshelve()
       hovered = true
-      setTimeout(() => hovered = false, 3_000)
+      setTimeout(() => (hovered = false), 3_000)
     } else manualShelve()
   }
   function swipeShelve(node) {
@@ -375,7 +378,7 @@
     bouncing = false
     peekActive = false
     container.style.transform = `translateX(${(new DOMMatrix(window.getComputedStyle(container).transform)).m41}px)`
-    requestAnimationFrame(() => container.style.transform = '')
+    requestAnimationFrame(() => (container.style.transform = ''))
     resetIdleBounce()
   }
   function onGlobalActivity() {
@@ -385,8 +388,8 @@
     } else resetIdleBounce()
   }
 
-  const onFocus = () => requestAnimationFrame(() => windowFocused = true)
-  const onBlur = () => windowFocused = false
+  const onFocus = () => requestAnimationFrame(() => (windowFocused = true))
+  const onBlur = () => (windowFocused = false)
   onMount(() => {
     calculateWidth()
     window.addEventListener('blur', onBlur)

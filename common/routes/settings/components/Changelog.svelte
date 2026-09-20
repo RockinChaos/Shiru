@@ -11,8 +11,8 @@
 
   export let latestVersion
   /** @type {import('simple-store-svelte').Writable<"stable" | "nightly">} */
-  export let updateChannel = writable(/** @type {"stable" | "nightly"} */ (settings.value.updateChannel ?? 'stable'))
-  export let changeLog = writable(getChanges())
+  export const updateChannel = writable(/** @type {"stable" | "nightly"} */ (settings.value.updateChannel ?? 'stable'))
+  export const changeLog = writable(getChanges())
 
   uniqueStore(updateChannel).subscribe(channel => {
     changeLog.set(getChanges())
@@ -190,6 +190,7 @@
     COMMON.openURI(anchor.href)
   }
 </script>
+<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 <div class='changelog select-text {$$restProps.class}' tabindex='-1' use:click={hrefListener}>{@html sanitize(body)}</div>
 
 <style>

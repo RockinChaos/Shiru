@@ -179,7 +179,7 @@
     }).filter(t => t))]
 
     if (resolution) {
-      for (const res of Array.isArray(resolution) ? [...new Set(resolution)].flatMap(r => String(r).split(/[\/,|]+/).map(s => s.trim()).filter(Boolean)) : String(resolution).split(/[\/,|]+/).map(s => s.trim()).filter(Boolean)) {
+      for (const res of Array.isArray(resolution) ? [...new Set(resolution)].flatMap(r => String(r).split(/[/,|]+/).map(s => s.trim()).filter(Boolean)) : String(resolution).split(/[/,|]+/).map(s => s.trim()).filter(Boolean)) {
         terms.unshift({ key: res, term: { text: res, color: 'var(--quaternary-color)' } })
       }
     }
@@ -276,7 +276,7 @@
 
       // Remove commas (and surrounding spaces) immediately after an opening bracket
       // Handles cases like '(, word' or '[ , word' -> '(word' / '[word'
-      .replace(/([\[(])\s*,\s*/g, '$1')
+      .replace(/([[(])\s*,\s*/g, '$1')
 
       // Ensure exactly one space after every comma, including 'word,word' -> 'word, word'
       .replace(/,(?!\s)/g, ', ')
@@ -293,7 +293,7 @@
 
       // Remove any space(s) immediately after an opening bracket
       // e.g. '( word' -> '(word'
-      .replace(/([\[(])\s+/g, '$1')
+      .replace(/([[(])\s+/g, '$1')
 
       // Remove any space(s) immediately before a closing bracket
       // e.g. 'word )' -> 'word)'
@@ -303,14 +303,14 @@
       .replace(/^[,\s]+|[,\s]+$/g, '')
 
       // Remove leading dashes inside brackets e.g. '[-DL]' -> '[DL]'
-      .replace(/([\[({])\s*-\s*/g, '$1')
+      .replace(/([[({])\s*-\s*/g, '$1')
 
       // Remove trailing dashes inside brackets e.g. '[DL-]' -> '[DL]'
       .replace(/\s*-\s*([\])}])/g, '$1')
 
       // Remove empty brackets or brackets containing only a dash, underscore, slash or comma
       // e.g. '[]', '()', '[-]', '( - )', '[_]', '[/]', '[\]', '[,]'
-      .replace(/[\[{(]\s*[-_/\\,]?\s*[\]})]/g, '')
+      .replace(/[[{(]\s*[-_/\\,]?\s*[\]})]/g, '')
 
       // Remove unmatched closing brackets by counting openers before each closer
       // If there is no corresponding opener, the closing bracket is dropped
@@ -322,7 +322,7 @@
       .trim()
 
     // Reintroduce placeholders e.g. series title.
-    titleHolders.forEach(title => simpleName = simpleName.replace(new RegExp(title.placeholder, 'g'), title.original))
+    titleHolders.forEach(title => (simpleName = simpleName.replace(new RegExp(title.placeholder, 'g'), title.original)))
 
     // Clean name after restoring placeholders
     simpleName = simpleName
@@ -445,7 +445,7 @@
           <span class='overflow-hidden text-truncate'>{fileName}</span>
         {/await}
         <span class='ml-auto mr-5 w-30 h-10 flex-shrink-0'/>
-        <TorrentButton class='position-absolute btn btn-square btn-highlight shadow-none border-0 bg-transparent bd-highlight h-40 w-40 right-0 mr--8 z-1' hash={result.hash} torrentID={result.link} search={{ media, episode: (media?.format !== 'MOVIE' && result.type !== 'batch') && episode }} size={'2.5rem'} strokeWidth={'2.3'}/>
+        <TorrentButton class='position-absolute btn btn-square btn-highlight shadow-none border-0 bg-transparent bd-highlight h-40 w-40 right-0 mr--8 z-1' hash={result.hash} torrentID={result.link} search={{ media, episode: (media?.format !== 'MOVIE' && result.type !== 'batch') && episode }} size='2.5rem' strokeWidth='2.3'/>
       {/if}
     </div>
     {#if type !== 'error'}
@@ -471,7 +471,7 @@
           {/if}
           {#await sanitiseTerms({ media, episode }, result.parseObject) then termObjects}
             {@const terms = termObjects?.map(term => term.term).filter((term, index, self) => index === self.findLastIndex(_term => _term.text === term.text))}
-            {#each terms as term}
+            {#each terms as term (term.text)}
               <div class='rounded px-15 py-5 bg-very-dark text-nowrap text-white d-flex align-items-center'>
                 {term.text}
               </div>

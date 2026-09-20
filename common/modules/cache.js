@@ -239,7 +239,7 @@ async function putMany(dbName, cache, entries) {
  */
 async function recoverCache(dbName, cache) {
   const recovered = {}
-  let corruptedKeys = []
+  const corruptedKeys = []
   try {
     const database = await open(dbName)
     const transaction = database.transaction(cache.key, 'readonly')
@@ -657,22 +657,22 @@ class Cache {
     await open(this.cacheID)
     const cacheTypes = [
       // USER DB
-      { key: caches.GENERAL, writable: (data) => this.general = writable({ ...generalDefaults, ...deepClone(data) }) },
-      { key: caches.USER_LISTS, writable: (data) => this.user_lists = writable(deepClone(data)) },
-      { key: caches.HISTORY, writable: (data) => this.history = writable({ ...historyDefaults, ...deepClone(data) }) },
-      { key: caches.NOTIFICATIONS, writable: (data) => this.notifications = writable({ ...notifyDefaults, ...deepClone(data) }) },
-      { key: caches.QUERY_NOTIFICATIONS, writable: (data) => this.query_notifications = writable(deepClone(data)) },
-      { key: caches.QUERY_FOLLOWING, writable: (data) => this.query_following = writable(deepClone(data)) },
-      { key: caches.QUERY_RECOMMENDATIONS, writable: (data) => this.query_recommendations = writable(deepClone(data)) },
+      { key: caches.GENERAL, writable: (data) => (this.general = writable({ ...generalDefaults, ...deepClone(data) })) },
+      { key: caches.USER_LISTS, writable: (data) => (this.user_lists = writable(deepClone(data))) },
+      { key: caches.HISTORY, writable: (data) => (this.history = writable({ ...historyDefaults, ...deepClone(data) })) },
+      { key: caches.NOTIFICATIONS, writable: (data) => (this.notifications = writable({ ...notifyDefaults, ...deepClone(data) })) },
+      { key: caches.QUERY_NOTIFICATIONS, writable: (data) => (this.query_notifications = writable(deepClone(data))) },
+      { key: caches.QUERY_FOLLOWING, writable: (data) => (this.query_following = writable(deepClone(data))) },
+      { key: caches.QUERY_RECOMMENDATIONS, writable: (data) => (this.query_recommendations = writable(deepClone(data))) },
       // SHARED DB
-      { key: caches.MEDIA_CACHE, writable: (data) => mediaCache = writable(deepClone(data)) },
-      { key: caches.EXTENSIONS, writable: (data) => this.extensions = writable({ ...extensionDefaults, ...deepClone(data) }) },
-      { key: caches.QUERY_MAPPINGS, writable: (data) => this.query_mappings = writable(deepClone(data)) },
-      { key: caches.QUERY_COMPOUND, writable: (data) => this.query_compound = writable(deepClone(data)) },
-      { key: caches.QUERY_EPISODES, writable: (data) => this.query_episodes = writable(deepClone(data)) },
-      { key: caches.QUERY_SEARCH_IDS, writable: (data) => this.query_search_ids = writable(deepClone(data)) },
-      { key: caches.QUERY_SEARCH, writable: (data) => this.query_search = writable(deepClone(data)) },
-      { key: caches.QUERY_RSS, writable: (data) => this.query_rss = writable(deepClone(data)) }
+      { key: caches.MEDIA_CACHE, writable: (data) => (mediaCache = writable(deepClone(data))) },
+      { key: caches.EXTENSIONS, writable: (data) => (this.extensions = writable({ ...extensionDefaults, ...deepClone(data) })) },
+      { key: caches.QUERY_MAPPINGS, writable: (data) => (this.query_mappings = writable(deepClone(data))) },
+      { key: caches.QUERY_COMPOUND, writable: (data) => (this.query_compound = writable(deepClone(data))) },
+      { key: caches.QUERY_EPISODES, writable: (data) => (this.query_episodes = writable(deepClone(data))) },
+      { key: caches.QUERY_SEARCH_IDS, writable: (data) => (this.query_search_ids = writable(deepClone(data))) },
+      { key: caches.QUERY_SEARCH, writable: (data) => (this.query_search = writable(deepClone(data))) },
+      { key: caches.QUERY_RSS, writable: (data) => (this.query_rss = writable(deepClone(data))) }
     ]
 
     /**
@@ -867,7 +867,7 @@ class Cache {
    * @param {string} newCacheID The ID of the new cache to which data should be transferred.
    * @returns {Promise<void>} Resolves when the data has been successfully transferred and the old cache purged.
    */
-  async abandon(newCacheID){
+  async abandon(newCacheID) {
     await purge(this.cacheID)
     this.cacheID = newCacheID
     for (const value of [[caches.GENERAL, this.general.value], [caches.NOTIFICATIONS, this.notifications.value], [caches.HISTORY, this.history.value]]) {
@@ -1463,7 +1463,7 @@ async function UPGRADE_V1_TO_V2(database, versionTx) {
 }
 
 /** @type {Cache} */
-export let cache = new Cache()
+export const cache = new Cache()
 
 /**
  * Ensures that the cache system has finished initializing before use.

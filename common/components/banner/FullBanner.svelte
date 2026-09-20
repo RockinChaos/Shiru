@@ -12,17 +12,19 @@
   import Helper from '@/modules/providers/helper.js'
   import { Play, Heart } from 'lucide-svelte'
   import { modal } from '@/modules/navigation.js'
+  import { writable } from 'simple-store-svelte'
   import { onDestroy } from 'svelte'
 
   export let mediaList
 
+  const current = writable(mediaList[0])
   let currentStatic = mediaList[0]
-  $: current = fromCache($mediaCache, current) ?? mediaList[0]
-  $: if (current !== currentStatic) currentStatic = current
+  $: current.set(fromCache($mediaCache, $current) ?? mediaList[0])
+  $: if ($current !== currentStatic) currentStatic = $current
   $: hasSpoiler = $settings.spoilerStatus.includes(currentStatic?.mediaListEntry?.status ?? 'NOTONLIST')
 
   function toggleFavourite () {
-    current.isFavourite = anilistClient.favourite({ id: current.id, isFavourite: !current.isFavourite })
+    $current.isFavourite = anilistClient.favourite({ id: $current.id, isFavourite: !$current.isFavourite })
   }
 
   function currentIndex () {
@@ -32,17 +34,17 @@
   let timeout = schedule(currentIndex() + 1)
   function schedule (index) {
     return setTimeout(() => {
-      current = mediaCache.value[mediaList[index % mediaList.length]?.id] || mediaList[index % mediaList.length]
-      currentStatic = current
+      current.set(mediaCache.value[mediaList[index % mediaList.length]?.id] || mediaList[index % mediaList.length])
+      currentStatic = $current
       timeout = schedule(index + 1)
-    }, 15000)
+    }, 15_000)
   }
 
   function setCurrent (media) {
-    if (current?.id === media?.id) return
+    if ($current?.id === media?.id) return
     clearTimeout(timeout)
-    current = mediaCache.value[media?.id] || media
-    currentStatic = current
+    current.set(mediaCache.value[media?.id] || media)
+    currentStatic = $current
     timeout = schedule(currentIndex() + 1)
   }
 
@@ -74,8 +76,8 @@
     </span>
     {#if currentStatic.episodes && currentStatic.episodes !== 1}
       <span class='text-nowrap d-flex align-items-center'>
-        {#if current.mediaListEntry?.status === 'CURRENT' && current.mediaListEntry?.progress }
-          {current.mediaListEntry.progress} / {currentStatic.episodes} Episodes
+        {#if $current.mediaListEntry?.status === 'CURRENT' && $current.mediaListEntry?.progress }
+          {$current.mediaListEntry.progress} / {currentStatic.episodes} Episodes
         {:else}
           {currentStatic.episodes} Episodes
         {/if}
@@ -107,33 +109,33 @@
     </div>
   </div>
   <div class='details text-white text-capitalize pt-15 pb-10 d-flex w-600 mw-full cursor-default'>
-    {#each currentStatic.genres as genre}
+    {#each currentStatic.genres as genre, genreIndex (genreIndex)}
       <span class='text-nowrap d-flex align-items-center'>
         {genre}
       </span>
     {/each}
   </div>
   <div class='d-flex flex-row pb-10 w-600 mw-full cursor-default'>
-    <button class='btn bg-dark-light px-20 shadow-none border-0 d-flex align-items-center justify-content-center' title='Watch' use:click={() => playMedia(currentStatic)}>
+    <button type='button' class='btn bg-dark-light px-20 shadow-none border-0 d-flex align-items-center justify-content-center' title='Watch' use:click={() => playMedia(currentStatic)}>
       <Play class='mr-10' size='1.7rem' />
-      <span>{current.mediaListEntry?.progress ? current.mediaListEntry?.status === 'COMPLETED' ? 'Rewatch Now' : 'Continue Now' : 'Watch Now'}</span>
+      <span>{$current.mediaListEntry?.progress ? $current.mediaListEntry?.status === 'COMPLETED' ? 'Rewatch Now' : 'Continue Now' : 'Watch Now'}</span>
     </button>
-    <button class='btn bg-dark-light ml-10 px-20 shadow-none border-0 d-flex align-items-center justify-content-center' title='View Details' use:click={() => modal.open(modal.ANIME_DETAILS, current)}>
+    <button type='button' class='btn bg-dark-light ml-10 px-20 shadow-none border-0 d-flex align-items-center justify-content-center' title='View Details' use:click={() => modal.open(modal.ANIME_DETAILS, $current)}>
       <span>View Details</span>
     </button>
     {#if Helper.isAuthorized()}
-      <Scoring media={current} />
+      <Scoring media={$current} />
     {/if}
     {#if Helper.isAniAuth()}
-      <button class='btn bg-dark-light btn-square ml-10 d-flex align-items-center justify-content-center shadow-none border-0' data-toggle='tooltip' data-placement='top' data-target-breakpoint='md' data-title={current.isFavourite ? 'Unfavourite' : 'Favourite'} use:click={toggleFavourite} disabled={!Helper.isAniAuth()}>
+      <button type='button' class='btn bg-dark-light btn-square ml-10 d-flex align-items-center justify-content-center shadow-none border-0' data-toggle='tooltip' data-placement='top' data-target-breakpoint='md' data-title={$current.isFavourite ? 'Unfavourite' : 'Favourite'} use:click={toggleFavourite} disabled={!Helper.isAniAuth()}>
         <div class='favourite d-flex align-items-center justify-content-center'>
-          <Heart color={current.isFavourite ? 'var(--tertiary-color)' : 'currentColor'} fill={current.isFavourite ? 'var(--tertiary-color)' : 'transparent'} size='1.7rem' />
+          <Heart color={$current.isFavourite ? 'var(--tertiary-color)' : 'currentColor'} fill={$current.isFavourite ? 'var(--tertiary-color)' : 'transparent'} size='1.7rem' />
         </div>
       </button>
     {/if}
   </div>
   <div class='d-flex'>
-    {#each mediaList as media}
+    {#each mediaList as media (media.id)}
       {@const active = (currentStatic?.id === media?.id)}
       {@const disabled = active || null}
       <div class='pt-10 pb-10 badge-wrapper' aria-hidden='true' {disabled} class:pointer={!active} class:cursor-default={active} use:click={() => setCurrent(media)}>

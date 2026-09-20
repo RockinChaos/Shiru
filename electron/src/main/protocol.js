@@ -1,6 +1,5 @@
 import { app, net, protocol, shell, ipcMain } from 'electron'
 import { readFile } from 'fs/promises'
-import { development } from './util.js'
 import path from 'path'
 
 if (process.defaultApp) {

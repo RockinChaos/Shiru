@@ -19,8 +19,8 @@ export function getInteractionMethod() {
   return lastInteractionMethod
 }
 
-document.addEventListener('mousedown', () => lastInteractionMethod = 'mouse')
-document.addEventListener('touchstart', () => lastInteractionMethod = 'touch', { passive: true })
+document.addEventListener('mousedown', () => (lastInteractionMethod = 'mouse'))
+document.addEventListener('touchstart', () => (lastInteractionMethod = 'touch'), { passive: true })
 document.addEventListener('pointerdown', (e) => {
   if (e.pointerType !== 'touch' || !lastTapCurrent || !e.target || lastTapCurrent.contains(e.target)) return
   const tappedElement = lastTapElement
@@ -222,7 +222,6 @@ export function focus(node, focusUpdate = noop) {
  * @param {Function} [hoverUpdate=noop] - The callback function to be executed on hover.
  */
 export function hover(node, hoverUpdate = noop) {
-  let pointerType = 'touch'
   if (!node.hasAttribute('tabindex')) node.tabIndex = 0
   node.role = 'button'
   node.addEventListener('pointerenter', e => {
@@ -234,7 +233,6 @@ export function hover(node, hoverUpdate = noop) {
       hoverUpdate(true)
       lastHoverElement = hoverUpdate
       lastTapCurrent = e.currentTarget
-      pointerType = e.pointerType
     }
   })
   node.addEventListener('keydown', e => {
@@ -402,7 +400,7 @@ export function drag(node, dp = noop) {
 export function dragScroll(node) {
   let dragging = false
   let activePointer = null
-  let threshold = 50
+  const threshold = 50
   let dragged = false
   let draggedX = 0
   let draggedY = 0
@@ -424,8 +422,8 @@ export function dragScroll(node) {
     }
     dragging = false
   }, opts)
-  node.addEventListener('mouseleave', () => dragging = false, opts)
-  node.addEventListener('pointerdown', e => activePointer = e.pointerId, opts)
+  node.addEventListener('mouseleave', () => (dragging = false), opts)
+  node.addEventListener('pointerdown', e => (activePointer = e.pointerId), opts)
   node.addEventListener('mouseup', () => {
     if (dragging && activePointer) {
       node.style.removeProperty('cursor')
@@ -437,7 +435,7 @@ export function dragScroll(node) {
     if (dragging && dragged) {
       suppressClick = true
       e.stopPropagation()
-      setTimeout(() => suppressClick = false).unref?.()
+      setTimeout(() => (suppressClick = false)).unref?.()
     }
     if (dragging && activePointer) {
       node.style.removeProperty('cursor')

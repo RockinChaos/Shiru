@@ -1,5 +1,5 @@
 import { codes, DOMPARSER, getRandomInt, countdown, sleep, isValidNumber } from '@/modules/util.js'
-import { printError } from '@/modules/networking.js'
+import { printError, status } from '@/modules/networking.js'
 import { anilistClient } from '@/modules/providers/anilist/anilist.js'
 import { toast } from '@/modules/lib/toast.js'
 import _anitomyscript from 'anitomyscript'
@@ -12,7 +12,6 @@ import AnimeResolver from '@/modules/anime/animeresolver.js'
 import { settings } from '@/modules/settings.js'
 import { cache, caches, mediaCache } from '@/modules/cache.js'
 import { COMMON, ELECTRON } from '@/modules/bridge.js'
-import { status } from '@/modules/networking.js'
 import { derived } from 'simple-store-svelte'
 import Helper from '@/modules/providers/helper.js'
 import Bottleneck from 'bottleneck'
@@ -107,8 +106,7 @@ export async function traceAnime (image) { // WAIT lookup logic
       clearNext: true,
       load: (page = 1, perPage = 50, variables = {}) => {
         const res = anilistClient.searchIDS({ page, perPage, id: ids, ...SectionsManager.sanitiseObject(variables) }).then(async res => {
-          for (const index in res.data?.Page?.media) {
-            const media = res.data.Page.media[index]
+          for (const [index, media] of (res.data?.Page?.media || []).entries()) {
             const counterpart = result.find(({ anilist }) => anilist === media.id)
             const metadata = (await getEpisodeMetadataForMedia(media))?.[counterpart.episode] || {}
             res.data.Page.media[index] = {
@@ -204,7 +202,7 @@ export async function getChaptersAniSkip (file, duration) {
 export function getMediaMaxEp (media, playable) {
   if (!media) return 0
   else if (playable) return media.nextAiringEpisode?.episode - 1 || lastAired(media.airingSchedule?.nodes)?.episode || (media.status === 'NOT_YET_RELEASED' ? 0 : media.episodes) || (media.status === 'RELEASING' ? (media.mediaListEntry?.progress ?? 1) : 0)
-  else return Math.max(media.airingSchedule?.nodes?.[media.airingSchedule?.nodes?.length - 1]?.episode || 0, media.airingSchedule?.nodes?.length || 0, (!media.streamingEpisodes || (media.status === 'FINISHED' && media.episodes) ? 0 : media.streamingEpisodes?.filter((ep) => { const match = (/Episode (\d+(\.\d+)?) - /).exec(ep.title); return match ? Number.isInteger(parseFloat(match[1])) : false}).length), media.episodes || 0, media.nextAiringEpisode?.episode || 0) || (media.status === 'RELEASING' ? (media.mediaListEntry?.progress ?? 1) : 0)
+  else return Math.max(media.airingSchedule?.nodes?.[media.airingSchedule?.nodes?.length - 1]?.episode || 0, media.airingSchedule?.nodes?.length || 0, (!media.streamingEpisodes || (media.status === 'FINISHED' && media.episodes) ? 0 : media.streamingEpisodes?.filter((ep) => { const match = (/Episode (\d+(\.\d+)?) - /).exec(ep.title); return match ? Number.isInteger(parseFloat(match[1])) : false }).length), media.episodes || 0, media.nextAiringEpisode?.episode || 0) || (media.status === 'RELEASING' ? (media.mediaListEntry?.progress ?? 1) : 0)
 }
 
 // utility method for correcting anitomyscript woes for what's needed
@@ -267,7 +265,7 @@ function addAnimeType(obj, newType) {
 export async function hasZeroEpisode(media, existingMappings) { // really wish they could make fetching zero episodes less painful.
   if (!media) return null
   const mappings = existingMappings || (await getAniMappings(media)) || {}
-  const hasZeroEpisode = media.streamingEpisodes?.filter((ep) => { const match = (/Episode (\d+(\.\d+)?) - /).exec(ep.title); return match ? Number.isInteger(parseFloat(match[1])) && Number(parseFloat(match[1])) === 0 : false})
+  const hasZeroEpisode = media.streamingEpisodes?.filter((ep) => { const match = (/Episode (\d+(\.\d+)?) - /).exec(ep.title); return match ? Number.isInteger(parseFloat(match[1])) && Number(parseFloat(match[1])) === 0 : false })
   const zeroAsFirstEpisode = /episode\s*0/i.test(mappings?.episodes?.[1]?.title?.en || mappings?.episodes?.[1]?.title?.jp) // The first episode is titled as Episode 0 so this is likely a Prologue, fixes issues with series like `Fate/stay night: Unlimited Blade Works`
   // no clue what fixed Mushoku but this initial part seems to allow 'Episode 0 : Guardian Fits' to properly be mapped to season 2 part 1, ensure when making changes this doesn't appear on season 1 part 1.
   if (hasZeroEpisode?.length > 0 && ((media.episodes >= media.streamingEpisodes?.length) || zeroAsFirstEpisode)) {
@@ -807,7 +805,6 @@ export async function playMedia (media) {
     }
   }
   playAnime(media, ep)
-  media = null
 }
 
 export function setStatus (status, other = {}, media) {

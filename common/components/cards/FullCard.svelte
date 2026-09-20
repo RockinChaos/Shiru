@@ -6,14 +6,15 @@
   import AudioLabel from '@/components/AudioLabel.svelte'
   import { anilistClient, currentYear } from '@/modules/providers/anilist/anilist.js'
   import { baseFontSize, resizeObserver } from '@/modules/util.js'
-  import { settings } from '@/modules/settings.js'
   import { mediaCache, fromCache } from '@/modules/cache.js'
+  import { settings } from '@/modules/settings.js'
   import { modal } from '@/modules/navigation.js'
+  import { writable } from 'simple-store-svelte'
 
   /** @type {import('@/modules/providers/anilist/al.d.ts').Media} */
   export let data
   export let variables = null
-  let _variables = variables
+  const _variables = variables
 
   let media
   $: media = fromCache($mediaCache, media ?? mediaCache.value[data?.id])
@@ -36,20 +37,23 @@
   })
 
   let airingInterval
-  let _airingAt = null
-  $: airingInfo = getAiringInfo(_airingAt)
+  const airingInfo = writable(null)
   onMount(() => {
-    _airingAt = media && _variables?.scheduleList && airingAt(media, _variables)
-    if (_variables?.scheduleList) airingInterval = setInterval(() => airingInfo = getAiringInfo(_airingAt), 60_000)
+    const _airingAt = media && _variables?.scheduleList && airingAt(media, _variables)
+    if (_airingAt) {
+      airingInfo.set(getAiringInfo(_airingAt))
+      airingInterval = setInterval(() => (airingInfo.set(getAiringInfo(_airingAt))), 60_000)
+      airingInterval.unref?.()
+    }
   })
   onDestroy(() => clearTimeout(airingInterval))
 </script>
 
 <div class='d-flex px-md-20 px-sm-10 px-5 py-10 position-relative justify-content-center full-card-ct' use:click={viewMedia}>
-  <div class='card load-in m-0 p-0 pointer full-card rounded' class:airing={airingInfo?.episode.match(/out for/i)} style:--color={media.coverImage?.color || 'var(--tertiary-color)'}>
+  <div class='card load-in m-0 p-0 pointer full-card rounded' class:airing={$airingInfo?.episode?.match(/out for/i)} style:--color={media.coverImage?.color || 'var(--tertiary-color)'}>
     <div class='row h-full'>
       <div use:trackWidth class='img-col d-inline-block position-relative col-3 col-md-4'>
-        <span class='airing-badge rounded-10 font-weight-semi-bold text-light bg-success' class:d-none={!airingInfo?.episode?.match(/out for/i)}>AIRING</span>
+        <span class='airing-badge rounded-10 font-weight-semi-bold text-light bg-success' class:d-none={!$airingInfo?.episode?.match(/out for/i)}>AIRING</span>
         <SmartImage class='cover-img w-full h-270' color={media.coverImage?.color || 'var(--tertiary-color)'} images={[media.coverImage.extraLarge, media.coverImage?.medium, './no_image_cover.jpg']}/>
         {#if !_variables?.scheduleList}
           <AudioLabel {media} style='transform: scaleY(-1) scale({scale}) !important; transform-origin: right !important; width: {100 / scale}% !important; bottom: {.4 * scale}rem !important;' />
@@ -101,11 +105,11 @@
               {/if}
             {/if}
           </div>
-          {#if airingInfo}
+          {#if $airingInfo}
             <div class='d-flex align-items-center pt-5 text-white'>
-              {airingInfo.episode}&nbsp;
-              <span class='font-weight-bold {airingInfo.episode.match(/out for/i) ? `text-success` : `text-light`} d-inline'>
-                  {airingInfo.time}
+              {$airingInfo.episode}&nbsp;
+              <span class='font-weight-bold {$airingInfo.episode.match(/out for/i) ? `text-success` : `text-light`} d-inline'>
+                  {$airingInfo.time}
               </span>
             </div>
           {/if}
@@ -117,7 +121,7 @@
         {/if}
         {#if media.genres.length}
           <div class='px-15 pb-5 genres bg-very-dark'>
-            {#each media.genres.slice(0, 3) as genre}
+            {#each media.genres.slice(0, 3) as genre, genreIndex (genreIndex)}
               <span class='badge badge-color text-dark mt-5 mr-5 font-weight-bold'>{genre}</span>
             {/each}
           </div>
@@ -153,6 +157,7 @@
   }
   .title {
     display: -webkit-box !important;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     line-height: 1.2;

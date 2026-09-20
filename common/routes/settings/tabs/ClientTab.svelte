@@ -34,7 +34,7 @@
           duration: 5_000
         })
       }
-      else if (SUPPORTS.isAndroid) requestFileAccess(path, () => settings.torrentPathNew = path)
+      else if (SUPPORTS.isAndroid) requestFileAccess(path, () => (settings.torrentPathNew = path))
       else settings.torrentPathNew = path
     })
   }
@@ -60,7 +60,7 @@
       <button type='button' use:click={setTorrentPath} class='btn btn-primary input-group-append d-flex align-items-center justify-content-center' title='Select a folder to store the torrents'><span>Select Folder</span></button>
     </div>
     {#if !SUPPORTS.isAndroid}
-      <input type='url' class='form-control bg-dark mw-100 text-truncate' readonly bind:value={settings.torrentPathNew} placeholder={(!!COMMON.getPlatformInfo().flatpak) ? '~/.var/app/com.github.rockinchaos.shiru/cache/webtorrent' : '/tmp'} />
+      <input type='url' class='form-control bg-dark mw-100 text-truncate' readonly bind:value={settings.torrentPathNew} placeholder={(COMMON.getPlatformInfo().flatpak) ? '~/.var/app/com.github.rockinchaos.shiru/cache/webtorrent' : '/tmp'} />
     {:else}
       <input type='text' class='form-control bg-dark mw-100 text-truncate' bind:value={settings.torrentPathNew} disabled={true} placeholder='/tmp' />
     {/if}
@@ -92,7 +92,7 @@
 <SettingCard title='Max Number of Connections' description='Number of peers per torrent. Higher values will increase download speeds but might quickly fill up available ports if your ISP limits the maximum allowed number of open connections.'>
   <ClampedNumber bind:bindTo={settings.maxConns} min={1} max={512} class='form-control text-right bg-dark mw-100 w-100 mw-full'/>
 </SettingCard>
-<SettingCard title='Seeding Limit' description={'The maximum number of torrents that can be seeded at the same time. The minimum is 1 as you will always be seeding at least one torrent (the currently loaded torrent). When the seeding limit is reached, the highest ratio torrent will be completed. Raising the seeding limit may increase memory usage, which can slow down or destabilize older systems or devices with limited resources.'}>
+<SettingCard title='Seeding Limit' description='The maximum number of torrents that can be seeded at the same time. The minimum is 1 as you will always be seeding at least one torrent (the currently loaded torrent). When the seeding limit is reached, the highest ratio torrent will be completed. Raising the seeding limit may increase memory usage, which can slow down or destabilize older systems or devices with limited resources.'>
   <ClampedNumber bind:bindTo={settings.seedingLimit} min={1} max={SUPPORTS.maxSeeding} class='form-control text-right bg-dark mw-100 w-100 mw-full'/>
 </SettingCard>
 <SettingCard title='Torrent Port' description='Port used for Torrent connections. 0 is automatic.'>
@@ -126,7 +126,7 @@
   </div>
 </SettingCard>
 {#if configTrackers()}
-  <SettingCard title='Custom Trackers' description={'Configure tracker servers used for peer discovery and coordination of peer-to-peer connections for faster downloads. Enter one tracker URL per line (udp://, http://, https://, ws:// or wss://).\n\nChanges immediately apply to new torrents but a restart will be required for changes to take effect for existing torrents.'}>
+  <SettingCard title='Custom Trackers' description={'Configure tracker servers used for peer discovery and coordination of peer-to-peer connections for faster downloads. Enter one tracker URL per line (udp://, http://, https://, ws:// or wss://).' + '\n\n' + 'Changes immediately apply to new torrents but a restart will be required for changes to take effect for existing torrents.'}>
     <div class='d-flex flex-column'>
         <span class='text-muted font-weight-semi-bold align-self-center'>
           {settings.trackers.length} Tracker{settings.trackers.length === 1 ? '' : 's'}

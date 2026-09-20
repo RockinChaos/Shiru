@@ -31,8 +31,6 @@
   let thumbnail = ''
   /** @type {number} Monotonically incrementing counter used to invalidate stale thumbnail fetch requests. */
   let thumbnailRequestId = 1
-  /** @type {boolean} Whether a thumbnail fetch is in flight. */
-  let thumbnailPending = false
   /** @type {import('svelte').EventDispatcher<{ seeking: number, seeked: number }>} */
   const dispatch = createEventDispatcher()
 
@@ -70,14 +68,11 @@
   async function fetchThumbnail(seekAtRequest) {
     const requestId = ++thumbnailRequestId
     thumbnail = ''
-    thumbnailPending = true
     try {
       const result = await getThumbnail(seekAtRequest)
       if (requestId === thumbnailRequestId) thumbnail = result || ''
     } catch (_) {
       if (requestId === thumbnailRequestId) thumbnail = ''
-    } finally {
-      if (requestId === thumbnailRequestId) thumbnailPending = false
     }
   }
 

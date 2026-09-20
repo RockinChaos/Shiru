@@ -23,18 +23,18 @@
     const { dubLists } = malDubs
     const { dubAiredLists, dubAiring } = animeSchedule
 
-    let isDubbed = writable(false)
-    let isPartial = writable(false)
+    const isDubbed = writable(false)
+    const isPartial = writable(false)
 
-    $: dubEpisodes = null
+    let dubEpisodes = null
     $: getDubEpisodes($dubAiredLists, media?.id)
     async function getDubEpisodes(dubAiredLists, _) {
-      if (banner) return
-      const aired = await dubAiredLists
-      const airing = dubAiring.value?.find(entry => entry.unaired && entry.media?.media?.id === media.id)
-      const airedEpisodes = aired?.filter(ep => ep.id === media.id)?.map(ep => ep.episode.aired) || []
-      const episodes = String((($isDubbed || $isPartial) && airedEpisodes.length > 0 && airedEpisodes.length) || (aired?.find(entry => entry.media?.media?.id === media.id)?.episodeNumber && '0') || (!$isPartial && media.status !== 'RELEASING' && media.status !== 'NOT_YET_RELEASED' && Number(media.seasonYear || 0) < 2025 && !airing && getMediaMaxEp(media)) || '')
-      if (dubEpisodes !== episodes) dubEpisodes = episodes
+        if (banner) return
+        const aired = await dubAiredLists
+        const airing = dubAiring.value?.find(entry => entry.unaired && entry.media?.media?.id === media.id)
+        const airedEpisodes = aired?.filter(ep => ep.id === media.id)?.map(ep => ep.episode.aired) || []
+        const episodes = String((($isDubbed || $isPartial) && airedEpisodes.length > 0 && airedEpisodes.length) || (aired?.find(entry => entry.media?.media?.id === media.id)?.episodeNumber && '0') || (!$isPartial && media.status !== 'RELEASING' && media.status !== 'NOT_YET_RELEASED' && Number(media.seasonYear || 0) < 2025 && !airing && getMediaMaxEp(media)) || '')
+        if (dubEpisodes !== episodes) dubEpisodes = episodes
     }
 
     $: setLabel($dubLists, media?.id)
@@ -52,7 +52,7 @@
         const items = Array.from(node.querySelectorAll('.audio-label'))
         if (!items.length) return
         items.forEach(i => i.classList.remove('first-audio'))
-        let rows = {}
+        const rows = {}
         items.forEach(item => {
             const top = item.offsetTop
             if (!rows[top]) rows[top] = []
@@ -112,29 +112,29 @@
     {/if}
 {/if}
 
- <style>
-     .w-icon {
-         margin-right: -2rem;
-     }
-     .w-text {
-         margin-right: -1.3rem;
-     }
-     .ml-2 {
-         margin-left: 0.2rem;
-     }
-     .ml-3 {
-         margin-left: 0.3rem;
-     }
-     .mrl-1 {
-         margin-right: -.3rem;
-     }
-     .mrl-2 {
-         margin-right: -1.3rem;
-     }
-     .slant {
-         clip-path: polygon(15% -1px, 100% 0, 100% 100%, 0% calc(100% + 1px));
-     }
-     .lg-slant {
-         clip-path: polygon(21% -1px, 100% 0, 100% 100%, 0% calc(100% + 1px));
-     }
- </style>
+<style>
+    .w-icon {
+        margin-right: -2rem;
+    }
+    .w-text {
+        margin-right: -1.3rem;
+    }
+    .ml-2 {
+        margin-left: 0.2rem;
+    }
+    .ml-3 {
+        margin-left: 0.3rem;
+    }
+    .mrl-1 {
+        margin-right: -.3rem;
+    }
+    .mrl-2 {
+        margin-right: -1.3rem;
+    }
+    .slant {
+        clip-path: polygon(15% -1px, 100% 0, 100% 100%, 0% calc(100% + 1px));
+    }
+    .lg-slant {
+        clip-path: polygon(21% -1px, 100% 0, 100% 100%, 0% calc(100% + 1px));
+    }
+</style>

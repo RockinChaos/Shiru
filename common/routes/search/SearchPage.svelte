@@ -2,11 +2,10 @@
   import SearchBar, { searchCleanup } from '@/routes/search/components/SearchBar.svelte'
   import { debounce, resizeObserver, mutationObserver } from '@/modules/util.js'
   import Card from '@/components/cards/Card.svelte'
-  import { hasNextPage } from '@/modules/sections.js'
+  import SectionsManager, { hasNextPage } from '@/modules/sections.js'
   import { status } from '@/modules/networking.js'
   import { onDestroy, onMount, tick } from 'svelte'
   import { writable } from 'simple-store-svelte'
-  import SectionsManager from '@/modules/sections.js'
   import ErrorCard from '@/components/cards/ErrorCard.svelte'
 
   /** @type {any} Reactive key, changing this triggers a fresh search */
@@ -85,6 +84,13 @@
     $items = [...$items, ...nextData]
     return nextData[nextData.length - 1].data
   }
+  /**
+   * Determines if more pages should be loaded based on scroll position and search key
+   * @param {HTMLElement} scrollContainer The scrollable container element
+   * @param {any} cachedKey The search key at the time of the last load
+   * @returns {boolean} Whether more pages should be loaded
+   */
+  const shouldLoadMore = (scrollContainer, cachedKey) => $hasNextPage && scrollContainer && cachedKey === $key && scrollContainer.scrollTop + scrollContainer.clientHeight > scrollContainer.scrollHeight - scrollThreshold
   /** Debounced handler for search input, triggers a fresh load by resetting the key */
   const update = debounce((event) => {
     if (!event.target.classList.contains('no-bubbles')) {
@@ -106,7 +112,7 @@
     try {
       await loadSearchData()
       await tick()
-      while ($hasNextPage && container && cachedKey === $key && container.scrollTop + container.clientHeight > container.scrollHeight - scrollThreshold) {
+      while (shouldLoadMore(container, cachedKey)) {
         await loadSearchData()
         await tick()
       }
@@ -129,7 +135,7 @@
       try {
         await loadSearchData()
         await tick()
-        while ($hasNextPage && scrollContainer && cachedKey === $key && scrollContainer.scrollTop + scrollContainer.clientHeight > scrollContainer.scrollHeight - scrollThreshold) {
+        while (shouldLoadMore(scrollContainer, cachedKey)) {
           await loadSearchData()
           await tick()
         }
@@ -163,7 +169,7 @@
   <SearchBar bind:search={$search} clearNow={$clearNow} on:input={update} />
   <div bind:this={keyContainer} class='w-full d-grid d-md-flex flex-wrap flex-row px-20 px-md-40 justify-content-center align-content-start pt-10'>
     {#key $key}
-      {#each $items as card}
+      {#each $items as card, cardIndex (cardIndex)}
         <Card {card} variables={{...$search}} />
       {/each}
       {#if $items?.length}

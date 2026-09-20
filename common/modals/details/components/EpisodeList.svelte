@@ -81,7 +81,7 @@
   $: animeProgress = liveAnimeProgress(id)
 
   let loadScroll = false
-  let maxEpisodes = 15
+  const maxEpisodes = 15
   let currentEpisodes = []
 
   function lazyPromise(loader) {
@@ -226,7 +226,9 @@
     if (cancelled()) return null
     if (zeroEpisode && result.length === alEpisodes.length) result = result.slice(0, -1)
     if (media?.bannerImage && result?.some(episode => episode?.image)) result = result.map(episode => episode?.image ? episode : { ...episode, image: media?.bannerImage })
+    // eslint-disable-next-line svelte/infinite-reactive-loop
     currentEpisodes = result?.slice(0, maxEpisodes)
+    // eslint-disable-next-line svelte/infinite-reactive-loop
     episodeList = result
     return result?.length > 0 ? result : null
   }
@@ -237,6 +239,7 @@
     currentEpisodes = []
     mobileWaiting = null
     loadScroll = false
+    // eslint-disable-next-line svelte/infinite-reactive-loop
     if (!mobileList) episodeLoad = load()
   }
 
@@ -282,16 +285,16 @@
 
 <div bind:this={container} class='episode-list overflow-y-auto overflow-x-hidden {$$restProps.class}' on:scroll={handleScroll}>
   {#await (episodeLoad || mobileWait(() => episodeList?.length > 0 || !episodeList)?.then(() => episodeList))}
-    {#each Array.from({ length: media?.status !== 'NOT_YET_RELEASED' ? Math.max(Math.min(episodeCount || 0, maxEpisodes), 1) : 1 }) as _}
+    {#each Array.from({ length: media?.status !== 'NOT_YET_RELEASED' ? Math.max(Math.min(episodeCount || 0, maxEpisodes), 1) : 1 }) as _, episodeIndex (episodeIndex)}
       <div class='w-full px-20 my-20 content-visibility-auto scale h-150' class:h-165={SUPPORTS.isAndroid}>
         <EpisodeListSk />
       </div>
     {/each}
   {:then _}
     {#if episodeList}
-      {#each currentEpisodes as { zeroEpisode, episode, image, summary, rating, title, length, airdate, filler, dubAiring}, index}
+      {#each currentEpisodes as { zeroEpisode, episode, image, summary, rating, title, length, airdate, filler, dubAiring}, index (index)}
         {#await Promise.all([title, filler, dubAiring, currentEpisodes[episodeOrder ? index - 1 : index + 1]?.dubAiring])}
-          {#each Array.from({length: Math.min(episodeCount || 0, maxEpisodes)}) as _, index}
+          {#each Array.from({length: Math.min(episodeCount || 0, maxEpisodes)}) as _, index (index)}
             <div class='w-full px-20 content-visibility-auto scale h-150' class:h-165={SUPPORTS.isAndroid} class:my-20={!mobileList || index !== 0}>
               <EpisodeListSk/>
             </div>
@@ -318,7 +321,7 @@
                     {#if resolvedHash}
                       <div class='position-relative torrent-button-container'>
                         <div class='position-absolute top-0 right-0 text-danger icon-padding icon-shadow'>
-                          <TorrentButton class='btn btn-square btn-highlight shadow-none bg-transparent bd-highlight h-40 w-40' hash={[resolvedHash]} search={{ media, episode }} size={'3rem'} strokeWidth={'2.3'}/>
+                          <TorrentButton class='btn btn-square btn-highlight shadow-none bg-transparent bd-highlight h-40 w-40' hash={[resolvedHash]} search={{ media, episode }} size='3rem' strokeWidth='2.3'/>
                         </div>
                       </div>
                     {/if}
@@ -336,7 +339,7 @@
                 {/if}
                 {#if !image && resolvedHash}
                   <div class='position-absolute bottom-0 right-0 mr-5 mb-5 text-danger icon-shadow torrent-button-container' class:mb-30={hasFiller}>
-                    <TorrentButton class='btn btn-square shadow-none bg-transparent bd-highlight h-40 w-40' hash={[resolvedHash]} search={{ media, episode }} size={'3rem'} strokeWidth={'2.3'}/>
+                    <TorrentButton class='btn btn-square shadow-none bg-transparent bd-highlight h-40 w-40' hash={[resolvedHash]} search={{ media, episode }} size='3rem' strokeWidth='2.3'/>
                   </div>
                 {/if}
                 <div class='h-full w-full px-20 pt-15 d-flex flex-column'>
@@ -438,6 +441,7 @@
   }
   .title {
     display: -webkit-box !important;
+    line-clamp: 1;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     word-break: break-all;
@@ -476,9 +480,11 @@
   }
   @media (max-width: 576px) {
     .line-sm-3 {
+      line-clamp: 3 !important;
       -webkit-line-clamp: 3 !important;
     }
     .line-sm-4 {
+      line-clamp: 4 !important;
       -webkit-line-clamp: 4 !important;
     }
     .episode-card:not(.smallCard) {

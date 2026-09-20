@@ -7,16 +7,17 @@
   import SmartImage from '@/components/visual/SmartImage.svelte'
   import AudioLabel from '@/components/AudioLabel.svelte'
   import { anilistClient, currentYear } from '@/modules/providers/anilist/anilist.js'
-  import { settings } from '@/modules/settings.js'
-  import { mediaCache, fromCache } from '@/modules/cache.js'
-  import { modal } from '@/modules/navigation.js'
   import { CalendarDays, Tv, ThumbsUp, ThumbsDown } from 'lucide-svelte'
+  import { mediaCache, fromCache } from '@/modules/cache.js'
+  import { settings } from '@/modules/settings.js'
+  import { modal } from '@/modules/navigation.js'
+  import { writable } from 'simple-store-svelte'
 
   /** @type {import('@/modules/providers/anilist/al.d.ts').Media} */
   export let data
   export let type = null
   export let variables = null
-  let _variables = variables
+  const _variables = variables
 
   let media
   $: media = fromCache($mediaCache, media ?? mediaCache.value[data?.id])
@@ -92,13 +93,13 @@
   })
 
   let airingInterval
-  let _airingAt = null
-  $: airingInfo = getAiringInfo(_airingAt)
+  const airingInfo = writable(null)
   onMount(() => {
     container.addEventListener('focusout', handleBlur)
-    _airingAt = media && _variables?.scheduleList && airingAt(media, _variables)
+    const _airingAt = media && _variables?.scheduleList && airingAt(media, _variables)
     if (_airingAt) {
-      airingInterval = setInterval(() => airingInfo = getAiringInfo(_airingAt), 60_000)
+      airingInfo.set(getAiringInfo(_airingAt))
+      airingInterval = setInterval(() => (airingInfo.set(getAiringInfo(_airingAt))), 60_000)
       airingInterval.unref?.()
     }
   })
@@ -114,17 +115,17 @@
   {#if preview}
     <PreviewCard {media} {type} {_variables} bind:element={previewCard}/>
   {/if}
-  <div class='item load-in small-card d-flex flex-column pointer' class:airing={airingInfo?.episode.match(/out for/i)}>
-    {#if airingInfo}
+  <div class='item load-in small-card d-flex flex-column pointer' class:airing={$airingInfo?.episode?.match(/out for/i)}>
+    {#if $airingInfo}
       <div class='w-full text-center pb-10'>
-        {airingInfo.episode}&nbsp;
-        <span class='font-weight-bold {airingInfo.episode.match(/out for/i) ? `text-success` : `text-light`}'>
-            {airingInfo.time}
+        {$airingInfo.episode}&nbsp;
+        <span class='font-weight-bold {$airingInfo.episode.match(/out for/i) ? `text-success` : `text-light`}'>
+            {$airingInfo.time}
         </span>
       </div>
     {/if}
     <div use:trackWidth class='d-inline-block position-relative mb-5'>
-      <span class='airing-badge rounded-10 font-weight-semi-bold text-light bg-success' class:d-none={!airingInfo?.episode?.match(/out for/i)}>AIRING</span>
+      <span class='airing-badge rounded-10 font-weight-semi-bold text-light bg-success' class:d-none={!$airingInfo?.episode?.match(/out for/i)}>AIRING</span>
       <SmartImage class='d-inline-block cover-img cover-ratio w-full h-full rounded' color={media.coverImage?.color || 'var(--tertiary-color)'} images={[media.coverImage.extraLarge, media.coverImage?.medium, './no_image_cover.jpg']}/>
       {#if !_variables?.scheduleList}
         <AudioLabel {media} style='transform: scaleY(-1) scale({scale}) !important; transform-origin: right !important; width: {100 / scale}% !important; bottom: {.4 * scale}rem !important;' />
@@ -189,6 +190,7 @@
   }
   .title {
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     line-height: 1.2;

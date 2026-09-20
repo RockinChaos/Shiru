@@ -53,7 +53,7 @@
   let activeScroll = false
   function scrolling(duration = 1000) {
     activeScroll = true
-    setTimeout(() => activeScroll = false, duration)
+    setTimeout(() => (activeScroll = false), duration)
   }
 
   let scrollContainer
@@ -110,7 +110,7 @@
   <div class='pb-10 w-full d-flex flex-row justify-content-start gallery {!opts.isRSS ? `pl-15 pl-sm-10 pl-md-0` : ``}' class:pt-10={!opts.isRSS && $settings.cards === `full`} use:dragScroll use:trackSectionWidth bind:this={scrollContainer}>
     <Card card={($preview || fakecards)[0]} variables={{...opts.variables, section: true}} />
     {#if sectionVisible}
-      {#each ($preview || fakecards).slice(1, visibleLength || previewLength) as card}
+      {#each ($preview || fakecards).slice(1, visibleLength || previewLength) as card, cardIndex (cardIndex)}
         <Card {card} variables={{...opts.variables, section: true}} />
       {/each}
     {/if}

@@ -1,8 +1,7 @@
-import { alToken, malToken, settings, sync, isAuthorized } from '@/modules/settings.js'
+import { alToken, malToken, sync, isAuthorized, profiles } from '@/modules/settings.js'
 import { anilistClient } from '@/modules/providers/anilist/anilist.js'
 import { malClient } from '@/modules/providers/myanimelist/myanimelist.js'
 import { malDubs } from '@/modules/anime/animedubs.js'
-import { profiles } from '@/modules/settings.js'
 import { cache, mediaCache, mapStatus } from '@/modules/cache.js'
 import { getMediaMaxEp, hasZeroEpisode } from '@/modules/anime/anime.js'
 import { resetAnimeProgress } from '@/modules/anime/animeprogress.js'
@@ -24,7 +23,7 @@ export default class Helper {
   }
 
   static sortMap(sort) {
-    switch(sort) {
+    switch (sort) {
       case 'UPDATED_TIME_DESC':
         return 'list_updated_at'
       case 'STARTED_ON_DESC':
@@ -43,7 +42,7 @@ export default class Helper {
   }
 
   static airingMap(status) {
-    switch(status) {
+    switch (status) {
       case 'finished_airing':
         return 'FINISHED'
       case 'currently_airing':
@@ -271,19 +270,17 @@ export default class Helper {
     debug('Getting custom paged media list')
     return (variables.hideSubs ? malDubs.dubLists.value : Promise.resolve()).then(dubLists => {
       const ids = this.isAniAuth() ? mediaList.filter(({ media }) => {
-          if ((!variables.hideSubs || dubLists.dubbed.includes(media.idMal)) &&
-            matchKeys(media, variables.search, ['title.userPreferred', 'title.english', 'title.romaji', 'title.native']) &&
-            (!variables.genre || variables.genre.map(genre => genre.trim().toLowerCase()).every(genre => media.genres.map(genre => genre.trim().toLowerCase()).includes(genre))) &&
-            (!variables.tag || variables.tag.map(tag => tag.trim().toLowerCase()).every(tag => media.tags.map(tag => tag.name.trim().toLowerCase()).includes(tag))) &&
-            (!variables.season || variables.season === media.season) &&
-            (!variables.year || variables.year === media.seasonYear) &&
-            (!variables.format || (Array.isArray(variables.format) && variables.format.includes(media.format)) || variables.format === media.format) &&
-            (!variables.format_not || (Array.isArray(variables.format_not) && !variables.format_not.includes(media.format)) || variables.format_not !== media.format) &&
-            (!variables.status || (typeof variables.status === 'string' && variables.status === media.status) || (Array.isArray(variables.status) && variables.status.includes(media.status))) &&
-            (!variables.status_not || (typeof variables.status_not === 'string' && variables.status_not !== media.status) || (Array.isArray(variables.status_not) && !variables.status_not.includes(media.status))) &&
-            (!variables.continueWatching || (media.status === 'FINISHED' || media.mediaListEntry?.progress < media.nextAiringEpisode?.episode - 1))) {
-            return true
-          }
+           return !!((!variables.hideSubs || dubLists.dubbed.includes(media.idMal)) &&
+             matchKeys(media, variables.search, ['title.userPreferred', 'title.english', 'title.romaji', 'title.native']) &&
+             (!variables.genre || variables.genre.map(genre => genre.trim().toLowerCase()).every(genre => media.genres.map(genre => genre.trim().toLowerCase()).includes(genre))) &&
+             (!variables.tag || variables.tag.map(tag => tag.trim().toLowerCase()).every(tag => media.tags.map(tag => tag.name.trim().toLowerCase()).includes(tag))) &&
+             (!variables.season || variables.season === media.season) &&
+             (!variables.year || variables.year === media.seasonYear) &&
+             (!variables.format || (Array.isArray(variables.format) && variables.format.includes(media.format)) || variables.format === media.format) &&
+             (!variables.format_not || (Array.isArray(variables.format_not) && !variables.format_not.includes(media.format)) || variables.format_not !== media.format) &&
+             (!variables.status || (typeof variables.status === 'string' && variables.status === media.status) || (Array.isArray(variables.status) && variables.status.includes(media.status))) &&
+             (!variables.status_not || (typeof variables.status_not === 'string' && variables.status_not !== media.status) || (Array.isArray(variables.status_not) && !variables.status_not.includes(media.status))) &&
+             (!variables.continueWatching || (media.status === 'FINISHED' || media.mediaListEntry?.progress < media.nextAiringEpisode?.episode - 1)))
         }).sort((a, b) => {
           if (this.isUserSort(variables)) {
             switch (variables.sort) {
@@ -293,7 +290,7 @@ export default class Helper {
               case 'FINISHED_ON_DESC':
                 return ((b.media?.mediaListEntry?.completedAt?.year || 0) * 10000 + (b.media?.mediaListEntry?.completedAt?.month || 0) * 100 + (b.media?.mediaListEntry?.completedAt?.day || 0))
                      - ((a.media?.mediaListEntry?.completedAt?.year || 0) * 10000 + (a.media?.mediaListEntry?.completedAt?.month || 0) * 100 + (a.media?.mediaListEntry?.completedAt?.day || 0))
-              case 'PROGRESS_DESC':
+              case 'PROGRESS_DESC': {
                 const getSortValue = (media) => {
                   const progress = media?.mediaListEntry?.progress ?? 0
                   const totalEpisodes = media?.episodes ?? getMediaMaxEp(media) ?? 0
@@ -303,6 +300,7 @@ export default class Helper {
                   return distance <= 0 ? -Infinity : distance
                 }
                 return getSortValue(a.media) - getSortValue(b.media)
+              }
               case 'USER_SCORE_DESC': // doesn't exist, AniList uses SCORE_DESC for both MediaSort and MediaListSort.
                 return (b.media?.mediaListEntry?.score || 0) - (a.media?.mediaListEntry?.score || 0)
               case 'UPDATED_TIME_DESC':
@@ -312,17 +310,15 @@ export default class Helper {
           return 0
         }) // no need to handle sorting for this, we implemented sorting (above) for Anilist because Watching and Rewatching are separate lists. This is not the case for MyAnimeList, it uses "is_rewatching" boolean as an indicator instead.
           .map(({ media }) => (this.isUserSort(variables) ? media : media.id)) : mediaList.filter(({ node }) => {
-          if ((!variables.hideSubs || dubLists.dubbed.includes(node.id)) &&
+          return !!((!variables.hideSubs || dubLists.dubbed.includes(node.id)) &&
             matchKeys(node, variables.search, ['title', 'alternative_titles.en', 'alternative_titles.ja']) &&
             (!variables.season || variables.season.toLowerCase() === node.start_season?.season.toLowerCase()) &&
             (!variables.year || variables.year === node.start_season?.year) &&
             (!variables.format || (Array.isArray(variables.format) ? (variables.format.includes(node.media_type.toUpperCase()) || (variables.format.includes('TV_SHORT') && (node.media_type.toUpperCase() === 'TV') && (node.average_episode_duration < 1200))) && (!variables.format.includes('TV') || variables.format.includes('TV_SHORT') || (node.average_episode_duration >= 1200)) : ((variables.format === node.media_type.toUpperCase()) || ((variables.format === 'TV_SHORT') && (node.media_type.toUpperCase() === 'TV') && (node.average_episode_duration < 1200))) && ((variables.format !== 'TV') || (variables.format === 'TV_SHORT') || (node.average_episode_duration >= 1200)))) &&
             (!variables.format_not || (Array.isArray(variables.format_not) ? !((variables.format_not.includes(node.media_type.toUpperCase()) || (variables.format_not.includes('TV_SHORT') && (node.media_type.toUpperCase() === 'TV') && (node.average_episode_duration < 1200))) && (!variables.format_not.includes('TV') || variables.format_not.includes('TV_SHORT') || (node.average_episode_duration >= 1200))) : !(((variables.format_not === node.media_type.toUpperCase()) || ((variables.format_not === 'TV_SHORT') && (node.media_type.toUpperCase() === 'TV') && (node.average_episode_duration < 1200))) && ((variables.format_not !== 'TV') || (variables.format_not === 'TV_SHORT') || (node.average_episode_duration >= 1200))))) &&
             (!variables.status || (typeof variables.status === 'string' && variables.status === this.airingMap(node.status)) || (Array.isArray(variables.status) && variables.status.includes(this.airingMap(node.status)))) &&
-            (!variables.status_not || (typeof variables.status_not === 'string' && variables.status_not !== this.airingMap(node.status)) || (Array.isArray(variables.status_not) && !variables.status_not.includes(this.airingMap(node.status))))) {
+            (!variables.status_not || (typeof variables.status_not === 'string' && variables.status_not !== this.airingMap(node.status)) || (Array.isArray(variables.status_not) && !variables.status_not.includes(this.airingMap(node.status)))))
             // api does not provide airing episode or tags, additionally genres are inaccurate and tags do not exist.
-            return true
-          }
         }).map(({ node }) => node.id).filter(Boolean)
       if (!ids.length) return {}
       if (this.isUserSort(variables)) {

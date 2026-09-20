@@ -1,12 +1,11 @@
-import { append, element } from 'svelte/internal'
 import { writable } from 'simple-store-svelte'
 import { settings } from '@/modules/settings.js'
 import { SUPPORTS } from '@/modules/support.js'
 import { ANDROID } from '@/modules/bridge.js'
 
-const style = element('style')
+const style = document.createElement('style')
 style.id = 'customThemes'
-append(document.head, style)
+document.head.append(style)
 
 export const variables = writable(settings.value.customCSS || '')
 

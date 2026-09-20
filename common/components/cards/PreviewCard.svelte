@@ -50,7 +50,7 @@
   }
 </script>
 
-<div class='position-absolute h-full absolute-container top-0 bottom-0 m-auto bg-dark-light z-30 rounded pointer fade-change overflow-hidden clip-0-rounded' use:clampToViewport in:fadeIn out:fadeOut bind:this={element} on:scroll={(e) => e.target.scrollTop = 0}>
+<div class='position-absolute h-full absolute-container top-0 bottom-0 m-auto bg-dark-light z-30 rounded pointer fade-change overflow-hidden clip-0-rounded' use:clampToViewport in:fadeIn out:fadeOut bind:this={element} on:scroll={(e) => (e.target.scrollTop = 0)}>
   <div class='banner position-relative bg-black'>
     <div class='ratio-16-9 w-full h-full clip-0'>
       <SmartImage class='img-cover w-full h-full' images={[media.bannerImage, ...(media.trailer?.id ? [`https://i.ytimg.com/vi/${media.trailer.id}/maxresdefault.jpg`, `https://i.ytimg.com/vi/${media.trailer.id}/hqdefault.jpg`] : []), media.coverImage?.extraLarge, './no_image_episode.jpg' ]}/>
@@ -73,7 +73,7 @@
                   loading='lazy'
                   allow='autoplay'
                   allowfullscreen
-                  on:load={() => { setTimeout(() => hide = false, 300).unref?.() }}
+                  on:load={() => { setTimeout(() => (hide = false), 300).unref?.() }}
                   referrerpolicy='strict-origin-when-cross-origin'
                   src={`${youtubeServer}/embed/${trailer?.trailer?.id || trailer?.data?.trailer?.youtube_id}?autoplay=1&controls=0&mute=${muted ? 1 : 0}&disablekb=1&loop=1&vq=medium&playlist=${trailer?.trailer?.id || trailer?.data?.trailer?.youtube_id}&cc_lang_pref=ja`}
               />
@@ -90,7 +90,7 @@
     {#if !_variables?.fileEdit}
       <div class='d-flex flex-row position-relative'>
         <button type='button' tabindex='-1' class='position-absolute preview-safe-area top-0 left-0 h-50 bg-transparent border-0 shadow-none not-reactive' use:click={() => {}}/>
-        <button class='btn btn-secondary flex-grow-1 text-dark font-weight-bold shadow-none border-0 d-flex align-items-center justify-content-center z-1' use:click={play} disabled={media.status === 'NOT_YET_RELEASED'}>
+        <button type='button' class='btn btn-secondary flex-grow-1 text-dark font-weight-bold shadow-none border-0 d-flex align-items-center justify-content-center z-1' use:click={play} disabled={media.status === 'NOT_YET_RELEASED'}>
           <Play class='pr-10 z-10' fill='currentColor' size='2.2rem'/>
           {playButtonText}
         </button>
@@ -98,7 +98,7 @@
           <Scoring {media} previewAnime={true}/>
         {/if}
         {#if Helper.isAniAuth()}
-          <button class='btn btn-square ml-10 d-flex align-items-center justify-content-center shadow-none border-0 z-1' data-toggle='tooltip' data-placement='top-right' data-target-breakpoint='md' data-title={media.isFavourite ? 'Unfavourite' : 'Favourite'} use:click={toggleFavourite} disabled={!Helper.isAniAuth()}>
+          <button type='button' class='btn btn-square ml-10 d-flex align-items-center justify-content-center shadow-none border-0 z-1' data-toggle='tooltip' data-placement='top-right' data-target-breakpoint='md' data-title={media.isFavourite ? 'Unfavourite' : 'Favourite'} use:click={toggleFavourite} disabled={!Helper.isAniAuth()}>
             <div class='favourite d-flex align-items-center justify-content-center'>
               <Heart color={media.isFavourite ? 'var(--tertiary-color)' : 'currentColor'} fill={media.isFavourite ? 'var(--tertiary-color)' : 'transparent'} size='1.7rem'/>
             </div>

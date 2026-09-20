@@ -3,7 +3,8 @@ import { Device } from '@capacitor/device'
 import { ipcWire } from './ipc.js'
 
 const _console = { ...console }
-const stripAnsi = str => str?.replace(/\x1b\[[0-9;]*m/g, '')
+const escape = String.fromCharCode(27)
+const stripAnsi = str => str?.replace(new RegExp(`${escape}\\[[0-9;]*m`, 'g'), '')
 const wrap = level => (...args) => {
   SecureLogger[level](level, stripAnsi(args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ')))
   _console[level === 'info' ? 'log' : level](...args)

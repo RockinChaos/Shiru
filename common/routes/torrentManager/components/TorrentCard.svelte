@@ -31,7 +31,7 @@
   /** @type {{ reactive: import('simple-store-svelte').Writable<boolean>, init: (create: boolean, boundary?: boolean) => void }} */
   const { reactive, init } = createListener([`react-${infoHash}`])
   /** @type {EventListenerOrEventListenerObject} */
-  const onFileEdit = () => resolved = getResolvedId(infoHash)
+  const onFileEdit = () => (resolved = getResolvedId(infoHash))
   /** Resolved media info */
   let resolved = getResolvedId(infoHash)
   /** @type {boolean} */
@@ -131,7 +131,7 @@
       title={!current ? 'Play Torrent' : 'Currently Playing'}
       use:click={() => { if (!current) add(infoHash, search, infoHash) }}
       on:contextmenu|preventDefault={altClick}>
-    <div class='t-grid w-full' class:load-in={showLoadIn} on:animationend={() => showLoadIn = false}>
+    <div class='t-grid w-full' class:load-in={showLoadIn} on:animationend={() => (showLoadIn = false)}>
 
       <div class='d-flex ml-15 align-items-center' class:watched>
         <div class='rounded-5 d-flex justify-content-center align-items-center overflow-hidden z-10 icon-container position-relative flex-shrink-0'>

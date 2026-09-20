@@ -160,7 +160,7 @@
         }
         const { episodes, specialCount, episodeCount } = mappings
         const mappedEpisode = ep !== null && episodes ? episodes[ep] : null
-        let mappingsTitle = mappedEpisode?.title?.en
+        const mappingsTitle = mappedEpisode?.title?.en
         // if (episode && (!mappingsTitle || mappingsTitle.length === 0)) {
         //   const kitsuMappings = (await getKitsuMappings(media?.id))?.data?.find(ep => ep?.attributes?.number === Number(episode))?.attributes
         //   mappingsTitle = kitsuMappings?.titles?.en_us || kitsuMappings?.titles?.en_jp || (episodes && episodes[Number(episode)]?.title?.jp)
@@ -194,7 +194,7 @@
       }
 
       nowPlaying.set({
-        ...(newPlaying ? newPlaying : {}),
+        ...(newPlaying || {}),
         media,
         parseObject,
         failed: opts.failed || parseObject?.failed,
@@ -295,7 +295,10 @@
   function cleanFiles(videoFiles) {
     // Kiss X Sis fix, release group specified OVA and TV without the TV tag, making this unresolvable unless we correct.
     if (videoFiles.some(file => matchPhrase(AnimeResolver.cleanFileName(file.name), ['Kiss X Sis OVA', 'KissXSis OVA', 'Kiss×Sis OVA'], 0.3, false))
-        && videoFiles.some(file => !matchPhrase(AnimeResolver.cleanFileName(file.name), ['Kiss X Sis OVA', 'KissXSis OVA', 'Kiss×Sis OVA'], 0.3, false && matchPhrase(AnimeResolver.cleanFileName(file.name), ['Kiss X Sis', 'KissXSis', 'Kiss×Sis'], 0.3, false)))) {
+      && videoFiles.some(file => {
+        const name = AnimeResolver.cleanFileName(file.name)
+        return !matchPhrase(name, ['Kiss X Sis OVA', 'KissXSis OVA', 'Kiss×Sis OVA'], 0.3, false) && matchPhrase(name, ['Kiss X Sis', 'KissXSis', 'Kiss×Sis'], 0.3, false)
+      })) {
         videoFiles.forEach(file => {
             if (videoFiles.some(file => matchPhrase(AnimeResolver.cleanFileName(file.name), ['Kiss X Sis OVA', 'KissXSis OVA', 'Kiss×Sis OVA'], 0.3, false))) {
                 file.name = file.name.replace(/Kiss[ ×]?X[ ×]?Sis[ ]?OVA/i, 'Kiss×Sis')
@@ -335,7 +338,7 @@
         if (cached && cached.mediaId && mediaCache.value[cached.mediaId]) file.media = { ...cached, failed: cached.failed || cached.parseObject?.failed, media: mediaCache.value[cached.mediaId] }
     }
 
-    let uncachedMedia = videoFiles.filter(file => !file.media)
+    const uncachedMedia = videoFiles.filter(file => !file.media)
     if (uncachedMedia?.length) {
         try {
             resolved = await AnimeResolver.resolveFileAnime(uncachedMedia.map(file => file.name))
@@ -419,7 +422,7 @@
       videoFiles = videoFiles.filter(file => {
           if (typeof file.media?.parseObject?.anime_type === 'string') return !TYPE_EXCLUSIONS.includes(file.media?.parseObject?.anime_type.toUpperCase())
           else if (Array.isArray(file.media?.parseObject?.anime_type)) { // rare edge cases where the type is an array, only batches like a full season + movie + special.
-              for (let animeType of file.media?.parseObject?.anime_type) {
+              for (const animeType of file.media.parseObject.anime_type) {
                   if (TYPE_EXCLUSIONS.includes(animeType.toUpperCase())) return false
               }
           } else if (!file.media?.parseObject?.anime_type) { // Could be hit-miss but its really down to release groups using proper file names

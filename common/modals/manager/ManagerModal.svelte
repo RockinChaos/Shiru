@@ -52,7 +52,7 @@
         placeholder='Filter by file name or series title' bind:value={searchText} on:input={() => { container.scrollTo({ top: 0 }); }} />
   </div>
   <div bind:this={container} class='overflow-y-auto mt-10 pb-20'>
-    {#each filterResults(files?.filter((file) => file !== playing), searchText) as file, index}
+    {#each filterResults(files?.filter((file) => file !== playing), searchText) as file, index (index)}
       <FileCard {playFile} bind:file bind:files bind:fileEdit class='{index === 0 ? `mt-15` : ``}'/>
     {/each}
   </div>

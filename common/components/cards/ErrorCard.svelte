@@ -44,11 +44,11 @@
           {:else if JSON.stringify(errors)?.match(/changelog unavailable/i)}
             The repository may be gone or access is currently being blocked or limited, but you can still update using the button below.
           {:else if errors?.length === 1 && Array.isArray(errors[0].message)}
-           {#each errors[0].message.slice(1) as message}
-             <div>{message}</div>
-           {/each}
+            {#each errors[0].message.slice(1) as message, messageIndex (messageIndex)}
+              <div>{message}</div>
+            {/each}
           {:else}
-            {#each errors?.filter(error => !error.message.match(/found no results|extension is not enabled/i)) as error}
+            {#each errors?.filter(error => !error.message.match(/found no results|extension is not enabled/i)) as error, errorIndex (errorIndex)}
               <div>{error.message}</div>
             {/each}
           {/if}

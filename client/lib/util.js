@@ -70,7 +70,7 @@ export async function hasIntegrity(cache, torrentPath) {
   if (!cache || torrentPath == null) return null
   try {
     if (cache.files && cache.files.length) {
-      for (const file of cache.files?.filter(file => videoRx.test(file.name))) {
+      for (const file of cache.files.filter(file => videoRx.test(file.name))) {
         const stats = await stat(path.join(torrentPath, file.path))
         if (stats.size !== file.length) return false
       }

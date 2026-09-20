@@ -100,7 +100,7 @@ export default new class AnimeResolver {
     // Detect and add alternate title within parentheses
     const multiTitleMatch = modified.match(/^(.+?)\s*\((.+?)\)$/)
     if (multiTitleMatch) {
-      const [_, mainTitle, altTitle] = multiTitleMatch
+      const [, mainTitle, altTitle] = multiTitleMatch
       titles.add(mainTitle.trim())
       titles.add(altTitle.trim())
     }
@@ -394,7 +394,7 @@ export default new class AnimeResolver {
       let media = this.animeNameCache[this.getCacheKeyForTitle(parseObj)]
       const threshold = parseObj?.anime_title?.length > 15 ? 0.2 : parseObj?.anime_title?.length > 9 ? 0.15 : 0.1 // play nice with small anime titles
       const titleKeys = ['title.userPreferred', 'title.english', 'title.romaji', 'title.native', 'synonyms']
-      let needsVerification = !media || !this.isVerified(media, parseObj, titleKeys, threshold)
+      const needsVerification = !media || !this.isVerified(media, parseObj, titleKeys, threshold)
       // resolve episode, if movie, dont.
       let zeroEpisode = await hasZeroEpisode(media)
       let maxep = (media?.nextAiringEpisode?.episode || media?.episodes) - (zeroEpisode ? 1 : 0)
@@ -465,7 +465,7 @@ export default new class AnimeResolver {
         failed = mediaSearch.failed || (isValidNumber(mediaSearch.episode) && Number(mediaSearch.episode) < 0) || failed
       }
       debug(`${failed || !(media?.title?.userPreferred) ? `Failed to resolve` : `Resolved`} ${parseObj.anime_title} ${parseObj.episode_number} ${episode} ${media?.id}:${media?.title?.userPreferred}`)
-      const guessedEpisode = isValidNumber(episode) ? episode : episode ? episode : isValidNumber(parseObj.episode_number) ? parseObj.episode_number : parseObj.episode_number ? parseObj.episode_number : media?.episodes === 1 ? 1 : media?.format === 'MOVIE' && (media?.episodes ?? 0) <= 1 ? 1 : null
+      const guessedEpisode = isValidNumber(episode) ? episode : episode || (isValidNumber(parseObj.episode_number) ? parseObj.episode_number : parseObj.episode_number ? parseObj.episode_number : media?.episodes === 1 ? 1 : media?.format === 'MOVIE' && (media?.episodes ?? 0) <= 1 ? 1 : null)
       fileAnimes.push({
         episode: isValidNumber(guessedEpisode) ? Math.abs(guessedEpisode) === 0 && media?.episodes === 1 ? 1 : Math.abs(guessedEpisode) : guessedEpisode,
         ...(!media || media?.format !== 'MOVIE' || parseObj?.anime_season ? { season: parseObj?.anime_season ? Number(parseObj.anime_season) : 1 } : {}),

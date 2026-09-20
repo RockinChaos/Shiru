@@ -113,7 +113,7 @@
       <div class='d-flex flex-column flex-lg-shrink-0 h-lg-full w-full w-lg-300 bb-10'>
         <div class='px-20 py-5 font-size-24 font-weight-semi-bold position-absolute d-none d-lg-block'>Settings</div>
         <div class='mt-lg-20 py-lg-20 py-10 d-flex flex-lg-column flex-row justify-content-center justify-content-lg-start align-items-center align-items-lg-start'>
-          {#each Object.values(groups) as group}
+          {#each Object.values(groups) as group (group.name)}
             <TabLabel name={group.name} action={group.action} sidebar={group.sidebar} substitute={group.substitute} let:active>
               {@const isActive = ((!$modal || !modal.length) && active) || (group.name === 'Profiles' && modal.focused === modal.PROFILE)}
               <svelte:component this={group.icon} size='3.6rem' stroke-width='2.5' class='flex-shrink-0 p-5 m-5 rounded' color={isActive ? 'currentColor' : 'var(--gray-color-very-dim)'} fill={group.icon === Play ? (isActive ? 'currentColor' : 'var(--gray-color-very-dim)') : 'transparent'} />

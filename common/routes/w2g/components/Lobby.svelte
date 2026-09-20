@@ -57,7 +57,7 @@
 <div class='d-flex flex-column root w-full position-relative px-md-20 h-full overflow-hidden'>
   <div class='d-flex flex-md-row flex-column-reverse w-full h-full pt-20 pb-transition'>
     <div class='d-flex flex-column justify-content-end overflow-hidden flex-grow-1 px-20 pb-md-20'>
-      {#each groupMessages($messages) as { user, messages, type, date }}
+      {#each groupMessages($messages) as { user, messages, type, date }, groupIndex (groupIndex)}
         <Message time={date} {user} {messages} {type} />
       {/each}
       <div class='d-flex my-10'>
@@ -85,7 +85,7 @@
         <div class='font-size-20 font-weight-bold pl-5 pb-10'>
           {Object.values($peers).length} Member(s)
         </div>
-        {#each Object.values($peers) as { user }}
+        {#each Object.values($peers) as { user }, peerIndex (user?.id ?? peerIndex)}
           <User {user} />
         {/each}
       {/if}

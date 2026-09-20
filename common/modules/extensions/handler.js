@@ -72,7 +72,7 @@ export async function getTorrentResults({ media, episode, batch, movie, resoluti
     const deduped = dedupe(results)
     if (!deduped.length) return []
     const parseObjects = await anitomyscript(deduped.map(r => r.title))
-    deduped.forEach((r, i) => r.parseObject = parseObjects[i])
+    deduped.forEach((r, i) => (r.parseObject = parseObjects[i]))
     return updatePeerCounts(deduped, !settings.value.torrentAutoScrape)
   })
 }

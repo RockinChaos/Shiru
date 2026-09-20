@@ -223,8 +223,7 @@ export function since (date) {
 export function eta(date) {
   const secondsElapsed = (date.getTime() - Date.now()) / 1000
   if (!isFinite(secondsElapsed)) return '∞'
-  for (const key in ranges) {
-    const seconds = ranges[key]
+  for (const [key, seconds] of Object.entries(ranges)) {
     if (Math.abs(secondsElapsed) >= seconds) {
       const delta = secondsElapsed / seconds
       return formatterShort.format(Math.round(delta), key)
@@ -399,7 +398,9 @@ function replaceSeasonWithWords(text) {
 }
 
 const hyphenRegex = /(\w)-(\w)/g
-const regex = !SUPPORTS.isAndroid ? new RegExp('[^\\p{L}\\p{N}\\p{Zs}\\p{Pd}]', 'gu') : /[^a-zA-Z0-9\s\-\u00C0-\u024F\u0400-\u04FF\u0370-\u03FF\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF]/g
+const regex = !SUPPORTS.isAndroid ? /[^\p{L}\p{N}\p{Zs}\p{Pd}]/gu
+  // eslint-disable-next-line no-misleading-character-class
+  : /[^a-zA-Z0-9\s\-\u00C0-\u024F\u0400-\u04FF\u0370-\u03FF\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF]/g
 function cleanText(text) {
   if (typeof text !== 'string') return ''
   return replaceSeasonWithWords(text.replace(hyphenRegex, '$1 $2').replace(regex, ''))
@@ -449,7 +450,7 @@ export function matchPhrase(search, phrase, threshold, strict = false, soft = fa
   if (!search || !phrase) return false
   const normalizedSearch = search.toString().toLowerCase().replace(regex, '')
   phrase = Array.isArray(phrase) ? phrase : [phrase]
-  for (let p of phrase) {
+  for (const p of phrase) {
     if (p) {
       const normalizedPhrase = p.toLowerCase().replace(regex, '')
       if (strict) {
@@ -458,7 +459,7 @@ export function matchPhrase(search, phrase, threshold, strict = false, soft = fa
         if (normalizedSearch.includes(normalizedPhrase)) return true
         const searchWords = normalizedSearch.split(/\s+/)
         if (!soft) {
-          for (let word of searchWords) {
+          for (const word of searchWords) {
             if (levenshtein(word, normalizedPhrase) <= threshold) return true
           }
         } else return new Fuse([normalizedPhrase], { includeScore: true, threshold, ignoreLocation: true, useExtendedSearch: true, isCaseSensitive: false }).search(normalizedSearch)?.length > 0

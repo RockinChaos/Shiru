@@ -438,7 +438,7 @@ class HistoryManager {
     }
     if (this.currentIndex < this.history.length - 1) {
       drawerOpen.set(false)
-      let next = this.history[this.currentIndex + 1]
+      const next = this.history[this.currentIndex + 1]
       if (next?.isTemp) {
         debug('Navigating to temp forward entry', JSON.stringify(next))
         if (next.type === 'modal') {
@@ -599,7 +599,7 @@ class HistoryManager {
    */
   lockNavigation() {
     this.navigationLocked = true
-    setTimeout(() => this.navigationLocked = false, 150).unref?.()
+    setTimeout(() => (this.navigationLocked = false), 150).unref?.()
   }
 
   /**

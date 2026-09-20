@@ -7,23 +7,16 @@
   "description": "A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!",
   "main": "build/main.js",
   "homepage": "https://shiru.app/",
-  "standard": {
-    "ignore": [
-      "bundle.js",
-      "bundle.map.js"
-    ],
-    "env": [
-      "browser",
-      "node"
-    ]
+  "scripts": {
+    "lint": "eslint . --no-warn-ignored --concurrency off",
+    "lint:fix": "eslint . --no-warn-ignored --concurrency off --fix",
+    "typecheck": "tsc --noEmit --project jsconfig.json",
+    "check:svelte": "svelte-check --no-tsconfig --threshold error --diagnostic-sources svelte,css",
+    "check": "run-s lint typecheck check:svelte"
   },
   "dependencies": {
-    "@typescript-eslint/parser": "^8.70.0",
     "copy-webpack-plugin": "^14.0.0",
     "cross-env": "^10.1.0",
-    "eslint": "^10.10.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-svelte": "^3.23.0",
     "html-webpack-plugin": "^5.6.8",
     "semver": "^7.8.5",
     "webpack": "^5.111.0",
@@ -31,8 +24,16 @@
     "webpack-dev-server": "^6.0.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260917.1",
-    "npm-run-all": "^4.1.5"
+    "@eslint/compat": "^2.1.1",
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/node": "24.13.6",
+    "eslint": "^10.11.0",
+    "eslint-plugin-svelte": "^3.23.0",
+    "globals": "^17.12.0",
+    "npm-run-all": "^4.1.5",
+    "svelte-check": "^4.7.6",
+    "typescript": "6.0.3"
   },
   "pnpm": {
     "overrides": {

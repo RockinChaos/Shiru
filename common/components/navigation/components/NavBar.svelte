@@ -66,7 +66,7 @@
    */
   $: barItems = (() => {
     const prioritized = [...items].sort((a, b) => PRIORITY[a] - PRIORITY[b])
-    let pad = !sidebar ? 48 : 0
+    const pad = !sidebar ? 48 : 0
     let remaining = navbarSize - pad
     if (!prioritized.some(() => { remaining -= itemMinSize; return remaining < 0 })) return items
     remaining = navbarSize - pad - itemMinSize
@@ -131,7 +131,7 @@
     {#if sidebar && !firstBottom}
       <div class='mt-md-h-auto' />
     {/if}
-    <NavLink {sidebar} click={() => drawerOpen = !drawerOpen} text='More' class={`more-button ${drawerActive ? 'active' : ''} ${sidebar ? 'my-sm-h-auto' : ''}`}>
+    <NavLink {sidebar} click={() => (drawerOpen = !drawerOpen)} text='More' class={`more-button ${drawerActive ? 'active' : ''} ${sidebar ? 'my-sm-h-auto' : ''}`}>
       <div class='more-icon d-flex flex-column align-items-center justify-content-center flex-shrink-0 m-5' class:open={drawerOpen} class:active={drawerActive}>
         <span /><span /><span />
       </div>

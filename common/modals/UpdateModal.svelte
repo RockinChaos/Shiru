@@ -34,7 +34,7 @@
   async function getChangelog(updateVersion) {
     const changelog = await changeLog.value
     if (!changelog?.length) return null
-    let updateIndex = changelog.findIndex(entry => semver.valid(entry.version) === semver.valid(updateVersion))
+    const updateIndex = changelog.findIndex(entry => semver.valid(entry.version) === semver.valid(updateVersion))
     let entry
     if (updateIndex === -1) {
       entry = await getReleaseByTag(updateVersion)
@@ -91,9 +91,9 @@
 <script>
   $: $updateState === 'ready' && modal.open(modal.UPDATE_PROMPT)
   $: ($updateState === 'up-to-date' || $updateState === 'downloading') && close()
-  $: updating = false
   $: isNightlyVersion = $updateVersion && semver.prerelease($updateVersion)
   let updatePromise = createDeferred()
+  let updating = false
 
   /**
    * Closes the update modal.
@@ -221,7 +221,7 @@
         <div class='nightly-changes'>
           <h4 class='font-weight-bold text-white mb-15'>Nightly Changes</h4>
           <div class='cumulative-changes ml-10'>
-            {#each changelog.nightlies as nightlyEntry}
+            {#each changelog.nightlies as nightlyEntry, nightlyIndex (nightlyIndex)}
               {#if nightlyEntry.body?.trim()}
                 <Changelog body={nightlyEntry.body} />
               {/if}

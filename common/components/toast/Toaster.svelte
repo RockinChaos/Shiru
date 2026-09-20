@@ -1,11 +1,10 @@
 <script>
-  import { position as miniplayerPos } from '@/components/Miniplayer.svelte'
+  import { position as miniplayerPos, isLg } from '@/components/Miniplayer.svelte'
   import { toasts, toast } from '@/modules/lib/toast.js'
   import Toast from '@/components/toast/Toast.svelte'
   import { settings } from '@/modules/settings.js'
   import { SUPPORTS } from '@/modules/support.js'
   import { page, modal } from '@/modules/navigation.js'
-  import { isLg } from '@/components/Miniplayer.svelte'
   import { fade } from 'svelte/transition'
 
   /** @type {'top-left'|'top-center'|'top-right'|'bottom-left'|'bottom-center'|'bottom-right'} */
@@ -20,7 +19,7 @@
   export let hidden = false
 
   /** @type {Record<string, number>} */
-  let heightsById = {}
+  const heightsById = {}
   /** @type {HTMLDivElement} */
   let toasterEl
   /** @type {boolean} */

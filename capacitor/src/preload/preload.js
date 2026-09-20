@@ -1,3 +1,4 @@
+/* global PictureInPicture */
 import { App as Capacitor } from '@capacitor/app'
 import { Toast } from '@capacitor/toast'
 import { Browser } from '@capacitor/browser'

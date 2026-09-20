@@ -160,13 +160,12 @@ class MALClient {
     if (!res?.ok && res?.status !== 404) {
       if (json) {
         for (const error of json?.errors || [json?.error] || []) {
-          let code = error
+          let code
           switch (error) {
             case 'forbidden':
               code = 403
               break
-            case 'invalid_token':
-              code = 401
+            case 'invalid_token': { // 401
               const oauth = await this.refreshToken(query)
               if (oauth) {
                 options.headers = {
@@ -175,6 +174,7 @@ class MALClient {
                 }
                 return this.handleRequest(query, options)
               } else return {}
+            }
             case 'invalid_content':
               code = 422
               break

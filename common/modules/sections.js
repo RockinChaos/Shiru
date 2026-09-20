@@ -74,7 +74,7 @@ export default class SectionsManager {
   }
 
   static wrapResponse (res, length, type, background = false) {
-    if (!background) res.then(res => hasNextPage.value = res?.data?.Page?.pageInfo?.hasNextPage)
+    if (!background) res.then(res => (hasNextPage.value = res?.data?.Page?.pageInfo?.hasNextPage))
     return Array.from({ length }, (_, i) => ({ type, data: SectionsManager.fromPending(res, i) }))
   }
 
@@ -162,7 +162,7 @@ function createSections () {
         const res = Helper.userLists(variables).then(res => {
           if (!res?.data && res?.errors) throw res.errors[0]
           const mediaList = (res.data.MediaListCollection?.lists || []).find(({ status }) => status === 'COMPLETED')?.entries
-          const excludeIds = (res.data.MediaListCollection?.lists || []).reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered}, []).map(({ media }) => media.id).filter(Boolean) || []
+          const excludeIds = (res.data.MediaListCollection?.lists || []).reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered }, []).map(({ media }) => media.id).filter(Boolean) || []
           if (!mediaList) return {}
           const ids = mediaList.flatMap(({ media }) => media.relations.edges.filter(edge => edge.relationType === 'SEQUEL')).map(({ node }) => node.id).filter(Boolean)
           if (!ids.length) return {}
@@ -177,7 +177,7 @@ function createSections () {
         const res = Helper.userLists(variables).then(res => {
           if (!res?.data && res?.errors) throw res.errors[0]
           const mediaList = (res.data.MediaListCollection?.lists || []).find(({ status }) => status === 'COMPLETED')?.entries
-          const excludeIds = (res.data.MediaListCollection?.lists || []).reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered}, []).map(({ media }) => media.id).filter(Boolean) || []
+          const excludeIds = (res.data.MediaListCollection?.lists || []).reduce((filtered, { status, entries }) => { return (['CURRENT', 'REPEATING', 'COMPLETED', 'DROPPED', 'PAUSED'].includes(status)) ? filtered.concat(entries) : filtered }, []).map(({ media }) => media.id).filter(Boolean) || []
           if (!mediaList) return {}
           const ids = mediaList.flatMap(({ media }) => media.relations.edges.filter(edge => !['SEQUEL', 'CHARACTER', 'OTHER'].includes(edge.relationType))).map(({ node }) => node.id).filter(Boolean)
           if (!ids.length) return {}

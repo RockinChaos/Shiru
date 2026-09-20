@@ -203,7 +203,7 @@
         <div>Genres</div>
       </div>
       <div class='input-group' title={(!Helper.isAniAuth() && Helper.isUserSort(search)) ? 'Cannot use with sort: ' + sortOptions[search.sort] : ''}>
-        <CustomDropdown id={`tags-input`} bind:form headers={searchTags.headers} options={[...toArray($genreList), ...toArray($tagList)]} bind:value={searchTags.tags} bind:altValue={searchTags.tags_not} constrainAlt={false} disabled={search.disableSearch || (!Helper.isAniAuth() && Helper.isUserSort(search))}/>
+        <CustomDropdown id='tags-input' bind:form headers={searchTags.headers} options={[...toArray($genreList), ...toArray($tagList)]} bind:value={searchTags.tags} bind:altValue={searchTags.tags_not} constrainAlt={false} disabled={search.disableSearch || (!Helper.isAniAuth() && Helper.isUserSort(search))}/>
       </div>
     </div>
     <div class='col-lg col-4 p-10 z-4 d-none {advancedSearch} flex-column justify-content-end' class:d-flex={!search.scheduleList}>
@@ -222,7 +222,7 @@
           </select>
         </div>
         <div class='input-group'>
-          <CustomDropdown id={`year-input`} class='radius-left-0' bind:form options={Array.from({ length: currentYear - 1940 + 2 }, (_, i) => currentYear + 1 - i)} bind:value={search.year} arrayValue={false} displaySize={40} bind:disabled={search.disableSearch}/>
+          <CustomDropdown id='year-input' class='radius-left-0' bind:form options={Array.from({ length: currentYear - 1940 + 2 }, (_, i) => currentYear + 1 - i)} bind:value={search.year} arrayValue={false} displaySize={40} bind:disabled={search.disableSearch}/>
         </div>
       </div>
     </div>
@@ -232,7 +232,7 @@
         <div>Format</div>
       </div>
       <div class='input-group'>
-        <CustomDropdown id={`format-input`} bind:form options={{ TV: 'TV Show', MOVIE: 'Movie', TV_SHORT: 'TV Short', SPECIAL: 'Special', OVA: 'OVA', ONA: 'ONA' }} bind:value={search.format} bind:altValue={search.format_not} bind:disabled={search.disableSearch}/>
+        <CustomDropdown id='format-input' bind:form options={{ TV: 'TV Show', MOVIE: 'Movie', TV_SHORT: 'TV Short', SPECIAL: 'Special', OVA: 'OVA', ONA: 'ONA' }} bind:value={search.format} bind:altValue={search.format_not} bind:disabled={search.disableSearch}/>
       </div>
     </div>
     <div class='col p-10 z-2 d-none {advancedSearch} flex-column justify-content-end' class:d-flex={!search.scheduleList}>
@@ -241,7 +241,7 @@
         <div>Status</div>
       </div>
       <div class='input-group'>
-        <CustomDropdown id={`status-input`} bind:form options={{ RELEASING: 'Releasing', FINISHED: 'Finished', NOT_YET_RELEASED: 'Not Yet Released', CANCELLED: 'Cancelled' }} bind:value={search.status} bind:altValue={search.status_not} bind:disabled={search.disableSearch}/>
+        <CustomDropdown id='status-input' bind:form options={{ RELEASING: 'Releasing', FINISHED: 'Finished', NOT_YET_RELEASED: 'Not Yet Released', CANCELLED: 'Cancelled' }} bind:value={search.status} bind:altValue={search.status_not} bind:disabled={search.disableSearch}/>
       </div>
     </div>
     <div class='col p-10 d-none {advancedSearch} flex-column justify-content-end' class:d-flex={!search.scheduleList}>
@@ -338,9 +338,9 @@
             {#if filteredBadges.length > 0}
               <Tags class='text-dark-light mr-20 block-scale-30 mb-5'/>
             {/if}
-          {#each badgeKeys as key}
+          {#each badgeKeys as key (key)}
             {@const matchingBadges = filteredBadges.filter(badge => badge.key === key)}
-            {#each matchingBadges as badge}
+            {#each matchingBadges as badge, badgeIndex (badgeIndex)}
               {#if badge.key === key && (badge.key !== 'hideStatus' && badge.key !== 'showStatus' && (search.userList || badge.key !== 'title')) && !(badge.key === 'sort' && badge.value === 'TRENDING_DESC')}
                 <div use:click={() => removeBadge(badge)} class='badge border-0 py-5 px-10 text-capitalize mr-10 text-white text-nowrap d-flex align-items-center mb-5' style='max-width: 60vw' class:bg-dark-light={!badge.key.includes('_not')} class:bg-danger-very-dim={badge.key.includes('_not')}>
                   <svelte:component this={badge.key === 'genre' ? genreIcons[badge.value] || badgeDisplayNames[badge.key] : badgeDisplayNames[badge.key]} class='mr-5 square-scale-18'/>

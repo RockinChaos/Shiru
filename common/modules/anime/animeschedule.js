@@ -100,8 +100,8 @@ class AnimeSchedule {
         }
 
         scheduleNextCheck()
-        this.dubAiringLists.subscribe(async value  => this.dubAiring.value = await value)
-        this.subAiringLists.subscribe(async value  => this.subAiring.value = await value)
+        this.dubAiringLists.subscribe(async value  => (this.dubAiring.value = await value))
+        this.subAiringLists.subscribe(async value  => (this.subAiring.value = await value))
     }
 
     async findNewDelayedEpisodes() { // currently only dubs are handled as they typically get delayed...
