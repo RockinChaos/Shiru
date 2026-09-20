@@ -1,16 +1,16 @@
 const { join, resolve } = require('path')
-
-const mode = process.env.NODE_ENV?.trim() || 'development'
-const isDev = mode === 'development'
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 
-/** @type {(parentDir: string, alias?: Record<string, string>, aliasFields?: (string | string[]), filename?: string, cacheName?: string) => import('webpack').WebpackOptionsNormalized} */
-module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'app', cacheName = 'shiru-renderer') => ({
+const nodeEnv = process.env.NODE_ENV?.trim()
+const mode = nodeEnv === 'production' || nodeEnv === 'none' ? nodeEnv : 'development'
+const isDev = mode === 'development'
+
+/** @type {(parentDir: string, alias?: Record<string, string | false>, aliasFields?: string, filename?: string) => import('webpack').Configuration} */
+module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'app') => ({
   devtool: 'source-map',
-  cache: isDev && {
-    type: 'filesystem',
-    name: cacheName
+  experiments: {
+    css: true
   },
   entry: [join(__dirname, 'main.js')],
   stats: { warnings: false },
@@ -26,9 +26,6 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     ]
   },
   mode,
-  optimization: {
-    minimize: { css: false }
-  },
   module: {
     rules: [
       {

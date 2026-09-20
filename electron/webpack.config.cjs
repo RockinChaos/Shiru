@@ -1,19 +1,14 @@
 const { join, resolve } = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-
-const mode = process.env.NODE_ENV?.trim() || 'development'
-const devCache = name => mode === 'development' && {
-  type: 'filesystem',
-  name
-}
-
 const commonConfig = require('common/webpack.config.cjs')
 
-/** @type {import('webpack').WebpackOptionsNormalized[]} */
+const nodeEnv = process.env.NODE_ENV?.trim()
+const mode = nodeEnv === 'production' || nodeEnv === 'none' ? nodeEnv : 'development'
+
+/** @type {import('webpack').Configuration[]} */
 module.exports = [
   {
     devtool: 'source-map',
-    cache: devCache('shiru-background'),
     stats: { warnings: false },
     entry: join(__dirname, 'src', 'background', 'background.js'),
     output: {
@@ -21,9 +16,6 @@ module.exports = [
       filename: 'background.js'
     },
     mode,
-    optimization: {
-      concatenateModules: { commonjs: false }
-    },
     externals: {
       'utp-native': 'require("utp-native")',
       'fs-native-extensions': 'commonjs2 fs-native-extensions',
@@ -64,10 +56,9 @@ module.exports = [
       port: 5000
     }
   },
-  commonConfig(__dirname, {}, 'browser', 'app', 'shiru-electron-renderer'),
+  commonConfig(__dirname, {}, 'browser', 'app'),
   {
     devtool: 'source-map',
-    cache: devCache('shiru-preload'),
     stats: { warnings: false },
     entry: join(__dirname, 'src', 'preload', 'preload.js'),
     output: {
@@ -82,7 +73,6 @@ module.exports = [
   },
   {
     devtool: 'source-map',
-    cache: devCache('shiru-main'),
     entry: join(__dirname, 'src', 'main', 'main.js'),
     output: {
       path: join(__dirname, 'build'),
@@ -90,9 +80,6 @@ module.exports = [
     },
     externals: {
       '@paymoapp/electron-shutdown-handler': 'require("@paymoapp/electron-shutdown-handler")'
-    },
-    optimization: {
-      concatenateModules: { commonjs: false }
     },
     resolve: {
       aliasFields: [],

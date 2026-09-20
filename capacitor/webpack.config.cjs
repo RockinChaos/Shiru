@@ -2,31 +2,23 @@ const commonConfig = require('common/webpack.config.cjs')
 const { join, resolve } = require('path')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 
-const mode = process.env.NODE_ENV?.trim() || 'development'
-const devCache = name => mode === 'development' && {
-  type: 'filesystem',
-  name
-}
-
+const nodeEnv = process.env.NODE_ENV?.trim()
+const mode = nodeEnv === 'production' || nodeEnv === 'none' ? nodeEnv : 'development'
 const alias = {
   '@/modules/support.js': join(__dirname, 'src', 'main', 'support.js'),
   '@': resolve(__dirname, '..', 'common')
 }
-const common = commonConfig(__dirname, alias, 'browser', 'index', 'shiru-capacitor-renderer')
+const common = commonConfig(__dirname, alias, 'browser', 'index')
 
-/** @type {import('webpack').Configuration} */
+/** @type {import('webpack').Configuration & { devServer?: import('webpack-dev-server').Configuration }} */
 const capacitorConfig = {
   devtool: 'source-map',
-  cache: devCache('shiru-capacitor-background'),
   entry: [join(__dirname, 'src', 'background', 'background.js')],
   output: {
     path: join(__dirname, 'build', 'nodejs'),
     filename: 'index.js'
   },
   mode,
-  optimization: {
-    concatenateModules: { commonjs: false }
-  },
   externals: {
     bridge: 'require("bridge")',
     'utp-native': 'require("utp-native")',
