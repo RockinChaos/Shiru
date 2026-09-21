@@ -1,0 +1,21 @@
+diff --git a/lib/torrent.js b/lib/torrent.js
+index 771a87fa5004f5ff82e9b5c3d9d8b0d70e110dbf..50d88ce0eabb8ecb7bd3101167ea804d425071c1 100644
+--- a/lib/torrent.js
++++ b/lib/torrent.js
+@@ -327,6 +327,16 @@ export default class Torrent extends EventEmitter {
+   }
+ 
+   _processParsedTorrent (parsedTorrent) {
++    const sanitize = value => value.replace(/[<>:"/\\|?*]/g, '_')
++
++    if (parsedTorrent.name) {
++      parsedTorrent.name = sanitize(parsedTorrent.name)
++    }
++
++    parsedTorrent.files?.forEach(file => {
++      file.path = file.path.split(/[\\/]/).map(sanitize).join('/')
++    })
++
+     this._debugId = parsedTorrent.infoHash?.substring(0, 7)
+ 
+     if (typeof this.private !== 'undefined') {
