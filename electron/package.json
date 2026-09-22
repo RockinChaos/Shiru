@@ -1,6 +1,6 @@
 {
   "name": "shiru",
-  "version": "6.8.1-beta.6",
+  "version": "6.8.1-beta.7",
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@10.34.1",
   "private": true,
