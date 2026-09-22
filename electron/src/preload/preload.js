@@ -87,7 +87,7 @@ contextBridge.exposeInMainWorld('torrent', {
   },
   launchExternal: (current) => send('externalPlay', { current }),
   updateNetwork: (status) => send('networking', status),
-  updateSettings: (settings) => send('updateSettings', settings),
+  updateSettings: (settings) => send('settings', settings),
   onNotify: (callback) => {
     addListener('info', (detail) => callback('info', detail))
     addListener('warn', (detail) => callback('warn', detail))
