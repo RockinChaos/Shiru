@@ -31,7 +31,7 @@ for ((i=0;i<${#toolchain_target_archs[@]};i++)); do
   export npm_config_nodedir=${LIBNODE_PATH}
   export npm_config_node_gyp=$(pwd)/node_modules/nodejs-mobile-gyp/bin/node-gyp.js
   export npm_config_arch=${node_target_arch}
-  export npm_config_plaform=android
+  export npm_config_platform=android
   export npm_config_format=make-android
   export npm_gyp_defines="target_arch=$node_target_arch v8_target_arch=$node_target_arch android_target_arch=$node_target_arch host_os=linux OS=android"
 

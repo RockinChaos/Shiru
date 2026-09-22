@@ -398,7 +398,8 @@ function replaceSeasonWithWords(text) {
 }
 
 const hyphenRegex = /(\w)-(\w)/g
-const regex = !SUPPORTS.isAndroid ? /[^\p{L}\p{N}\p{Zs}\p{Pd}]/gu
+// eslint-disable-next-line prefer-regex-literals
+const regex = !SUPPORTS.isAndroid ? new RegExp('[^\\p{L}\\p{N}\\p{Zs}\\p{Pd}]', 'gu')
   // eslint-disable-next-line no-misleading-character-class
   : /[^a-zA-Z0-9\s\-\u00C0-\u024F\u0400-\u04FF\u0370-\u03FF\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF]/g
 function cleanText(text) {
