@@ -309,6 +309,7 @@
       })
       currentTime = 0
       targetTime = 0
+      skipNextProgress = false
       chapters = []
       embeddedChapters = []
       currentSkippable = null
@@ -371,12 +372,18 @@
     else animeProgress = await getAnimeProgress({ name: current?.media?.parseObject?.anime_title ? (current?.media?.parseObject?.anime_title + ((media?.season || current?.media?.parseObject?.anime_season ? ` S${media?.season || current?.media?.parseObject?.anime_season}` : '') + ((media?.episode || current?.media?.parseObject?.episode_number ? ` E${media?.episode || current?.media?.parseObject?.episode_number}` : '')))) : current?.name, mediaId: current.media.media.id, episode: current.media.episode })
     if (!animeProgress) return
 
+    skipNextProgress = true
     const currentTime = Math.max(animeProgress.currentTime - 5, 0) // Load 5 seconds before
     seek(currentTime - video.currentTime)
   }
 
+  let skipNextProgress = false
   function saveAnimeProgress (error = false) {
     if (!error && (buffering || video.readyState < 4)) return
+    if (skipNextProgress) {
+      skipNextProgress = false
+      return
+    }
     if (error) {
       currentTime = 0
       targetTime = 0
