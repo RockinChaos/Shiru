@@ -481,6 +481,7 @@
       else if (!hidden) {
         video.play()
         resetImmerse()
+        updateSubs()
       }
     } else if (!externalPlayback) video.pause()
   }
@@ -517,6 +518,7 @@
       TORRENT.launchExternal(current)
     } else paused = !paused
     resetImmerse()
+    updateSubs()
   }
   let hidden = false
   let visibilityPaused = true
@@ -717,14 +719,30 @@
     if ('clipboard' in navigator && video.readyState) {
       const canvas = document.createElement('canvas')
       const context = canvas.getContext('2d')
+      const renderer = subs?.renderer
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
       context.drawImage(video, 0, 0)
-      if (subs?.renderer) {
-        subs.renderer.resize(video.videoWidth, video.videoHeight)
-        await new Promise(resolve => setTimeout(resolve, 500)) // this is hacky, but TLDR wait for canvas to update and re-render, in practice this will take at MOST 100ms, but just to be safe
-        context.drawImage(subs.renderer._canvas, 0, 0, canvas.width, canvas.height)
-        subs.renderer.resize(0, 0, 0, 0) // undo resize
+      if (renderer) {
+        const subtitleCanvas = renderer._canvas
+        const top = Number.parseFloat(subtitleCanvas.style.top) || 0
+        const left = Number.parseFloat(subtitleCanvas.style.left) || 0
+        const overlay = document.createElement('canvas')
+        overlay.width = subtitleCanvas.width
+        overlay.height = subtitleCanvas.height
+        overlay.getContext('2d').drawImage(subtitleCanvas, 0, 0)
+        overlay.className = subtitleCanvas.className
+        overlay.style.cssText = subtitleCanvas.style.cssText
+        subtitleCanvas.parentElement.append(overlay)
+        try {
+          renderer.resize(video.videoWidth, video.videoHeight, top, left)
+          await new Promise(resolve => setTimeout(resolve, 200))
+          context.drawImage(subtitleCanvas, 0, 0, canvas.width, canvas.height)
+        } finally {
+          renderer.resize(0, 0, 0, 0)
+          await new Promise(resolve => setTimeout(resolve, 200))
+          overlay.remove()
+        }
       }
       const blob = await new Promise(resolve => canvas.toBlob(resolve))
       await navigator.clipboard.write([
