@@ -38,8 +38,7 @@
     up: ['completed', 'incomplete'],
     seeders: ['completed', 'incomplete'],
     leechers: ['completed', 'incomplete'],
-    eta: ['completed', 'incomplete'],
-    ratio: ['completed']
+    eta: ['completed', 'incomplete']
   }
   /** @type {Object.<string, number>} */
   const STATUS_ORDER = { current: 0, staging: 1, seeding: 2, incomplete: 3, completed: 4 }

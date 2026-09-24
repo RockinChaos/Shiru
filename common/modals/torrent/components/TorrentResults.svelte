@@ -236,7 +236,7 @@
         leechers: torrent.totalLeechers ?? 0,
         hash: torrent.infoHash,
         size: torrent.size,
-        date: torrent.date,
+        date: torrent.cachedAt,
         accuracy: isLocked ? 'high' : 'medium',
         parseObject: (await anitomyscript(title))?.[0],
         source: { managed: true, name: `Local (${torrent.staging ? 'Staging' : torrent.seeding ? 'Seeding' : torrent.current ? 'Now Playing' : 'Completed'})` }
