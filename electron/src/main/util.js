@@ -6,6 +6,7 @@ import Store from './store.js'
 
 export const store = new Store(app.getPath('userData'), 'persist.json', { angle: 'default' })
 export const development = process.env.NODE_ENV?.trim() === 'development'
+export const windowBounds = { minWidth: 320, minHeight: 390 }
 export const timeouts = new Set()
 
 const flags = [
@@ -143,42 +144,74 @@ export async function getImage(id, url, wideScreen) {
   return imagePath
 }
 
-let defaultBounds
 export function getWindowState() {
   const state = store.get('windowState') || {}
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize
-  defaultBounds = { width: Math.floor(screenWidth * 0.75), height: Math.floor(screenHeight * 0.75), x: undefined, y: undefined }
-  let bounds = state.bounds || defaultBounds
-  if (bounds.width > screenWidth || bounds.height > screenHeight) bounds = { ...defaultBounds }
-  if (!isNaN(bounds.x) && !isNaN(bounds.y)) {
-    const { width, height, x, y } = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }).bounds
-    if (bounds.x < x || bounds.y < y || bounds.x > x + width || bounds.y > y + height) {
-      bounds.x = undefined
-      bounds.y = undefined
-    }
+  return {
+    bounds: getUsableBounds(state.bounds),
+    isMaximized: state.isMaximized === true
   }
-  if (isNaN(bounds.x) || isNaN(bounds.y)) {
-    bounds.x = Math.floor((screenWidth - bounds.width) / 2)
-    bounds.y = Math.floor((screenHeight - bounds.height) / 2)
-  }
-  return { bounds, isMaximized: (state.isMaximized || false), isFullScreen: (state.isFullScreen || false) }
 }
 
 export function saveWindowState(window) {
-  if (!window || window.isDestroyed()) return
-  let bounds
-  if (!window.isMaximized() && !window.isFullScreen()) bounds = window.getBounds()
-  else bounds = store.get('windowState')?.bounds || defaultBounds
-  store.set('windowState', { bounds,  isMaximized: window.isMaximized(), isFullScreen: window.isFullScreen() })
+  if (!window || window.isDestroyed() || window.isMinimized()) return
+  const normalBounds = window.getNormalBounds()
+  let bounds = normalBounds
+  const isFullScreen = window.isFullScreen()
+  if (window.isMaximized() || isFullScreen) {
+    // The normal rectangle can remain on the previous display after a maximized or fullscreen move
+    const currentDisplay = screen.getDisplayMatching(window.getBounds()).workArea
+    const normalDisplay = screen.getDisplayMatching(normalBounds).workArea
+    bounds = {
+      ...normalBounds,
+      x: currentDisplay.x + normalBounds.x - normalDisplay.x,
+      y: currentDisplay.y + normalBounds.y - normalDisplay.y
+    }
+  }
+  store.set('windowState', {
+    bounds: getUsableBounds(bounds),
+    isMaximized: isFullScreen ? store.get('windowState')?.isMaximized === true : window.isMaximized()
+  })
 }
 
 export function getDefaultBounds() {
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize
+  const { x, y, width, height } = screen.getPrimaryDisplay().workArea
+  const windowWidth = Math.max(windowBounds.minWidth, Math.min(width, Math.floor(width * 0.75)))
+  const windowHeight = Math.max(windowBounds.minHeight, Math.min(height, Math.floor(height * 0.75)))
   return {
-    width: defaultBounds.width,
-    height: defaultBounds.height,
-    x: Math.floor((screenWidth - defaultBounds.width) / 2),
-    y: Math.floor((screenHeight - defaultBounds.height) / 2)
+    width: windowWidth,
+    height: windowHeight,
+    x: x + Math.floor((width - windowWidth) / 2),
+    y: y + Math.floor((height - windowHeight) / 2)
+  }
+}
+
+function getUsableBounds(bounds) {
+  const fallback = getDefaultBounds()
+  if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height) || bounds.width < windowBounds.minWidth || bounds.height < windowBounds.minHeight) return fallback
+
+  let workArea = screen.getPrimaryDisplay().workArea
+  if (Number.isFinite(bounds.x) && Number.isFinite(bounds.y)) {
+    let largestOverlap = 0
+    for (const display of screen.getAllDisplays()) {
+      const area = display.workArea
+      const overlap = Math.max(0, Math.min(bounds.x + bounds.width, area.x + area.width) - Math.max(bounds.x, area.x)) *
+        Math.max(0, Math.min(bounds.y + bounds.height, area.y + area.height) - Math.max(bounds.y, area.y))
+      if (overlap > largestOverlap) {
+        largestOverlap = overlap
+        workArea = area
+      }
+    }
+    if (!largestOverlap) return fallback
+  }
+
+  const { x, y, width, height } = workArea
+  const windowWidth = Math.min(bounds.width, width)
+  const windowHeight = Math.min(bounds.height, height)
+  return {
+    width: windowWidth,
+    height: windowHeight,
+    x: Number.isFinite(bounds.x) ? Math.max(x, Math.min(bounds.x, x + width - windowWidth)) : x + Math.floor((width - windowWidth) / 2),
+    y: Number.isFinite(bounds.y) ? Math.max(y, Math.min(bounds.y, y + height - windowHeight)) : y + Math.floor((height - windowHeight) / 2)
   }
 }
 

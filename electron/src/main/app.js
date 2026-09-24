@@ -6,7 +6,7 @@ import { youtubeServer } from './youtube.js'
 import { BrowserWindow, MessageChannelMain, Notification, Tray, Menu, nativeImage, app, dialog, ipcMain, powerMonitor, shell, session } from 'electron'
 import electronShutdownHandler from '@paymoapp/electron-shutdown-handler'
 
-import { development, timeouts, getImage, getWindowState, saveWindowState, getDefaultBounds, toXmlString } from './util.js'
+import { development, windowBounds, timeouts, getImage, getWindowState, saveWindowState, getDefaultBounds, toXmlString } from './util.js'
 import Debug from './debugger.js'
 import Discord from './discord.js'
 import Protocol from './protocol.js'
@@ -29,8 +29,8 @@ export default class App {
   windowState = getWindowState()
   mainWindow = new BrowserWindow({
     ...this.windowState.bounds,
-    minWidth: 320,
-    minHeight: 390,
+    minWidth: windowBounds.minWidth,
+    minHeight: windowBounds.minHeight,
     frame: process.platform === 'darwin',
     titleBarStyle: 'hidden',
     ...(process.platform !== 'darwin' ? { titleBarOverlay: {
@@ -90,7 +90,10 @@ export default class App {
     ipcMain.on('minimize', () => this.mainWindow?.minimize())
     ipcMain.on('maximize', () => this.mainWindow?.isMaximized() ? this.mainWindow.unmaximize() : this.mainWindow.maximize())
     ipcMain.on('webtorrent-restart', () => this.setWebTorrentWindow(true))
-    this.mainWindow.on('maximize', () => this.mainWindow.webContents.send('isMaximized', true))
+    this.mainWindow.on('maximize', () => {
+      saveWindowState(this.mainWindow)
+      this.mainWindow.webContents.send('isMaximized', true)
+    })
     this.mainWindow.on('unmaximize', () => {
       saveWindowState(this.mainWindow)
       this.mainWindow.webContents.send('isMaximized', false)
@@ -116,8 +119,14 @@ export default class App {
       this.mainWindow.webContents.send('electron:onFullScreen', isFullScreen)
     }
     ipcMain.handle('electron:isFullScreen', () => this.isFullScreen)
-    this.mainWindow.on('enter-full-screen', () => fullScreen(true))
-    this.mainWindow.on('leave-full-screen', () => fullScreen(false))
+    this.mainWindow.on('enter-full-screen', () => {
+      fullScreen(true)
+      debounceState()
+    })
+    this.mainWindow.on('leave-full-screen', () => {
+      fullScreen(false)
+      debounceState()
+    })
 
     this.setWebTorrentWindow()
 
@@ -256,7 +265,7 @@ export default class App {
         })
         authWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
         authWindow.webContents.on('did-finish-load', () => authWindow.show())
-         authWindow.webContents.on('did-start-loading', () => authWindow.webContents.insertCSS(`
+        authWindow.webContents.on('did-start-loading', () => authWindow.webContents.insertCSS(`
             ::-webkit-scrollbar {
               width: 6px;
               height: 6px;
@@ -344,13 +353,15 @@ export default class App {
     this.destroyed = true
     this.updater.destroyed = true
     this.exit = true
-    this.mainWindow.hide()
-    this.mainWindow.webContents?.closeDevTools?.()
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      clearTimeout(this.stateTimeout)
+      saveWindowState(this.mainWindow)
+      this.mainWindow.hide()
+      this.mainWindow.webContents?.closeDevTools?.()
+    }
     this.tray?.destroy()
     for (const timeout of timeouts) clearTimeout(timeout)
     timeouts.clear()
-    clearTimeout(this.stateTimeout)
-    saveWindowState(this.mainWindow)
     youtubeServer?.close?.()
     try {
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
@@ -422,27 +433,34 @@ export default class App {
   restoreWindow() {
     if (this.destroyed || this.mainWindow?.isDestroyed()) return
     const defaultBounds = getDefaultBounds()
-    this.mainWindow.unmaximize()
-    this.mainWindow.setFullScreen(false)
-    this.mainWindow.setBounds(defaultBounds)
-    /** HACK: Electron doesn't handle DPI scaling differences between monitors very well so we have to set the bounds twice... */
-    setImmediate(() => {
+    const resetBounds = () => {
+      if (this.destroyed || this.mainWindow.isDestroyed()) return
+      this.mainWindow.unmaximize()
       this.mainWindow.setBounds(defaultBounds)
-      saveWindowState(this.mainWindow)
-      this.showAndFocus()
-    })
+      /** HACK: Electron doesn't handle DPI scaling differences between monitors very well so we have to set the bounds twice... */
+      setImmediate(() => {
+        if (this.destroyed || this.mainWindow.isDestroyed()) return
+        this.mainWindow.setBounds(defaultBounds)
+        saveWindowState(this.mainWindow)
+        this.showAndFocus()
+      })
+    }
+    if (this.mainWindow.isFullScreen()) {
+      this.mainWindow.once('leave-full-screen', resetBounds)
+      this.mainWindow.setFullScreen(false)
+    } else resetBounds()
   }
 
   showAndFocus(ready = false) {
     if ((!this.ready && !ready) || this.destroyed) return
+    const firstShow = !this.ready
     if (!this.ready) {
       this.ready = true
       this.setTrayMenu()
     }
-    if (ready) {
-      if (this.windowState.bounds.x && this.windowState.bounds.y) this.mainWindow.setBounds(this.windowState.bounds)
+    if (ready && firstShow) {
+      this.mainWindow.setBounds(this.windowState.bounds)
       if (this.windowState.isMaximized) this.mainWindow.maximize()
-      if (this.windowState.isFullScreen) this.mainWindow.setFullScreen(true)
     }
     if (this.mainWindow.isMinimized()) {
       this.mainWindow.restore()
