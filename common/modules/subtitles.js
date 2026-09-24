@@ -45,15 +45,15 @@ export default class Subtitles {
       this.renderer?.addFont(detail.url)
     }
     this.handleSubtitle = ({ subtitle, trackNumber }) => {
-      if (this.selected) {
-        const string = JSON.stringify(subtitle)
-        if (this._tracksString[trackNumber] && !this._tracksString[trackNumber].has(string)) {
-          this._tracksString[trackNumber].add(string)
-          const assSub = this.constructSub(subtitle, this.headers[trackNumber].type !== 'ass', this.tracks[trackNumber].length, trackNumber)
-          this.tracks[trackNumber].push(assSub)
-          if (this.current === trackNumber) this.renderer?.createEvent(assSub)
-        }
-      }
+      if (!this.selected) return
+      const seen = this._tracksString[trackNumber]
+      if (!seen) return
+      const string = JSON.stringify(subtitle)
+      if (seen.has(string)) return
+      const assSub = this.constructSub({ ...subtitle }, this.headers[trackNumber].type !== 'ass', this.tracks[trackNumber].length, trackNumber)
+      seen.add(string)
+      this.tracks[trackNumber].push(assSub)
+      if (this.current === trackNumber) this.renderer?.createEvent(assSub)
     }
 
     this.handleTracks = (detail) => {

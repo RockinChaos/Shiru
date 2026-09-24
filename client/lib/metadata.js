@@ -18,6 +18,8 @@ export default class Metadata {
   file = null
   /** @type {boolean} */
   destroyed = false
+  /** @type {(event: {iterator: AsyncIterable<Uint8Array>}, cb: (iterator: AsyncIterable<Uint8Array>) => void) => void} */
+  handleIterator = ({ iterator }, cb) => cb(this.destroyed ? iterator : this.metadata.parseStream(iterator))
 
   /**
    * @param {import('webtorrent-client').default} client - Torrent client instance
@@ -37,14 +39,14 @@ export default class Metadata {
         this.parsed = true
         this.destroy()
       } else this.client.dispatch('tracks', tracks)
-    })
+    }).catch(error => console.warn('Failed to read tracks', error))
 
     /**  Extract chapter markers for navigation */
     this.metadata.getChapters().then(chapters => {
       if (this.destroyed) return
       debug(`Found ${chapters?.length} chapters`)
       this.client.dispatch('chapters', chapters)
-    })
+    }).catch(error => console.warn('Failed to read chapters', error))
 
     /** Extract embedded attachments (primarily fonts for styled subtitles) */
     this.metadata.getAttachments().then(files => {
@@ -60,7 +62,7 @@ export default class Metadata {
             })
         }
       }
-    })
+    }).catch(error => console.warn('Failed to read attachments', error))
 
     /** Listen for real-time subtitle events during playback */
     this.metadata.on('subtitle', (subtitle, trackNumber) => {
@@ -69,15 +71,15 @@ export default class Metadata {
       this.client.dispatch('subtitle', { subtitle, trackNumber })
     })
 
-    this.metadata.on('warning', error => debug('Subtitle parsing warning:', error))
+    this.metadata.on('warning', error => {
+      if (this.destroyed) return
+      console.warn('Subtitle parsing warning:', error)
+    })
 
     if (this.file.name.endsWith('.mkv') || this.file.name.endsWith('.webm')) {
-      this.file.on('iterator', ({ iterator }, cb) => {
-        if (this.destroyed) return cb(iterator)
-        cb(this.metadata.parseStream(iterator))
-      })
+      this.file.on('iterator', this.handleIterator)
     } else {
-      debug('Unsupported file format: ' + this.file?.name)
+      console.warn('Unsupported file format: ' + this.file?.name)
     }
   }
 
@@ -91,6 +93,7 @@ export default class Metadata {
     }
     debug('Destroying Parser')
     this.destroyed = true
+    this.file?.off('iterator', this.handleIterator)
     this.client?.clearAttachments(this)
     this.metadata?.removeAllListeners()
     this.metadata?.destroy()

@@ -181,8 +181,8 @@ importers:
   client:
     dependencies:
       '@rockinchaos/matroska-metadata':
-        specifier: github:RockinChaos/matroska-metadata#dd219b3f83cefc7bb34ad2fa7c68b5053d4e8429
-        version: git+https://github.com/RockinChaos/matroska-metadata.git#dd219b3f83cefc7bb34ad2fa7c68b5053d4e8429
+        specifier: github:RockinChaos/matroska-metadata#4c6374cdd2f21aa5fae01be2d36abade32c287f9
+        version: https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9
       bencode:
         specifier: ^4.0.1
         version: 4.0.1
@@ -876,13 +876,13 @@ packages:
   '@roamhq/wrtc@0.9.1':
     resolution: {integrity: sha512-WQH9DaN3kGv9+wxeRtxkSykmVQWl44VTX9XsMLmR5jtcsGxin+72U9uGlDjME0gwNNBHDKY3CgUGYI8ZYg8Jdw==}
 
-  '@rockinchaos/ebml-iterator@https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/bb3c64d4e14601865b95b218b25b96b204e966b6':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/bb3c64d4e14601865b95b218b25b96b204e966b6}
-    version: 1.2.0
+  '@rockinchaos/ebml-iterator@https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67':
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67}
+    version: 1.2.1
 
-  '@rockinchaos/matroska-metadata@git+https://github.com/RockinChaos/matroska-metadata.git#dd219b3f83cefc7bb34ad2fa7c68b5053d4e8429':
-    resolution: {commit: dd219b3f83cefc7bb34ad2fa7c68b5053d4e8429, repo: https://github.com/RockinChaos/matroska-metadata.git, type: git}
-    version: 1.1.0
+  '@rockinchaos/matroska-metadata@https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9':
+    resolution: {gitHosted: true, integrity: sha512-jgrgsFkKyesaqCFpPnoA4ks2aV2zLpBBNuUqAVU6uBlryRsK0jwrGKEbPhKFmPoZSthkksJ21WJa9tOz52f1PQ==, tarball: https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9}
+    version: 1.1.1
 
   '@rockinchaos/private-ip@3.1.1':
     resolution: {integrity: sha512-6FSJlfZzcm+ckz5jg6rtpGUJxSLcT5y1i9bYTGbLivC/sKeqN7oc/b/i/FKuWxlIVvbYIVACwjhjCw7BLXvW0g==}
@@ -3729,8 +3729,8 @@ packages:
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
 
-  pako@3.0.1:
-    resolution: {integrity: sha512-GupotUUI0mlhugKjUs4bjOwLt3nrehy9Ys2dxC0GtgVef5cnKggkDMmf2bq2poCCuVXopWPmqsc9VDT2iJUy+w==}
+  pako@3.0.2:
+    resolution: {integrity: sha512-uBv6IT2aT1A78iU6dpNEbf6+CyhlV/6g9JlJs9kpgjFGFhruIICVRysF/W0SLzXg5+hCl+KroH7e4YUyfEmgLg==}
 
   param-case@3.0.4:
     resolution: {integrity: sha512-RXlj7zCYokReqWpOPH9oYivUzLYZ5vAPIfEmCTNViosC78F8F0H9y7T7gG2M39ymgutxF5gcFEsyZQSph9Bp3A==}
@@ -6022,13 +6022,13 @@ snapshots:
       domexception: 4.0.0
     optional: true
 
-  '@rockinchaos/ebml-iterator@https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/bb3c64d4e14601865b95b218b25b96b204e966b6': {}
+  '@rockinchaos/ebml-iterator@https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67': {}
 
-  '@rockinchaos/matroska-metadata@git+https://github.com/RockinChaos/matroska-metadata.git#dd219b3f83cefc7bb34ad2fa7c68b5053d4e8429':
+  '@rockinchaos/matroska-metadata@https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9':
     dependencies:
-      '@rockinchaos/ebml-iterator': https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/bb3c64d4e14601865b95b218b25b96b204e966b6
+      '@rockinchaos/ebml-iterator': https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67
       fast-readable-async-iterator: 2.0.0
-      pako: 3.0.1
+      pako: 3.0.2
       uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   '@rockinchaos/private-ip@3.1.1':
@@ -9236,7 +9236,7 @@ snapshots:
 
   package-json-from-dist@1.0.1: {}
 
-  pako@3.0.1: {}
+  pako@3.0.2: {}
 
   param-case@3.0.4:
     dependencies:
