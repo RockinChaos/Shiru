@@ -19,7 +19,7 @@ export interface SourceConfig {
     update: string | string[] // Path to the config file. Can be prefixed with: 'gh:' to load from a GitHub repository (e.g. 'gh:username/repo'), or 'npm:' to load from a npm package (e.g. 'npm:package-name'). Can be an array of URLs to try in order as fallbacks.
     nsfw?: boolean // Should be set to true if the source has a possibility of returning NSFW results e.g. Hentai
     unregulated?: boolean // Should be set to true if the source freely allows uploads without registration e.g. anonymous uploads (this increases security risks we should let users know this)
-    type?: 'torrent'
+    type: 'torrent'
     speed?: Speed // Should be the best estimate on how quickly a fetch takes to complete the query, some sites are slow and see a lot of traffic. You should not consider your location relative to the host for speed, the speed should be an average of various locations of users.
     accuracy?: Accuracy // How likely the results are to be matching the requested series, 'high' should only be used if the results are a guaranteed match to the query.
     settings?: SourceSetting[] // Completely optional as you may not need any user configuration for your extension to function. Your extension settings will be accessible via this.settings

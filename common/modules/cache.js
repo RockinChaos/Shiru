@@ -157,7 +157,8 @@ async function get(dbName, cache, key) {
 async function set(dbName, cache, key, value) {
   const database = await open(dbName)
   const transaction = database.transaction(cache.key, 'readwrite')
-  await wrapRequest(transaction.objectStore(cache.key).put({ key, value }))
+  transaction.objectStore(cache.key).put({ key, value })
+  await waitForTransaction(transaction)
 }
 
 /**
@@ -961,9 +962,10 @@ class Cache {
    * @param {Object} data The cache object to store.
    * @returns {Promise<void>} Resolves when the data has been successfully updated.
    */
-  write(cache, key, data) {
+  async write(cache, key, data) {
+    await this.flush()
+    await set(this.#getDatabase(cache), cache, key, data)
     this.setEntry(cache, key, data)
-    return set(this.#getDatabase(cache), cache, key, data)
   }
 
   /**
