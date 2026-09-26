@@ -34,6 +34,7 @@ declare global {
       onSubtitles: (cbSubtitle: any, cbFont: any, cbFiles: any) => void
       offSubtitles: () => void
       onChapters: (callback: (data: any) => void) => void
+      offChapters: () => void
       onProgress: (callback: (data: any) => void) => void
       onCurrentStats: (callback: (data: any) => void) => void
       onExternalReady: (callback: (data: any) => void) => void

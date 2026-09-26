@@ -114,6 +114,7 @@ window.torrent = {
     listeners['subtitleFile'] = []
   },
   onChapters: (callback) => addListener('chapters', callback),
+  offChapters: () => { listeners['chapters'] = [] },
   onProgress: (callback) => addListener('progress', callback),
   onCurrentStats: (callback) => addListener('stats', callback),
   onExternalReady: (callback) => { listeners['externalReady'] = [callback] },

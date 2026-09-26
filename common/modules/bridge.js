@@ -23,6 +23,7 @@ const torrentDefaults = {
   onSubtitles: noopVoid,
   offSubtitles: noopVoid,
   onChapters: noopVoid,
+  offChapters: noopVoid,
   onProgress: noopVoid,
   onCurrentStats: noopVoid,
   onExternalReady: noopVoid,
