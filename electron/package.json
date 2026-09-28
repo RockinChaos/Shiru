@@ -23,9 +23,9 @@
     "client": "workspace:*",
     "common": "workspace:*",
     "electron": "42.11.0",
-    "electron-builder": "^26.16.1",
+    "electron-builder": "^26.17.0",
     "electron-log": "^5.4.4",
-    "electron-updater": "^6.8.9",
+    "electron-updater": "^6.8.10",
     "concurrently": "^10.0.5"
   },
   "dependencies": {
