@@ -1,24 +1,37 @@
-<p align="center">
-	<a href="https://shiru.app/">
-		<img src=".github/docs/assets/logo_filled.svg" width="400" alt="Shiru">
-	</a>
-</p>
-<h4 align="center"><b>A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!</b></h4>
+<div align="center">
+  <a href="https://shiru.app/">
+    <img src=".github/docs/assets/logo_filled.svg" width="400" alt="Shiru">
+  </a>
+  <br/>
+  <br/>
+</div>
 
-<p align="center">
+<div align="center">
+  <a href="https://shiru.app/#/download/"><img alt="Windows" src="https://img.shields.io/badge/_-Windows-2D323D?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2RjZTFlYyIgZD0iTTAgMy41bDEwLTEuNHY5LjRIMHptMTEtMS42TDI0IDB2MTEuNUgxMXpNMCAxMi41aDEwdjkuNEwwIDIwLjV6bTExIDBoMTNWMjRsLTEzLTEuOXoiLz48L3N2Zz4%3D&logoColor=DCE1EC"></a>
+  <a href="https://shiru.app/#/download/"><img alt="macOS" src="https://img.shields.io/badge/_-macOS-2D323D?style=for-the-badge&logo=apple&logoColor=DCE1EC"></a>
+  <a href="https://shiru.app/#/download/"><img alt="Linux" src="https://img.shields.io/badge/_-Linux-2D323D?style=for-the-badge&logo=linux&logoColor=DCE1EC"></a>
+  <a href="https://shiru.app/#/download/"><img alt="Android" src="https://img.shields.io/badge/_-Android-2D323D?style=for-the-badge&logo=android&logoColor=DCE1EC"></a>
+</div>
+
+<div align="center">
+  <a href="https://github.com/RockinChaos/Shiru/stargazers"><img alt="Stargazers" src="https://img.shields.io/github/stars/RockinChaos/Shiru?style=for-the-badge&color=00A5A5&labelColor=2D323D&logoColor=DCE1EC"></a>
+  <a href="https://shiru.app/#/download/"><img alt="Downloads" src="https://img.shields.io/github/downloads/RockinChaos/Shiru/total?style=for-the-badge&color=00A5A5&labelColor=2D323D"></a>
+  <a href="https://shiru.app/#/download/"><img alt="Latest Release" src="https://img.shields.io/github/v/release/RockinChaos/Shiru?style=for-the-badge&color=00A5A5&labelColor=2D323D"></a>
+  <a href="https://github.com/RockinChaos/Shiru/commits"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/RockinChaos/Shiru?style=for-the-badge&color=00A5A5&labelColor=2D323D"></a>
+  <a href="LICENSE"><img alt="License: GPLv3" src="https://img.shields.io/github/license/RockinChaos/Shiru?style=for-the-badge&color=00A5A5&labelColor=2D323D"></a>
+</div>
+
+---
+
+<div align="center">
   <a href="https://shiru.app/">🏠 Home</a> •
   <a href="https://shiru.app/#/features/">✨ Features</a> •
   <a href="https://shiru.app/#/faq/">❓ FAQ</a> •
   <a href="#-building--development">🔧 Building & Development</a> •
   <a href="https://shiru.app/#/download/">⬇️ Download</a>
-</p>
-<p align="center">
-  <a href="https://shiru.app/#/download/"><img alt="Downloads" src="https://img.shields.io/github/downloads/RockinChaos/Shiru/total?style=flat-square"></a>
-  <a href="https://shiru.app/#/download/"><img alt="Latest Release" src="https://img.shields.io/github/v/release/RockinChaos/Shiru?style=flat-square"></a>
-  <a href="https://github.com/RockinChaos/Shiru/commits"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/RockinChaos/Shiru?style=flat-square"></a>
-  <a href="https://github.com/RockinChaos/Shiru/stargazers"><img alt="Stargazers" src="https://img.shields.io/github/stars/RockinChaos/Shiru?style=flat-square"></a>
-  <a href="LICENSE"><img alt="License: GPLv3" src="https://img.shields.io/github/license/RockinChaos/Shiru?style=flat-square"></a>
-</p>
+  <br/>
+  <br/>
+</div>
 
 https://github.com/user-attachments/assets/3ff100f0-e008-4ff5-88f5-ad4290863f96
 
@@ -171,8 +184,8 @@ winget install shiru
 
 #### Option 2: 🔄 Installer or Portable Version
 1. 🔗 Download from the [releases page](https://latest.shiru.app/):
-   - **Installer:** `win-Shiru-vx.x.x-installer.exe`
-   - **Portable:** `win-Shiru-vx.x.x-portable.exe` *(No installation required, just run it)*
+    - **Installer:** `win-Shiru-vx.x.x-installer.exe`
+    - **Portable:** `win-Shiru-vx.x.x-portable.exe` *(No installation required, just run it)*
 
 ## 🔧 Building & Development
 
@@ -220,14 +233,14 @@ Credit to [NoCrypt](https://github.com/NoCrypt) for doing the legwork on this.
    pnpm exec cap doctor
    ```
 4. (First time only) Build native code:
-   - Windows:
-     ```bash
-     pnpm build:native-win
-     ```
-   - Linux:
-     ```bash
-     pnpm build:native
-     ```
+    - Windows:
+      ```bash
+      pnpm build:native-win
+      ```
+    - Linux:
+      ```bash
+      pnpm build:native
+      ```
 5. (Optional) Generate assets:
    ```bash
    pnpm build:assets
