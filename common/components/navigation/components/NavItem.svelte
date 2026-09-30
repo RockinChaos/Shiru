@@ -95,7 +95,7 @@
     <Users class={iconCss} style='height: {size}; width: {size};' strokeWidth='2.5' />
   </NavLink>
 {:else if item === page.TORRENT_MANAGER}
-  <NavLink click={getClick(item)} page={page.TORRENT_MANAGER} text='Torrents' class={$$restProps.class} {drawer} {sidebar}>
+  <NavLink click={getClick(item)} page={page.TORRENT_MANAGER} text='Manager' class={$$restProps.class} {drawer} {sidebar}>
     <Download class={iconCss} style='height: {size}; width: {size};' strokeWidth='2.5' />
   </NavLink>
 {:else if item === 'UPDATE_DOWNLOADING'}
