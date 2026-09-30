@@ -215,7 +215,7 @@ jobs:
 
       - name: Sign Android APK
         id: sign_app
-        uses: RockinChaos/sign-android@v1.1.0
+        uses: RockinChaos/sign-android@v1.2.0
         with:
           releaseDir: capacitor/android/app/build/outputs/apk/release
           signingKey: "${{ secrets.SIGNING_KEY }}"
@@ -226,13 +226,6 @@ jobs:
           appVersion: ${{ env.APP_VERSION }}
           appPrefix: android
 
-      - name: Split Signed Files
-        uses: jungwinter/split@v2
-        id: signed_files
-        with:
-          msg: ${{ steps.sign_app.outputs.signedFiles }}
-          separator: ':'
-
       - name: Generate latest-android.yml
         run: |
           echo "version: ${{ env.APP_VERSION }}" | sed 's/^version: v/version: /' > latest-android.yml
@@ -240,12 +233,12 @@ jobs:
       - name: Publish Android APK
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNED_FILES: ${{ steps.sign_app.outputs.signedFilesList }}
         run: |
-          for f in "${{ steps.signed_files.outputs._0 }}" "${{ steps.signed_files.outputs._1 }}" "${{ steps.signed_files.outputs._2 }}" "${{ steps.signed_files.outputs._3 }}"; do
-            if [ -n "$f" ]; then
-              echo "uploading $(basename $f)"
-              gh release upload --clobber "$APP_VERSION" "../$f"
-            fi
+          mapfile -t files <<< "$SIGNED_FILES"
+          for f in "${files[@]}"; do
+            echo "uploading $(basename "$f")"
+            gh release upload --clobber "$APP_VERSION" "$f"
           done
           echo "uploading latest-android.yml"
           gh release upload --clobber "$APP_VERSION" latest-android.yml

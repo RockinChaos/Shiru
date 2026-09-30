@@ -140,13 +140,13 @@ jobs:
           git remote add codeberg https://${{ secrets.CODEBERG_USER }}:${{ secrets.CODEBERG_TOKEN }}@codeberg.org/${{ secrets.CODEBERG_USER }}/${{ secrets.CODEBERG_REPO }}.git
           git push codeberg "${{ github.event.release.tag_name }}"
 
-      - name: Download Release Assets
-        run: |
-          mkdir -p release-assets
-          gh release download "${{ github.event.release.tag_name }}" \
-            --repo "${{ github.repository }}" \
-            --dir release-assets \
-            --skip-existing
+      # - name: Download Release Assets
+      #   run: |
+      #     mkdir -p release-assets
+      #     gh release download "${{ github.event.release.tag_name }}" \
+      #       --repo "${{ github.repository }}" \
+      #       --dir release-assets \
+      #       --skip-existing
 
       - name: Write Changelog
         env:
@@ -180,17 +180,20 @@ jobs:
 
           echo "release_id=$(jq -r '.id' response.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Assets
-        env:
-          CODEBERG_USER: ${{ secrets.CODEBERG_USER }}
-          CODEBERG_REPO: ${{ secrets.CODEBERG_REPO }}
-          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
-        run: |
-          owner="$CODEBERG_USER"
-          repo="$CODEBERG_REPO"
-          for f in release-assets/*; do
-            curl -sf -X POST \
-              -H "Authorization: token $CODEBERG_TOKEN" \
-              -F "attachment=@$f" \
-              "https://codeberg.org/api/v1/repos/$owner/$repo/releases/${{ steps.codeberg.outputs.release_id }}/assets"
-          done
+      # - name: Upload Assets
+      #   env:
+      #     CODEBERG_USER: ${{ secrets.CODEBERG_USER }}
+      #     CODEBERG_REPO: ${{ secrets.CODEBERG_REPO }}
+      #     CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+      #   run: |
+      #     owner="$CODEBERG_USER"
+      #     repo="$CODEBERG_REPO"
+      #     for f in release-assets/*; do
+      #       case "$f" in
+      #         *.blockmap|*.yml) continue ;;
+      #       esac
+      #       curl -sf -X POST \
+      #         -H "Authorization: token $CODEBERG_TOKEN" \
+      #         -F "attachment=@$f" \
+      #         "https://codeberg.org/api/v1/repos/$owner/$repo/releases/${{ steps.codeberg.outputs.release_id }}/assets"
+      #     done
