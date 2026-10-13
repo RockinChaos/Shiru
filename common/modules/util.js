@@ -757,6 +757,7 @@ export const defaults = {
   disableStartupTorrent: SUPPORTS.isAndroid,
   torrentPort: 0,
   torrentStreamedDownload: true,
+  stageImportedTorrents: false,
   torrentSort: 'seeders',
   seedingLimit: !SUPPORTS.isAndroid ? 5 : 2,
   dhtPort: 0,

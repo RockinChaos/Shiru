@@ -61,8 +61,11 @@ export const diskSpace = writable({ total: 0, free: 0 })
 clipboard.addEventListener('text', ({ detail }) => {
   for (const { text } of detail) {
     if (page.value !== page.WATCH_TOGETHER && torrentRx.exec(text)) {
-      media.value = { torrent: true }
-      add(text, null, null, true)
+      if (settings.value.stageImportedTorrents) stage(text)
+      else {
+        media.value = { torrent: true }
+        add(text, null, null, true)
+      }
     }
   }
 })
@@ -70,8 +73,12 @@ if (!SUPPORTS.isAndroid) {
   clipboard.addEventListener('files', async ({ detail }) => {
     for (const file of detail) {
       if (file.name.endsWith('.torrent')) {
-        media.value = { torrent: true }
-        add(new Uint8Array(await file.arrayBuffer()))
+        const torrentID = new Uint8Array(await file.arrayBuffer())
+        if (settings.value.stageImportedTorrents) stage(torrentID)
+        else {
+          media.value = { torrent: true }
+          add(torrentID)
+        }
       }
     }
   })
@@ -103,7 +110,8 @@ TORRENT.portRequest(_settings).then(() => {
   TORRENT.onRequest(opts => {
     ELECTRON.showAndFocus()
     debug(`Got torrent request for:`, JSON.stringify(opts))
-    add(opts.magnet, null, null, null, opts.base64)
+    if (settings.value.stageImportedTorrents) stage(opts.magnet, null, null, opts.base64)
+    else add(opts.magnet, null, null, null, opts.base64)
   })
 
   TORRENT.onStats(detail => {
@@ -179,11 +187,11 @@ export async function add(torrentID, search, hash, magnet, base64 = false) {
     TORRENT.stream(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, magnet, base64)
   }
 }
-export async function stage(torrentID, search, hash) {
+export async function stage(torrentID, search, hash, base64 = false) {
   if (torrentID) {
     debug('Pre-Adding torrent', JSON.stringify({ torrentID, search, hash }))
     if (hash && search) setHash(hash, { mediaId: search.media?.id, episode: search.episode, client: true })
-    TORRENT.stage(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false)
+    TORRENT.stage(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, base64)
     if (hash) {
       const existingTorrent = seedingTorrents.value.find(torrent => torrent.infoHash === hash) || completedTorrents.value.find(torrent => equalsIgnoreCase(torrent.infoHash, hash))
       if (existingTorrent) {

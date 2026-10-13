@@ -625,7 +625,8 @@ export default class TorrentClient extends WebTorrent {
         break
       } case 'stage': {
         const hash = data.data && data.data.hash
-        const torrentID = data.data && data.data.id
+        const dataID = data.data && data.data.id
+        const torrentID = data.data.base64 ? new Uint8Array(Buffer.from(dataID, 'base64')) : dataID
         const cache = await this.torrentCache.get(hash || (await getInfoHash(torrentID)))
         this.addTorrent(torrentID, cache)
         break

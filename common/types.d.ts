@@ -21,7 +21,7 @@ declare global {
       rescan: () => Promise<{ missingCount: number, removedCount: number }>,
       scrape: (id: any, infoHashes: any) => Promise<any>
       stream: (id: any, hash: any, magnet: any, base64: any) => void
-      stage: (id: any, hash: any) => void
+      stage: (id: any, hash: any, base64?: boolean) => void
       complete: (hash: any) => void
       unload: (data: any) => void
       untrack: (hash: any) => void

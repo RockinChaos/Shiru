@@ -93,7 +93,7 @@ window.torrent = {
     send('scrape', { id, infoHashes })
   }),
   stream: (id, hash, magnet, base64) => send('torrent', { id, hash, magnet, base64 }),
-  stage: (id, hash) => send('stage', { id, hash }),
+  stage: (id, hash, base64) => send('stage', { id, hash, base64 }),
   complete: (hash) => send('complete', hash),
   unload: (data) => send('unload', data),
   untrack: (hash) => send('untrack', hash),

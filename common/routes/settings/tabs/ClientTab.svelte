@@ -81,6 +81,12 @@
     <label for='torrent-streamed-download'>{settings.torrentStreamedDownload ? 'On' : 'Off'}</label>
   </div>
 </SettingCard>
+<SettingCard title='Queue Imported Torrents' description='Queues opened, pasted, or dropped magnet links and torrent files for background download without replacing the currently loaded torrent.'>
+  <div class='custom-switch fit-content'>
+    <input type='checkbox' id='stage-imported-torrents' bind:checked={settings.stageImportedTorrents} />
+    <label for='stage-imported-torrents'>{settings.stageImportedTorrents ? 'On' : 'Off'}</label>
+  </div>
+</SettingCard>
 <SettingCard title='Transfer Speed Limit' description='Download/Upload speed limit for torrents, higher values increase CPU usage, and values higher than your storage write speeds will quickly fill up RAM.'>
   <div class='input-group w-100 mw-full'>
     <ClampedNumber bind:bindTo={settings.torrentSpeed} min={1} max={1024} class='form-control text-right bg-dark'/>
