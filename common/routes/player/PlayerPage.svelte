@@ -167,15 +167,15 @@
   let orientationLockable = true // might as well stop trying to lock the orientation when the device doesn't support it.
   document.addEventListener('fullscreenchange', () => {
     isFullscreen = !!document.fullscreenElement
-    if (document.fullscreenElement && orientationLockable) {
+    if (document.fullscreenElement) {
       if (SUPPORTS.isAndroid) window.AndroidFullScreen?.immersiveMode()
-      screen.orientation.lock('landscape').then(success => debug(success), failure => { if (!failure?.toString()?.includes('NotSupportedError')) { debug(failure) } else { orientationLockable = false } })
-    } else if (orientationLockable) {
+      if (orientationLockable) screen.orientation.lock('landscape').then(success => debug(success), failure => { if (!failure?.toString()?.includes('NotSupportedError')) { debug(failure) } else { orientationLockable = false } })
+    } else {
       if (SUPPORTS.isAndroid) {
         window.AndroidFullScreen?.showSystemUI()
         ANDROID.hideStatusBar()
       }
-      screen.orientation.unlock()
+      if (orientationLockable) screen.orientation.unlock()
     }
   })
 
