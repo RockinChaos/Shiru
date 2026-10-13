@@ -32,7 +32,7 @@ export const codes = {
   521: 'Web Server Is Down'
 }
 
-export const equalsIgnoreCase = (a, b) => a?.toLowerCase() === b?.toLowerCase()
+export const equalsIgnoreCase = (a, b) => a != null && b != null && (typeof a === 'string' && typeof b === 'string' ? a.toLowerCase() === b.toLowerCase() : a === b)
 
 /**
  * Returns a deterministic avatar filename based on the provided seed text.
