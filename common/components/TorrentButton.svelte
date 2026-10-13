@@ -1,5 +1,5 @@
 <script context='module'>
-    import { Download, CloudUpload, CloudDownload, FolderX, FolderCheck, TvMinimalPlay } from 'lucide-svelte'
+    import { Download, CloudUpload, CloudDownload, FolderX, FolderCheck, TvMinimalPlay, Loader2 } from 'lucide-svelte'
     import { settings } from '@/modules/settings.js'
     import { add, stage, loadedTorrent, stagingTorrents, seedingTorrents, completedTorrents } from '@/modules/torrent.js'
     import { getHash } from '@/modules/anime/animehash.js'
@@ -134,5 +134,18 @@
     $: pending = $pendingToasts.has(activeHash?.toLowerCase())
 </script>
 <button type='button' class='torrent-button d-flex align-items-center justify-content-center {$$restProps.class}' class:not-allowed={downloaded || disabled || pending} class:not-reactive={downloaded || disabled} class:cursor-wait={pending} disabled={(disabled && !downloaded) || pending} title='' data-toggle='tooltip' data-placement='left' data-title={pending ? 'Adding...' : $completedTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? ($completedTorrents.find(torrent => equalsIgnoreCase(torrent.infoHash, activeHash))?.incomplete ? 'Download Incomplete' : 'Download Completed') : $seedingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'Seeding...' : $stagingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'Downloading...' : equalsIgnoreCase($loadedTorrent.infoHash, activeHash) ? 'Now Playing' : (!disabled ? 'Queue for Download' : 'Enable Persist Files or Increase Seeding Limit')} use:click={() => { if (!disabled && !downloaded && torrentID) queueTorrent(torrentID, search, activeHash) }}>
-    <svelte:component this={$completedTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? ($completedTorrents.find(torrent => equalsIgnoreCase(torrent.infoHash, activeHash))?.incomplete ? FolderX : FolderCheck) : $seedingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? CloudUpload : $stagingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? CloudDownload : equalsIgnoreCase($loadedTorrent.infoHash, activeHash) ? TvMinimalPlay : Download} {size} {strokeWidth} style={downloaded ? (`color: ${$completedTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'var(--slateblue-color)' : $seedingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'var(--success-color)' : $stagingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'var(--warning-color)' : 'var(--tertiary-color)'}`) : (($completedTorrents.find(torrent => equalsIgnoreCase(torrent.infoHash, activeHash))?.incomplete ? 'color: var(--error-color-light)' : ''))} />
+    {#if pending}
+        <Loader2 {size} {strokeWidth} class='torrent-spin' />
+    {:else}
+        <svelte:component this={$completedTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? ($completedTorrents.find(torrent => equalsIgnoreCase(torrent.infoHash, activeHash))?.incomplete ? FolderX : FolderCheck) : $seedingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? CloudUpload : $stagingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? CloudDownload : equalsIgnoreCase($loadedTorrent.infoHash, activeHash) ? TvMinimalPlay : Download} {size} {strokeWidth} style={downloaded ? (`color: ${$completedTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'var(--slateblue-color)' : $seedingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'var(--success-color)' : $stagingTorrents.some(torrent => equalsIgnoreCase(torrent.infoHash, activeHash)) ? 'var(--warning-color)' : 'var(--tertiary-color)'}`) : (($completedTorrents.find(torrent => equalsIgnoreCase(torrent.infoHash, activeHash))?.incomplete ? 'color: var(--error-color-light)' : ''))} />
+    {/if}
 </button>
+
+<style>
+    .torrent-button :global(.torrent-spin) {
+        animation: torrent-spin .9s linear infinite;
+    }
+    @keyframes torrent-spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
