@@ -927,10 +927,10 @@ aniLimiter.on('failed', async (error) => {
   if (status.value === 'offline') throw new Error('Failed making request to api.ani.zip, network is offline... not retrying')
   if (error.status === 500) return 1
   if (!error.statusText) {
-    if (!aniRateLimitPromise) aniRateLimitPromise = sleep(10 * 1000).then(() => { aniRateLimitPromise = null })
-    return 10 * 1000
+    if (!aniRateLimitPromise) aniRateLimitPromise = sleep(10 * 1_000).then(() => { aniRateLimitPromise = null })
+    return 10 * 1_000
   }
-  const time = (Number((error.headers.get('retry-after') || 10)) + 1) * 1000
+  const time = (Number((error.headers.get('retry-after') || 10)) + 1) * 1_000
   if (!aniRateLimitPromise) aniRateLimitPromise = sleep(time).then(() => { aniRateLimitPromise = null })
   return time
 })
@@ -946,8 +946,8 @@ export async function getAniMappings(opts) {
     await aniRateLimitPromise
     let res
     try {
-      res = await fetch(`https://api.ani.zip/mappings?${opts.id ? `anilist_id=${opts.id}` : `mal_id=${opts.idMal}`}`)
-      if (res?.status === 404 && opts.id && opts.idMal) res = await fetch(`https://api.ani.zip/mappings?mal_id=${opts.idMal}`)
+      res = await fetch(`https://api.ani.zip/v1/episodes?${opts.id ? `anilist_id=${opts.id}` : `mal_id=${opts.idMal}`}`)
+      if (res?.status === 404 && opts.id && opts.idMal) res = await fetch(`https://api.ani.zip/v1/episodes?mal_id=${opts.idMal}`)
     } catch (e) {
       if (!res || res.status !== 404) throw e
     }
@@ -972,7 +972,7 @@ export async function getAniMappings(opts) {
       }
       const date = new Date()
       const media = opts.id && cache.getMedia(opts.id)
-      const cacheDuration = media?.status === 'FINISHED' && media?.endDate && (date.getFullYear() - media.endDate.year) * 12 + (date.getMonth() + 1 - media.endDate.month) >= 12 ? getRandomInt(24, 48) * 60 * 60 * 1_000 : getRandomInt(30, 60) * 60 * 1_000
+      const cacheDuration = media?.status === 'FINISHED' && media?.endDate && (date.getFullYear() - media.endDate.year) * 12 + (date.getMonth() + 1 - media.endDate.month) >= 12 ? getRandomInt(24, 72) * 60 * 60 * 1_000 : getRandomInt(2, 6) * 60 * 60 * 1_000
       return cache.cacheEntry(caches.QUERY_MAPPINGS, cacheKey, {}, json, date.getTime() + cacheDuration) // caches currently airing series for 30 to 60 minutes, or 24 to 48 hours for series that finished at least a year ago (its highly unlikely the mappings will change drastically at that point).
     } catch (e) {
       const cachedEntry = cache.cachedEntry(caches.QUERY_MAPPINGS, cacheKey, true)
