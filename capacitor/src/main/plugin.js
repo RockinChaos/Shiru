@@ -4,7 +4,8 @@ const FileManagerPlugin = registerPlugin('FileManager')
 export const FileManager = {
   hasAllFilesAccess: async () => (await FileManagerPlugin.hasAllFilesAccess()).granted,
   requestAllFilesAccess: () => FileManagerPlugin.requestAllFilesAccess(),
-  pickFolder: async () => (await FileManagerPlugin.pickFolder()).path
+  pickFolder: async () => (await FileManagerPlugin.pickFolder()).path,
+  pickFiles: async () => (await FileManagerPlugin.pickFiles()).files
 }
 
 const MediaSessionPlugin = registerPlugin('MediaSession')

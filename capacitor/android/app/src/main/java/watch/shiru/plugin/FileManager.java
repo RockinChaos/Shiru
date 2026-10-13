@@ -1,6 +1,7 @@
 package watch.shiru.plugin;
 
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -12,23 +13,33 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.documentfile.provider.DocumentFile;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @CapacitorPlugin(name = "FileManager")
 public class FileManager extends Plugin {
 
   private ActivityResultLauncher<Intent> folderPickerLauncher;
   private PluginCall savedCall;
+  private ActivityResultLauncher<Intent> filePickerLauncher;
+  private PluginCall filePickerCall;
 
   @Override
   public void load() {
     folderPickerLauncher = getActivity().registerForActivityResult(
         new ActivityResultContracts.StartActivityForResult(),
         this::handleFolderPickerResult
+    );
+    filePickerLauncher = getActivity().registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        this::handleFilePickerResult
     );
   }
 
@@ -60,6 +71,54 @@ public class FileManager extends Plugin {
     call.setKeepAlive(true);
     savedCall = call;
     folderPickerLauncher.launch(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE));
+  }
+
+  @PluginMethod
+  public void pickFiles(PluginCall call) {
+    if (filePickerCall != null) {
+      call.reject("File selection is already in progress");
+      return;
+    }
+    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+    intent.addCategory(Intent.CATEGORY_OPENABLE);
+    intent.setType("*/*");
+    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+    filePickerCall = call;
+    try {
+      filePickerLauncher.launch(intent);
+    } catch (Exception error) {
+      filePickerCall = null;
+      call.reject("Unable to open file picker", error);
+    }
+  }
+
+  private void handleFilePickerResult(ActivityResult result) {
+    PluginCall call = filePickerCall;
+    filePickerCall = null;
+    if (call == null) return;
+    JSArray files = new JSArray();
+    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+      Intent data = result.getData();
+      List<Uri> uris = new ArrayList<>();
+      ClipData clipData = data.getClipData();
+      if (clipData != null) {
+        for (int i = 0; i < clipData.getItemCount(); i++) {
+          uris.add(clipData.getItemAt(i).getUri());
+        }
+      } else if (data.getData() != null) uris.add(data.getData());
+      for (Uri uri : uris) {
+        if (uri == null) continue;
+        DocumentFile documentFile = DocumentFile.fromSingleUri(getContext(), uri);
+        String name = documentFile != null ? documentFile.getName() : null;
+        JSObject file = new JSObject();
+        file.put("path", uri.toString());
+        file.put("name", name != null ? name : uri.getLastPathSegment());
+        files.put(file);
+      }
+    }
+    JSObject response = new JSObject();
+    response.put("files", files);
+    call.resolve(response);
   }
 
   private void handleFolderPickerResult(ActivityResult result) {

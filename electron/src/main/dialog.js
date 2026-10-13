@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from 'electron'
-import { writeFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
 
 export default class Dialog {
 
@@ -39,6 +39,27 @@ export default class Dialog {
         console.debug(error)
         return { error: true }
       }
+    })
+    // TODO: Add support for media file selection, currently only supports torrent files
+    ipcMain.handle('common:pickMediaFiles', async () => {
+      const { filePaths, canceled } = await dialog.showOpenDialog({
+        title: 'Select torrent files to import', // 'Select media file(s) or torrent(s), selecting more than one media file creates a batch.'
+        properties: ['openFile', 'multiSelections'],
+        filters: [{
+          name: 'Torrent', // 'Media Files & Torrents'
+          extensions: ['torrent'] // [ '3g2', '3gp', 'asf', 'avi', 'dv', 'flv', 'gxf', 'm2ts', 'm4a', 'm4b', 'm4p', 'm4r', 'm4v', 'mkv', 'mov', 'mp4', 'mpd', 'mpeg', 'mpg', 'mxf', 'nut', 'ogm', 'ogv', 'swf', 'ts', 'vob', 'webm', 'wmv', 'wtv', 'torrent' ]
+        }]
+      })
+      if (canceled || !filePaths.length) return {}
+      const mediaPaths = []
+      const torrents = []
+      for (const path of filePaths) {
+        if (path.toLowerCase().endsWith('.torrent')) {
+          const buffer = await readFile(path)
+          torrents.push(buffer)
+        } else mediaPaths.push(path)
+      }
+      return { paths: mediaPaths, torrents }
     })
   }
 }

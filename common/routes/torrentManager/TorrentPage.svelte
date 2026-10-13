@@ -1,6 +1,6 @@
 <script>
   import { diskSpace, loadingSession, loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
-  import { Search, RefreshCw, TriangleAlert, Percent, Activity, Gauge, UserSearch, Timer, CloudAlert, CloudUpload, CloudDownload, FolderX, FolderCheck, HardDrive } from 'lucide-svelte'
+  import { Search, RefreshCw, TriangleAlert, Percent, Activity, Gauge, UserSearch, Timer, CloudAlert, CloudUpload, CloudDownload, FolderX, FolderCheck, HardDrive, HardDriveUpload } from 'lucide-svelte'
   import TorrentCard from '@/routes/torrentManager/components/TorrentCard.svelte'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
   import ErrorCard from '@/components/cards/ErrorCard.svelte'
@@ -12,7 +12,7 @@
   import { mediaCache } from '@/modules/cache.js'
   import { toast } from '@/modules/lib/toast.js'
   import { click } from '@/modules/lib/click.js'
-  import { TORRENT } from '@/modules/bridge.js'
+  import { COMMON, TORRENT } from '@/modules/bridge.js'
   import { scale } from 'svelte/transition'
   import { flip } from 'svelte/animate'
 
@@ -335,6 +335,34 @@
   }
 
   /**
+   * Opens the media picker for staging selected torrents.
+   * @returns {Promise<void>}
+   */
+  async function handleMedia() {
+    $loadingSession = true
+    const id = toast.loading('Adding Torrents', { description: 'Select torrent files to queue for background download.', duration: Infinity })
+    try {
+      const { paths = [], torrents = [] } = await COMMON.pickMediaFiles()
+      if (!paths.length && !torrents.length) {
+        toast.dismiss(id)
+        return
+      }
+
+      // TODO: Support adding local files to the torrent cache.
+      // if (paths.length) await TORRENT.addLocalFiles(paths)
+
+      toast.update(id, { title: 'Queuing Torrents', description: 'Requesting torrents for background download, this may take a moment...' })
+      for (const torrentData of torrents) TORRENT.stage(torrentData, false)
+      const selectedCount = torrents.length
+      toast.update(id, { type: 'success', title: 'Queued Torrents', description: selectedCount + ' torrent' + (selectedCount === 1 ? '' : 's') + ' queued for background download. Check the management page for progress...', duration: 6_000 })
+    } catch (error) {
+      toast.update(id, { type: 'error', title: 'Failed to Queue Torrents', description: error?.message || String(error), duration: 6_000 })
+    } finally {
+      $loadingSession = false
+    }
+  }
+
+  /**
    * Toggles a status filter on/off.
    *
    * @param {StatusKey} statusKey
@@ -425,6 +453,9 @@
       </div>
       <button type='button' use:click={rescan} disabled={disableRescan || $loadingSession} title={disableRescan ? 'Enable Persist Files or Increase Seeding Limit' : $loadingSession ? 'Rescanning Cache...' : 'Rescan Cache'} class='btn btn-primary d-flex align-items-center justify-content-center ml-20 mr-20 font-scale-16 h-full' class:cursor-wait={$loadingSession}>
         <RefreshCw class='mr-10' size='1.8rem' strokeWidth='2.4'/><span>Rescan</span>
+      </button>
+      <button type='button' use:click={handleMedia} disabled={disableRescan || $loadingSession} title='Add Media File(s) or Add Torrent File(s)' class='btn btn-primary d-flex align-items-center justify-content-center mr-20 font-scale-16 h-full' class:cursor-wait={$loadingSession}>
+        <HardDriveUpload class='mr-10' size='1.8rem' strokeWidth='2.4'/><span>Add File</span>
       </button>
     </div>
   </div>

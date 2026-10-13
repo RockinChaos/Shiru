@@ -1,5 +1,6 @@
 import { toast } from '@/modules/lib/toast.js'
 import { FileManager } from './plugin.js'
+import { Filesystem } from '@capacitor/filesystem'
 import { ipcWire } from './ipc.js'
 
 export default class Dialog {
@@ -33,6 +34,20 @@ export default class Dialog {
         console.debug('Failed to export logs', error)
         return { error: true }
       }
+    })
+    // TODO: Add support for media file selection, currently only supports torrent files
+    ipcWire.handle('common:pickMediaFiles', async () => {
+      const files = await FileManager.pickFiles()
+      if (!files.length) return {}
+      const paths = []
+      const torrents = []
+      for (const file of files) {
+        if ((file.name || file.path).toLowerCase().endsWith('.torrent')) {
+          const { data } = await Filesystem.readFile({ path: file.path })
+          torrents.push(Uint8Array.from(atob(data), byte => byte.charCodeAt(0)))
+        } // else paths.push(file.path)
+      }
+      return { paths, torrents }
     })
   }
 }

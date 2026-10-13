@@ -55,6 +55,7 @@ const commonDefaults = {
   openURI: noopAsyncVoid,
   pickFile: noopAsyncString,
   pickFolder: noopAsyncString,
+  pickMediaFiles: async () => ({}),
   linkAccount: noopAsyncVoid,
   handleProtocol: noopVoid,
   /** @param {'stable' | 'nightly'} channel */

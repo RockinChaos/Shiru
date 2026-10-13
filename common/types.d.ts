@@ -66,6 +66,7 @@ declare global {
       openURI: (uri: string) => Promise<any>
       pickFile: (title: string) => Promise<string>
       pickFolder: (title: string) => Promise<string>
+      pickMediaFiles: () => Promise<{ paths?: string[]; torrents?: Uint8Array[] }>
       linkAccount: (uri: string) => Promise<any>
       handleProtocol: (data: any) => void
       setUpdateChannel: (channel: 'stable' | 'nightly') => void

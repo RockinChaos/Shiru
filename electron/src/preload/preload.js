@@ -129,6 +129,7 @@ contextBridge.exposeInMainWorld('common', {
   openURI: (uri) => ipcRenderer.invoke('common:openURI', uri),
   pickFile: (title) => ipcRenderer.invoke('common:pickFile', title),
   pickFolder: (title) => ipcRenderer.invoke('common:pickFolder', title),
+  pickMediaFiles: () => ipcRenderer.invoke('common:pickMediaFiles'),
   linkAccount: (uri) => ipcRenderer.invoke('common:linkAccount', uri),
   handleProtocol: (data) => ipcRenderer.send('common:handleProtocol', data),
   setUpdateChannel: (channel) => ipcRenderer.send('common:setUpdateChannel', channel),

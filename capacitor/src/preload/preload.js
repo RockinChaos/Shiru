@@ -61,6 +61,9 @@ function addListener(type, callback) {
 }
 
 function send(type, data, transfer) {
+  if ((type === 'torrent' || type === 'stage') && data.id instanceof Uint8Array) {
+    data = { ...data, id: btoa(Array.from(data.id, byte => String.fromCharCode(byte)).join('')), base64: true }
+  }
   _portReady.then(() => _port.postMessage({ type, data }, transfer))
 }
 
@@ -168,6 +171,7 @@ window.common = {
   openURI: async (uri) => Browser.open({ url: uri }),
   pickFile: async (title) => '', // Currently not used for Capacitor...
   pickFolder: async (title) => ipcWire.invoke('common:pickFolder'),
+  pickMediaFiles: () => ipcWire.invoke('common:pickMediaFiles'),
   linkAccount: async (uri) => {
     Browser.open({ url: uri })
     return null // no token
