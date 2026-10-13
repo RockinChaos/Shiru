@@ -4,7 +4,7 @@
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@10.34.1",
   "private": true,
-  "author": "RockinChaos <RockinChaos@users.noreply.github.com>",
+  "author": "RockinChaos <maintainer@shiru.app>",
   "description": "A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!",
   "main": "build/main.js",
   "homepage": "https://shiru.app/",
@@ -19,14 +19,14 @@
     "publish": "npm run web:build && electron-builder -p always"
   },
   "devDependencies": {
-    "@electron/notarize": "^3.1.1",
+    "@electron/notarize": "^3.1.2",
     "client": "workspace:*",
     "common": "workspace:*",
     "electron": "42.11.0",
     "electron-builder": "^26.17.0",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.10",
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.6"
   },
   "dependencies": {
     "@paymoapp/electron-shutdown-handler": "^1.2.0",

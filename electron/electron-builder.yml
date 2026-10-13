@@ -46,7 +46,7 @@ linux:
   category: AudioVideo;Video
   synopsis: *synopsis
   description: *description
-  maintainer: RockinChaos <RockinChaos@users.noreply.github.com>
+  maintainer: RockinChaos <maintainer@shiru.app>
   syncDesktopName: true
   desktop:
     entry:

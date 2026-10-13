@@ -30,7 +30,7 @@
     "@capacitor/device": "^8.0.3",
     "@capacitor/filesystem": "^8.1.3",
     "@capacitor/keyboard": "^8.0.5",
-    "@capacitor/local-notifications": "^8.2.1",
+    "@capacitor/local-notifications": "8.2.1",
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/toast": "^8.0.1",
     "@capawesome-team/capacitor-android-foreground-service": "^8.1.0",
