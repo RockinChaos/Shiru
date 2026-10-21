@@ -65,31 +65,48 @@ export default class App {
     })
 
     ipcWire.handle('torrent:portRequest', async (event, settings) => {
+      /** @type {import('@capacitor/core').PluginListenerHandle|undefined} */
+      let messageListener
       const port = {
-        onmessage: cb => {
-          NodeJS.addListener('ipc', ({ args }) => cb(args[0]))
+        onmessage: async cb => {
+          messageListener = await NodeJS.addListener('torrent:message', ({ args }) => cb(args[0]))
         },
-        postMessage: (data, b) => {
-          NodeJS.send({ eventName: 'ipc', args: [{ data }] })
-        }
+        postMessage: data => NodeJS.send({ eventName: 'torrent:message', args: [{ data }] }),
+        close: async () => messageListener?.remove()
       }
       await this.ready
       this.handleNotify = true
-      NodeJS.send({ eventName: 'port-init', args: [] })
-      let stethoscope = true
-      return new Promise(resolve => {
-        NodeJS.addListener('webtorrent-heartbeat', () => {
-          if (stethoscope) {
-            stethoscope = false
-            NodeJS.send({ eventName: 'main-heartbeat', args: [settings] })
-            NodeJS.addListener('torrentRequest', () => {
-              NodeJS.send({ eventName: 'torrentPort', args: [] })
+      /** @type {import('@capacitor/core').PluginListenerHandle[]} */
+      const listeners = []
+      /** @type {ReturnType<typeof setTimeout>|undefined} */
+      let timer
+      /** @type {boolean} */
+      let settled = false
+      try {
+        return await new Promise((resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('Torrent initialization timed out')), 15_000)
+          const onReady = async () => {
+            try {
+              await NodeJS.send({ eventName: 'torrent:connect', args: [] })
+              loadingClient.resolve()
               resolve(port)
-            })
-            loadingClient.resolve()
+            } catch (error) { reject(error) }
           }
+          Promise.all([
+            NodeJS.addListener('torrent:ready', onReady),
+            NodeJS.addListener('torrent:init-error', ({ args }) => reject(new Error(args[0])))
+          ].map(registration => registration.then(handle => {
+            if (settled) return handle.remove()
+            listeners.push(handle)
+          }))).then(() => {
+            if (!settled) return NodeJS.send({ eventName: 'torrent:init', args: [settings] })
+          }).catch(reject)
         })
-      })
+      } finally {
+        settled = true
+        clearTimeout(timer)
+        await Promise.all(listeners.map(listener => listener.remove()))
+      }
     })
     ipcWire.on('torrent:reload', () => NodeJS.send({ eventName: 'torrent:reload', args: [] }))
 

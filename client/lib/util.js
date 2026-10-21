@@ -2,13 +2,23 @@ import { createHash } from 'crypto'
 import { videoRx } from '@/modules/util.js'
 import querystring from 'querystring'
 import parseTorrent from 'parse-torrent'
-import { stat } from 'fs/promises'
+import { stat, statfs } from 'fs/promises'
 import { statSync } from 'fs'
 import path from 'path'
 import os from 'os'
 
 /** @type {boolean} */
 export const isFlatpak = !!process.env.FLATPAK_ID
+
+/**
+ * Reads disk space info (total and free bytes).
+ * @param {string} directory Directory on the target drive.
+ * @returns {Promise<{total: number, free: number}>}
+ */
+export async function diskSpace(directory) {
+  const { bsize, blocks, bavail } = await statfs(directory)
+  return { total: bsize * blocks, free: bsize * bavail }
+}
 
 /**
  * Temporary directory path for WebTorrent usage (used for fallback).
@@ -29,7 +39,7 @@ try {
 
 /**
  * Converts an object into a URL query string with safe encoding for special characters.
- * @param {Object} obj - Object to convert.
+ * @param {Object} obj Object to convert.
  * @returns {string} Encoded query string.
  */
 export const stringifyQuery = obj => {
@@ -41,8 +51,8 @@ export const stringifyQuery = obj => {
 
 /**
  * Calculates progress and total size from a cached torrent.
- * @param {Object} cache - Cached torrent object.
- * @param {Uint8Array} cache._bitfield - Bitfield indicating completed pieces.
+ * @param {Object} cache Cached torrent object.
+ * @param {Uint8Array} cache._bitfield Bitfield indicating completed pieces.
  * @returns {Promise<{progress: number, size: number} | null>}
  */
 export async function getProgressAndSize(cache) {
@@ -62,8 +72,8 @@ export async function getProgressAndSize(cache) {
 
 /**
  * Checks whether all video files in a torrent are fully downloaded and match expected sizes.
- * @param {Object} cache - Cached torrent object.
- * @param {string} torrentPath - Path to downloaded torrent content.
+ * @param {Object} cache Cached torrent object.
+ * @param {string} torrentPath Path to downloaded torrent content.
  * @returns {Promise<boolean|null>} True if complete, false if incomplete, null if invalid input.
  */
 export async function hasIntegrity(cache, torrentPath) {
@@ -83,7 +93,7 @@ export async function hasIntegrity(cache, torrentPath) {
 
 /**
  * Converts an Error/Event/unknown value into a human-readable string.
- * @param {any} e - Error, Event, or any value.
+ * @param {any} e Error, Event, or any value.
  * @returns {string} String representation of the error.
  */
 export function errorToString (e) {
@@ -106,7 +116,7 @@ export function errorToString (e) {
 
 /**
  * Creates a SHA-1 hash from the given data.
- * @param {ArrayBuffer|Uint8Array|string} data - Data to hash.
+ * @param {ArrayBuffer|Uint8Array|string} data Data to hash.
  * @returns {string} Hex-encoded SHA-1 hash.
  */
 export function makeHash(data) {
@@ -115,7 +125,7 @@ export function makeHash(data) {
 
 /**
  * Extracts or computes the info hash from a magnet URI, torrent URL, or torrent file buffer.
- * @param {string|Uint8Array|Buffer} input - Magnet link, torrent URL, or torrent file data.
+ * @param {string|Uint8Array|Buffer} input Magnet link, torrent URL, or torrent file data.
  * @returns {Promise<string>} Hex-encoded info hash.
  * @throws {Error} If format is unsupported or data is invalid.
  */
@@ -138,11 +148,12 @@ export async function getInfoHash(input) {
 
 /**
  * Builds a stats object for a torrent, used when sending updates to the renderer.
- * @param {import('webtorrent').Torrent|object} torrent - The torrent or cached torrent object
- * @param {boolean} [completed=false] - True if torrent is a completed/cached torrent.
+ * @param {import('webtorrent').Torrent|object} torrent The torrent or cached torrent object
+ * @param {boolean} [completed=false] True if torrent is a completed/cached torrent.
+ * @param {boolean} [includePieces=false] Include the piece map in the snapshot.
  * @returns {object}
  */
-export function getStats(torrent, completed = false) {
+export function getStats(torrent, completed = false, includePieces = false) {
   const pieces = completed ? getPiecesFromBitfield(torrent?._bitfield, torrent?.info?.pieces ? torrent.info.pieces.length / 20 : 0) : getPieces(torrent)
   return {
     infoHash: torrent?.infoHash,
@@ -166,16 +177,16 @@ export function getStats(torrent, completed = false) {
     ...(torrent?.missing_pieces ? { missing_pieces: torrent.missing_pieces } : {}),
     eta: torrent?.timeRemaining,
     ratio: torrent?.ratio || (torrent && getRatio(torrent, torrent?.length, torrent?.progress)),
-    pieces,
+    ...(includePieces ? { pieces } : {}),
     cachedAt: torrent?.cachedAt ?? Date.now()
   }
 }
 
 /**
  * Gets ratio for a torrent from cache.
- * @param {object} cache - Cached torrent object.
- * @param {number} size - Total size of the torrent in bytes.
- * @param {number} progress - Progress of the torrent.
+ * @param {object} cache Cached torrent object.
+ * @param {number} size Total size of the torrent in bytes.
+ * @param {number} progress Progress of the torrent.
  * @returns {number}
  */
 function getRatio(cache, size, progress) {
@@ -184,9 +195,9 @@ function getRatio(cache, size, progress) {
 
 /**
  * Sums the exact byte length of every verified piece, accounting for the shorter final piece.
- * @param {number[]|null} pieces - Piece states, where 2 means verified
- * @param {number} pieceLength - Standard piece size in bytes
- * @param {number} totalLength - Total torrent size in bytes
+ * @param {number[]|null} pieces Piece states, where 2 means verified
+ * @param {number} pieceLength Standard piece size in bytes
+ * @param {number} totalLength Total torrent size in bytes
  * @returns {number}
  */
 function getDownloadedBytes(pieces, pieceLength, totalLength) {

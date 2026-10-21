@@ -1,45 +1,85 @@
-import WebTorrent from 'webtorrent'
-import HTTPTracker from 'http-tracker'
-import Client from 'bittorrent-tracker'
+import { makeHash, getInfoHash, hasIntegrity, getProgressAndSize, stringifyQuery, errorToString, TMP, isFlatpak, getStats, diskSpace } from '@client/lib/util.js'
+import { sleep, isValidNumber, getRandomInt } from '@/modules/util.js'
 import { hex2bin, arr2hex, text2arr } from 'uint8-util'
-import { makeHash, getInfoHash, hasIntegrity, getProgressAndSize, stringifyQuery, errorToString, TMP, isFlatpak, getStats } from '@client/lib/util.js'
-import { fontRx, sleep, subRx, videoRx, isValidNumber, getRandomInt } from '@/modules/util.js'
-import { createServer as createHTTPServer } from 'node:http'
-import { SUPPORTS } from '@/modules/support.js'
-import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import Metadata from '@client/lib/metadata.js'
 import Cache from '@client/lib/torrentcache.js'
+import { SUPPORTS } from '@/modules/support.js'
+import Metadata from '@client/lib/metadata.js'
+import { spawn } from 'node:child_process'
+import Client from 'bittorrent-tracker'
+import HTTPTracker from 'http-tracker'
+import WebTorrent from 'webtorrent'
 import Debug from 'debug'
 const debug = Debug('torrent:worker')
+
+/**
+ * @typedef {import('webtorrent/lib/torrent.js').default & {
+ *   _removal?: boolean,
+ *   _cacheWrite?: Promise<void>,
+ *   seeders?: number,
+ *   leechers?: number,
+ *   trackerUrl?: string,
+ *   tracker?: InstanceType<typeof Client>|null,
+ *   current?: boolean,
+ *   staging?: boolean,
+ *   seeding?: boolean,
+ *   local?: boolean,
+ *   date?: string,
+ *   cachedAt?: number
+ * }} Torrent
+ */
 
 // HACK: this is https only, but electron doesn't run in https, weird.
 if (!globalThis.FileSystemFileHandle) globalThis.FileSystemFileHandle = false
 
-export default class TorrentClient extends WebTorrent {
-  player = ''
+export default class TorrentClient {
+  /** @type {WebTorrent} */
+  client = null
+  /** @type {(level: string, message: string) => void} */
+  notify = () => {}
+  /** @type {(infoHash: string|null, update: object) => void} */
+  updateTorrent = () => {}
+  /** @type {Record<string, any>} */
+  settings = {}
+  /** @type {string} */
+  TMPDIR = TMP
+  /** @type {string} */
+  torrentPath = ''
+  /** @type {Cache} */
+  torrentCache = null
+  /** @type {import('webtorrent/lib/file.js').default} */
+  currentFile = null
+  /** @type {Metadata} */
+  metadata = null
+  /** @type {ReturnType<WebTorrent['createServer']>|null} */
+  torrentServer = null
+  /** @type {HTTPTracker} */
+  tracker = null
+  /** @type {Map<string, Promise<void>>} */
+  removals = new Map()
+  /** @type {ReturnType<typeof getStats>[]} */
+  completed = []
+  /** @type {(() => void)|null} */
+  _checkProgress = null
+  /** @type {Promise<void>|null} */
+  destroyed = null
   /** @type {ReturnType<spawn>} */
   playerProcess = null
+  /** @type {'online' | 'offline' | 'offline_anilist' | 'limited_anilist'} */
   networking = 'online'
+  /** @type {ReturnType<typeof setInterval>[]} */
   intervals = []
+  /** @type {ReturnType<typeof setTimeout>[]} */
   timeouts = []
-  attachments = new Map()
-  attachmentServer = null
-  attachmentServerReady = null
 
   /**
-   * Creates a new TorrentClient instance.
-   * @param {any} ipc - Inter-process communication interface.
-   * @param {{total: number, free: number}} diskSpace - Disk space info (total and free bytes).
-   * @param {string} serverMode - Server mode ('node', 'browser', etc.).
-   * @param {object} settings - Torrent and network configuration settings.
-   * @param {Promise<any>|null} controller - Optional server controller promise.
+   * @param {object} settings
+   * @param {string} [TMPDIR=TMP] Native fallback directory for torrent storage.
    */
-  constructor(ipc, diskSpace, serverMode, settings, controller) {
+  constructor(settings, TMPDIR = TMP) {
     Debug.disable()
     if (settings.debug) Debug.enable(settings.debug)
     debug('Initializing TorrentClient with settings:', JSON.stringify(settings))
-    super({
+    this.client = new WebTorrent({
       dht: settings.dht,
       utp: settings.torrentUTP,
       utPex: settings.torrentPeX,
@@ -51,271 +91,98 @@ export default class TorrentClient extends WebTorrent {
       natUpnp: SUPPORTS.permamentNAT ? 'permanent' : true
     })
     this.settings = settings
-    this.player = settings.playerPath
-    this.ipc = ipc
-    this.TMPDIR = this.settings.TMPDIR
-    this.torrentPath = this.settings.torrentPathNew || (SUPPORTS.isAndroid ? this.TMPDIR : TMP) || ''
+    this.TMPDIR = TMPDIR
+    this.torrentPath = this.settings.torrentPathNew || this.TMPDIR || ''
     this.torrentCache = new Cache(this.torrentPath)
-    ipc.send('torrentRequest')
-    this._ready = new Promise(resolve => {
-      ipc.on('torrent:port', ({ ports }) => {
-        if (this.destroyed) return
-        this.message = ports[0].postMessage.bind(ports[0])
-        ports[0].onmessage = ({ data }) => {
-          debug(`Received IPC message ${data.type}:`, JSON.stringify(data.data))
-          this.handleMessage({ data })
-        }
-        resolve()
-      })
-      ipc.on('destroy', this.destroy.bind(this))
-    })
-
-    this.serverMode = serverMode
-    this.diskSpace = diskSpace
     this.currentFile = null
 
-    this.createAttachmentServer()
-
-    const statsInterval = setInterval(() => {
-      if (this.destroyed) return
-      const currentTorrent = this.torrents.find(torrent => torrent.current)
-      this.dispatch('stats', {
-        numPeers: currentTorrent?.numPeers || 0,
-        uploadSpeed: currentTorrent?.uploadSpeed || 0,
-        downloadSpeed: currentTorrent?.downloadSpeed || 0
-      })
-    }, 200)
-    this.intervals.push(statsInterval)
-    statsInterval.unref?.()
-    const sendActivity = () => {
-      if (this.destroyed) return
-      const currentTorrent = this.torrents.find(torrent => torrent.current)
-      if (currentTorrent?.pieces) this.dispatch('progress', this.currentFile?.progress)
-      this.diskSpace(this.torrentPath || TMP).then(storage => {
-        this.dispatch('activity', {
-          storage,
-          current: getStats(currentTorrent),
-          staging: this.torrents.filter(torrent => torrent.staging).map(torrent => getStats(torrent)),
-          seeding: this.torrents.filter(torrent => torrent.seeding).map(torrent => getStats(torrent))
-        })
-      })
-    }
-    sendActivity()
-    const activityInterval = setInterval(sendActivity, 5_000)
-    this.intervals.push(activityInterval)
-    activityInterval.unref?.()
-
-    const createServer = controller => {
-      this.server = this.createServer({ controller }, serverMode)
-      this.server.listen(0, () => {})
-    }
-    if (controller) controller.then(createServer)
-    else createServer()
-
+    this.torrentServer = this.client.createServer({}, 'node').listen(0)
     this.tracker = new HTTPTracker({}, atob('aHR0cDovL255YWEudHJhY2tlci53Zjo3Nzc3L2Fubm91bmNl'))
-    process.on('uncaughtException', this.dispatchError.bind(this))
-    this.on('error', this.dispatchError.bind(this))
+    this.client.on('error', this.handleError.bind(this))
   }
 
   /**
-   * Loads the most recently used torrent from cache and resumes it.
-   * @param {string|Buffer} torrent - Magnet URI, torrent file, or torrent info.
+   * Registers callbacks for notifications and background torrent changes.
+   * @param {(level: string, message: string) => void} notify Displays a renderer notification.
+   * @param {(infoHash: string|null, update: object) => void} updateTorrent Applies a torrent lifecycle update.
+   * @returns {void}
    */
-  async loadLastTorrent(torrent) {
-    debug('Loading last torrent: ', JSON.stringify(torrent))
-    if (!torrent?.length && !(typeof torrent === 'object' && Object.keys(torrent).length)) return
-    const cache = await this.torrentCache.get(torrent?.infoHash || await getInfoHash(torrent))
-    this.addTorrent(torrent?.id ?? torrent, cache, true)
+  subscribe(notify, updateTorrent) {
+    this.notify = notify
+    this.updateTorrent = updateTorrent
   }
 
   /**
-   * Handles the current torrent metadata once it becomes available and notifies listeners with file and magnet info.
-   * @param {import('webtorrent').Torrent} torrent - Active torrent instance.
+   * Loads a torrent for playback, decoding Android torrent bytes when necessary.
+   * @param {{id: string|Uint8Array, hash?: string, magnet?: boolean, base64?: boolean}} data Torrent identifier and transfer options.
+   * @param {(files: object[], magnet: {magnet: string, hash: string}) => void} [onReady] Receives playable files and magnet information.
+   * @returns {Promise<ReturnType<typeof getStats>|void>} Initial active torrent stats.
    */
-  async torrentReady(torrent) {
-    if (this.destroyed) return
-    debug('Got torrent metadata:', torrent.name)
-    const files = torrent.files.map(file => {
-      return {
-        infoHash: torrent.infoHash,
-        fileHash: makeHash(`${torrent.infoHash}:${file.name}:${file.size}`),
-        torrent_name: torrent.name,
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        path: file.path,
-        url: this.serverMode === 'node' ? 'http://localhost:' + this.server.address().port + file.streamURL : file.streamURL
-      }
-    })
-    this.dispatch('files', files)
-    this.dispatch('magnet', { magnet: torrent.magnetURI, hash: torrent.infoHash })
-    const timeout = setTimeout(() => {
-      if (this.destroyed || torrent.destroyed) return
-      if (torrent.progress !== 1) {
-        if (torrent.numPeers === 0 && this.networking !== 'offline') this.dispatchError('No peers found, try using a different torrent.')
-      }
-    }, 30_000)
-    this.timeouts.push(timeout)
-    timeout.unref?.()
+  async streamTorrent(data, onReady) {
+    const hash = data && data.hash
+    const dataID = data && data.id
+    const torrentID = data.base64 ? new Uint8Array(Buffer.from(dataID, 'base64')) : dataID
+    const cache = await this.torrentCache.get(hash || (await getInfoHash(torrentID)))
+    if (!cache?.infoHash && data.magnet) this.notify('info', 'A Magnet Link has been detected and is being processed. Files will be loaded shortly...')
+    return this.addTorrent(torrentID, cache, false, onReady)
   }
 
   /**
-   * Searches the current torrent for embedded font files and sends them to the renderer for use.
-   * @param {object} targetFile - File currently being processed.
-   * @param {Metadata} owner - Metadata lifecycle that owns the extracted fonts.
+   * Queues a torrent for background downloading.
+   * @param {{id: string|Uint8Array, hash?: string, base64?: boolean}} data Torrent identifier and transfer options.
+   * @returns {Promise<ReturnType<typeof getStats>|void>} Initial staged torrent stats.
    */
-  async findFontFiles(targetFile, owner) {
-    const currentTorrent = this.torrents.find(torrent => torrent.current)
-    if (!currentTorrent?.files) return
-    const fontFiles = currentTorrent.files.filter(file => fontRx.test(file.name))
-    const map = {}
-
-    // deduplicate fonts
-    // some releases have duplicate fonts for diff languages
-    // if they have different chars, we can't find that out anyways
-    // so some chars might fail, on REALLY bad releases
-    for (const file of fontFiles) map[file.name] = file
-    debug(`Found ${Object.keys(map).length} font files`)
-
-    for (const file of Object.values(map)) {
-      const data = await file.arrayBuffer()
-      if (targetFile !== this.currentFile) return
-      try {
-        const url = await this.createAttachmentURL(new Uint8Array(data), owner)
-        if (targetFile !== this.currentFile) return
-        this.dispatch('file', { url })
-      } catch (error) {
-        if (!this.destroyed) debug('Failed to expose font file:', error)
-      }
-    }
-  }
-
-  /** Starts a loopback server for transferring attachments to the renderer */
-  createAttachmentServer() {
-    this.attachmentServer = createHTTPServer((req, res) => {
-      const pathname = new URL(req.url, 'http://127.0.0.1').pathname
-      const id = pathname.startsWith('/attachment/') ? pathname.slice('/attachment/'.length) : ''
-      const attachment = this.attachments.get(id)
-
-      res.setHeader('Access-Control-Allow-Origin', '*')
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
-      res.setHeader('Access-Control-Allow-Private-Network', 'true')
-      res.setHeader('Cache-Control', 'no-store')
-      if (req.method === 'OPTIONS') {
-        res.writeHead(204)
-        res.end()
-        return
-      }
-      if (req.method !== 'GET' || !attachment) {
-        res.writeHead(404)
-        res.end()
-        return
-      }
-
-      res.setHeader('Content-Type', 'application/octet-stream')
-      res.setHeader('Content-Length', attachment.data.byteLength)
-      res.once('finish', () => this.attachments.delete(id))
-      res.end(attachment.data)
-    })
-    this.attachmentServerReady = new Promise((resolve, reject) => {
-      this.attachmentServer.once('error', reject)
-      this.attachmentServer.listen(0, '127.0.0.1', () => {
-        this.attachmentServer.removeListener('error', reject)
-        this.attachmentServer.on('error', this.dispatchError.bind(this))
-        resolve()
-      })
-    })
-  }
-
-  /**
-   * Makes an attachment available to the renderer through a short-lived loopback URL.
-   * @param {Uint8Array} data - Attachment bytes.
-   * @param {Metadata} owner - Metadata lifecycle that owns the attachment.
-   * @returns {Promise<string>} URL that can be fetched once by the renderer.
-   */
-  async createAttachmentURL(data, owner) {
-    await this.attachmentServerReady
-    if (owner.destroyed) throw new Error('Attachment owner was destroyed')
-    const id = randomUUID()
-    this.attachments.set(id, { data, owner })
-    return `http://127.0.0.1:${this.attachmentServer.address().port}/attachment/${id}`
-  }
-
-  /**
-   * Removes every unrequested attachment owned by a metadata parser.
-   * @param {Metadata} [owner] - Owner to clear, or all owners when omitted.
-   */
-  clearAttachments(owner) {
-    for (const [id, attachment] of this.attachments) {
-      if (!owner || attachment.owner === owner) this.attachments.delete(id)
-    }
-  }
-
-  /**
-   * Searches the current torrent for subtitle files matching the current video and sends them to the renderer.
-   * @param {object} targetFile - File currently being processed.
-   */
-  async findSubtitleFiles(targetFile) {
-    const currentTorrent = this.torrents.find(torrent => torrent.current)
-    if (!currentTorrent?.files) return
-    const videoFiles = currentTorrent.files.filter(file => videoRx.test(file.name))
-    const videoName = targetFile.name.substring(0, targetFile.name.lastIndexOf('.')) || targetFile.name
-    // array of subtitle files that match video name, or all subtitle files when only 1 vid file
-    const subfiles = currentTorrent.files.filter(file => subRx.test(file.name) && (videoFiles.length === 1 ? true : file.name.includes(videoName)))
-    debug(`Found ${subfiles?.length} subtitle files`)
-    for (const file of subfiles) {
-      const data = await file.arrayBuffer()
-      if (targetFile !== this.currentFile) return
-      this.dispatch('subtitleFile', { name: file.name, data: new Uint8Array(data) }, [data])
-    }
+  async stageTorrent(data) {
+    const hash = data && data.hash
+    const dataID = data && data.id
+    const torrentID = data.base64 ? new Uint8Array(Buffer.from(dataID, 'base64')) : dataID
+    const cache = await this.torrentCache.get(hash || (await getInfoHash(torrentID)))
+    return this.addTorrent(torrentID, cache)
   }
 
   /**
    * Adds a torrent to the client for downloading or staging.
    * Restores from cache if available, verifies existing files, and begins progress tracking.
-   *
-   * @param {string|Buffer} id - Magnet URI, torrent file, info hash, or parseTorrent from cache.
-   * @param {object} [cache] - Cached torrent metadata (if available).
-   * @param {boolean} [current=false] - Whether to set as the active torrent for playback.
-   * @param {boolean} [rescan=false] - True if adding during a cache rescan.
+   * @param {string|Buffer} id Magnet URI, torrent file, info hash, or parseTorrent from cache.
+   * @param {object} [cache] Cached torrent metadata (if available).
+   * @param {boolean} [rescan=false] True if adding during a cache rescan.
+   * @param {((files: object[], magnet: {magnet: string, hash: string}) => void)|null} [onReady] Receives playable files after metadata is ready.
+   * @returns {Promise<ReturnType<typeof getStats>|void>} Initial stats when the torrent is available.
    */
-  async addTorrent(id, cache, current = false, rescan = false) {
-    if (this.destroyed || !id) return
-    debug(`${current ? 'Adding' : 'Staging'} torrent: ${!cache ? JSON.stringify(id) : `${cache.infoHash}:${cache.name}`}`)
+  async addTorrent(id, cache, rescan = false, onReady = null) {
+    if (this.client.destroyed || !id) return
+    debug(`${onReady ? 'Adding' : 'Staging'} torrent: ${!cache ? JSON.stringify(id) : `${cache.infoHash}:${cache.name}`}`)
 
     const infoHash = cache?.infoHash || await getInfoHash(id)
-    const existing = infoHash ? this.torrents.find(torrent => torrent.infoHash === infoHash) : await this.get(structuredClone(id))
-    const currentTorrent = current && this.torrents.find(torrent => torrent.current)
+    await this.removals.get(infoHash)
+    if (this.client.destroyed) return
+    const existing = infoHash ? this.client.torrents.find(torrent => torrent.infoHash === infoHash) : await this.client.get(structuredClone(id))
+    const currentTorrent = onReady && this.client.torrents.find(torrent => torrent.current)
     if (currentTorrent) await this.promoteTorrent(currentTorrent, true, !!existing)
     if (existing && !existing._removal) {
       debug(`Duplicate torrent detected: ${infoHash}, existing state: current=${existing.current}, staging=${existing.staging}, seeding=${existing.seeding}`)
-      if (current) {
+      if (onReady) {
         existing.staging = false
         existing.seeding = false
-        existing.current = current
-        this.bumpTorrent(existing)
-        this.dispatch('loaded', { id: existing.magnetURI, ...(existing.local ? { local: true } : {}), infoHash: existing.infoHash, stats: getStats(existing) })
-        if (existing.ready) this.torrentReady(existing)
-      } else if (!rescan) this.dispatch('info', 'This torrent is already queued and downloading in the background...')
-      return
+        existing.current = !!onReady
+        this.updateTorrent(existing.infoHash, { current: { id: existing.magnetURI, ...(existing.local ? { local: true } : {}), infoHash: existing.infoHash, stats: getStats(existing) } })
+        if (existing.ready) onReady(this.#mapFiles(existing), { magnet: existing.magnetURI, hash: existing.infoHash })
+        else existing.once('ready', () => { if (existing.current) onReady(this.#mapFiles(existing), { magnet: existing.magnetURI, hash: existing.infoHash }) })
+      } else if (!rescan) this.notify('info', 'This torrent is already queued and downloading in the background...')
+      return getStats(existing)
     } else if (existing?._removal) {
-      const start = Date.now()
-      while (existing._removal && !existing.destroyed && !this.destroyed && Date.now() - start < 5000) await new Promise(resolve => setTimeout(resolve, 100))
-      const existingRemoval = this.torrents.find(torrent => torrent.infoHash === infoHash)
-      if (existingRemoval && !existingRemoval._removal) {
-        debug('Torrent still exists after the expected removal... aborting.')
-        return
-      }
+      await this.removals.get(infoHash)
+      if (this.client.destroyed) return
     }
 
-    const torrent = await this.add(structuredClone(cache ?? id), {
-      path: this.settings.torrentPathNew || (isFlatpak && TMP) || undefined, // flatpak "/tmp" gets wiped on every restart... so best to avoid it.
+    const torrent = await this.client.add(structuredClone(cache ?? id), {
+      path: this.settings.torrentPathNew || ((SUPPORTS.isAndroid || isFlatpak) && this.TMPDIR) || undefined, // flatpak "/tmp" gets wiped on every restart... so best to avoid it.
       announce: this.settings.trackers,
       bitfield: cache?._bitfield,
       deselect: this.settings.torrentStreamedDownload
     })
-    torrent.current = current
-    torrent.staging = !current
+    torrent.current = !!onReady
+    torrent.staging = !onReady
     torrent.date = new Date(Date.now() - 1_000).toUTCString()
     torrent.cachedAt = cache?.cachedAt ?? Date.now()
     const uploadedOffset = cache?._uploaded ?? 0
@@ -323,25 +190,39 @@ export default class TorrentClient extends WebTorrent {
       configurable: true,
       get() { return (uploadedOffset + torrent.uploaded) / (torrent.downloaded || torrent.length) }
     })
-    this.bumpTorrent(torrent)
     const timeout = setTimeout(() => {
       const seeders = torrent?.wires?.filter(wire => wire.isSeeder)?.length
-      if (!this.destroyed && !torrent.destroyed && torrent.current && !torrent.progress && !torrent.ready && torrent.numPeers === 0 && this.networking !== 'offline') this.dispatchError('No peers found, try using a different torrent.')
-      else if (!this.destroyed && !torrent.destroyed && torrent.current && torrent.progress < .95 && isValidNumber(seeders) && seeders < 5 && isValidNumber(torrent.numPeers) && torrent.numPeers < 25 && this.networking !== 'offline') this.dispatch('info', 'Availability Warning! This release is poorly seeded and likely will have playback issues such as buffering!')
+      if (!this.client.destroyed && !torrent.destroyed && torrent.current && !torrent.progress && !torrent.ready && torrent.numPeers === 0 && this.networking !== 'offline') this.handleError('No peers found, try using a different torrent.')
+      else if (!this.client.destroyed && !torrent.destroyed && torrent.current && torrent.progress < .95 && isValidNumber(seeders) && seeders < 5 && isValidNumber(torrent.numPeers) && torrent.numPeers < 25 && this.networking !== 'offline') this.notify('info', 'Availability Warning! This release is poorly seeded and likely will have playback issues such as buffering!')
     }, 30_000)
     this.timeouts.push(timeout)
     timeout.unref?.()
     torrent.once('verified', async () => {
-      if (this.destroyed || torrent.destroyed) return
-      if (torrent.current && !torrent.ready && torrent.progress < 1 && !cache?.infoHash) this.dispatch('info', 'Detected already downloaded files. Verifying file integrity. This might take a minute...')
+      if (this.client.destroyed || torrent.destroyed) return
+      if (torrent.current && !torrent.ready && torrent.progress < 1 && !cache?.infoHash) this.notify('info', 'Detected already downloaded files. Verifying file integrity. This might take a minute...')
       if (torrent.staging && this.settings.torrentStreamedDownload && (!this.currentFile || this.currentFile.progress === 1)) {
         for (const file of torrent.files) {
           if (!file._destroyed) file.select()
         }
       }
-      if (!rescan && torrent.progress < 1 && (!this.settings.torrentStreamedDownload || torrent.staging) && (torrent.length > (await this.diskSpace(torrent.path)).free)) this.dispatchError('File Too Big! This File Exceeds The Selected Drive\'s Available Space. Change Download Location In Torrent Settings To A Drive With More Space And Restart The App!')
+      if (!rescan && torrent.progress < 1 && (!this.settings.torrentStreamedDownload || torrent.staging) && (torrent.length > (await diskSpace(torrent.path)).free)) this.handleError('File Too Big! This File Exceeds The Selected Drive\'s Available Space. Change Download Location In Torrent Settings To A Drive With More Space And Restart The App!')
     })
-    if (!torrent.ready) await new Promise(resolve => torrent.once('ready', resolve))
+    if (!torrent.ready) {
+      await new Promise((resolve, reject) => {
+        const cleanup = () => {
+          torrent.off('ready', ready)
+          torrent.off('error', failed)
+          torrent.off('close', closed)
+        }
+        const ready = () => { cleanup(); resolve() }
+        const failed = error => { cleanup(); reject(error) }
+        const closed = () => failed(new Error('Torrent closed before metadata was ready'))
+        torrent.once('ready', ready)
+        torrent.once('error', failed)
+        torrent.once('close', closed)
+        if (torrent.destroyed) closed()
+      })
+    }
 
     let interval
     let dataStored = cache
@@ -363,11 +244,32 @@ export default class TorrentClient extends WebTorrent {
       }
       torrentUploaded = uploaded
       torrentProgress = torrent.progress
-      await torrentStore.set(torrent.infoHash, dataStored)
+      const data = dataStored
+      torrent._cacheWrite = (torrent._cacheWrite || Promise.resolve()).then(() => torrentStore.set(torrent.infoHash, data))
+      await torrent._cacheWrite
     }
     const wrapTorrent = async () => {
       clearInterval(interval)
+      // Capture the snapshot before WebTorrent clears its files and peer state.
+      let closedStats
+      if (torrent.destroyed && !torrent._removal && !this.client.destroyed && !this.destroyed) {
+        if (torrent.current) {
+          this.metadata?.destroy()
+          this.metadata = null
+          this.currentFile = null
+        }
+        torrent.current = false
+        torrent.staging = false
+        torrent.seeding = false
+        closedStats = { ...getStats(torrent), downloadSpeed: 0, uploadSpeed: 0, numPeers: 0, numSeeders: 0, numLeechers: 0 }
+      }
       await cacheTorrent(true)
+      if (closedStats) {
+        if (this.client.destroyed || this.destroyed || this.client.torrents.some(active => active.infoHash === torrent.infoHash && !active.destroyed)) return
+        this.completed = Array.from(new Map([...(this.completed || []), closedStats].map(item => [item.infoHash, item])).values())
+        this.updateTorrent(torrent.infoHash, { completed: closedStats })
+        return
+      }
       if (!torrent.destroyed) {
         interval = setInterval(cacheTorrent, getRandomInt(60_000, 120_000))
         this.intervals.push(interval)
@@ -382,43 +284,43 @@ export default class TorrentClient extends WebTorrent {
       interval.unref?.()
       await cacheTorrent()
     }
-    this.bindTracker(torrent)
+    this.#bindTracker(torrent)
     if (torrent.current) {
-      this.dispatch('loaded', { id: torrent.magnetURI, ...(torrent.local ? { local: true } : {}), infoHash: torrent.infoHash, stats: getStats(torrent) })
-      this.torrentReady(torrent)
-    } else if (torrent.staging && torrent.progress < 1) this.dispatch('staging', getStats(torrent))
+      this.updateTorrent(torrent.infoHash, { current: { id: torrent.magnetURI, ...(torrent.local ? { local: true } : {}), infoHash: torrent.infoHash, stats: getStats(torrent) } })
+      onReady(this.#mapFiles(torrent), { magnet: torrent.magnetURI, hash: torrent.infoHash })
+    } else if (torrent.staging && torrent.progress < 1) this.updateTorrent(torrent.infoHash, { staging: getStats(torrent) })
 
-    torrent.once('done', wrapTorrent)
-    torrent.once('close', wrapTorrent)
+    torrent.once('done', () => wrapTorrent().catch(error => this.handleError(error)))
+    torrent.once('close', () => wrapTorrent().catch(error => this.handleError(error)))
+    return getStats(torrent)
   }
 
   /**
    * Marks a torrent for seeding, respecting seeding limits.
    * Removes oldest seeding torrent if limit exceeded.
-   *
-   * @param {import('webtorrent').Torrent} torrent - Torrent to seed.
-   * @param {boolean} [swapping=false] - True when switching from the current torrent to an existing torrent.
+   * @param {Torrent} torrent Torrent to seed.
+   * @param {boolean} [swapping=false] True when switching from the current torrent to an existing torrent.
+   * @returns {Promise<void>} Resolves after applying the seeding limit.
    */
   async seedTorrent(torrent, swapping = false) {
     if (!torrent || torrent.destroyed) return
     let seedingOffset = 1
     const seedingLimit = this.settings.seedingLimit > SUPPORTS.maxSeeding ? SUPPORTS.maxSeeding : (this.settings.seedingLimit || 1)
-    const seedingTorrents = this.torrents.filter(_torrent => _torrent.seeding && !_torrent.destroyed)
+    const seedingTorrents = this.client.torrents.filter(_torrent => _torrent.seeding && !_torrent.destroyed)
     if (!torrent.seeding && !torrent.destroyed) {
       if (seedingLimit > 1) {
         torrent.current = false
         torrent.staging = false
         torrent.seeding = true
         if (!swapping) seedingOffset++
-        this.bumpTorrent(torrent)
-        this.dispatch('seeding', getStats(torrent))
+        this.updateTorrent(torrent.infoHash, { seeding: getStats(torrent) })
         debug(`Seeding torrent: ${torrent.infoHash}`, torrent.magnetURI)
       } else seedingTorrents.push(torrent)
     }
 
     const offloadSeeds = (seedingTorrents.length + seedingOffset) - seedingLimit
     if (offloadSeeds > 0) {
-      for (const completed of seedingTorrents.sort((a, b) => (b.ratio || 0) - (a.ratio || 0)).slice(0, offloadSeeds)) {
+      for (const completed of seedingTorrents.sort((a, b) => (b.ratio || 0) - (a.ratio || 0) || a.cachedAt - b.cachedAt).slice(0, offloadSeeds)) {
         await this.completeTorrent(completed)
       }
     }
@@ -427,25 +329,24 @@ export default class TorrentClient extends WebTorrent {
   /**
    * Promotes a torrent to an active or seeding state based on progress and persistence settings.
    * Also ensures staged/seeding torrents have files selected for download.
-   *
-   * @param {import('webtorrent').Torrent} torrent - Torrent to promote.
-   * @param {boolean} [loaded=false] - True when switching from the current torrent to a new current torrent.
-   * @param {boolean} [swapping=false] - True when switching from the current torrent to an existing torrent.
+   * @param {Torrent} torrent Torrent to promote.
+   * @param {boolean} [loaded=false] True when switching from the current torrent to a new current torrent.
+   * @param {boolean} [swapping=false] True when switching from the current torrent to an existing torrent.
+   * @returns {Promise<void>} Resolves after updating the torrent role.
    */
   async promoteTorrent(torrent, loaded = false, swapping = false) {
-    if (this.destroyed || torrent.destroyed) return
+    if (this.client.destroyed || torrent.destroyed) return
     if (torrent.current) {
       const seedingLimit = this.settings.seedingLimit > SUPPORTS.maxSeeding ? SUPPORTS.maxSeeding : (this.settings.seedingLimit || 1)
       if (torrent.progress < 1) {
-        if (this.settings.torrentPersist || (seedingLimit > 1 && (this.torrents.filter(_torrent => (_torrent.seeding || _torrent.staging) && !_torrent.destroyed)?.length + (!swapping ? 1 : 0) < seedingLimit))) {
+        if (this.settings.torrentPersist || (seedingLimit > 1 && (this.client.torrents.filter(_torrent => (_torrent.seeding || _torrent.staging) && !_torrent.destroyed)?.length + (!swapping ? 1 : 0) < seedingLimit))) {
           torrent.current = false
           torrent.staging = true
-          this.bumpTorrent(torrent)
-          this.dispatch('staging', getStats(torrent))
+          this.updateTorrent(torrent.infoHash, { staging: getStats(torrent) })
           debug(`Loaded torrent did not finish downloading, moving to staging: ${torrent.infoHash}`, torrent.magnetURI)
-        } else this.completeTorrent(torrent)
+        } else await this.completeTorrent(torrent)
       } else if (loaded) await this.seedTorrent(torrent, swapping)
-      this.torrents.filter(_torrent => Array.isArray(_torrent.files)).forEach(_torrent => {
+      this.client.torrents.filter(_torrent => Array.isArray(_torrent.files)).forEach(_torrent => {
         _torrent.files.forEach(file => {
           if (!file._destroyed) file.select()
         })
@@ -455,331 +356,347 @@ export default class TorrentClient extends WebTorrent {
 
   /**
    * Marks the torrent as complete, handles persistence or cache removal, and removes it from the client.
-   *
-   *  @param torrent the torrent to complete
+   * @param {Torrent} torrent The torrent to complete.
+   * @returns {Promise<void>} Resolves after caching or deleting and removing the torrent.
    */
   async completeTorrent(torrent) {
     torrent.current = false
     torrent.staging = false
     torrent.seeding = false
-    if (!this.settings.torrentPersist) await this.torrentCache.delete(torrent.infoHash)
-    else {
+    if (!this.settings.torrentPersist) {
+      this.updateTorrent(torrent.infoHash, { untrack: true })
+    } else {
       this.completed = Array.from(new Map([...(this.completed || []), getStats(torrent)].map(item => [item.infoHash, item])).values())
-      this.dispatch('completed', getStats(torrent))
+      this.updateTorrent(torrent.infoHash, { completed: getStats(torrent) })
     }
     debug(`Completed torrent: ${torrent.infoHash}:${this.settings.torrentPersist}`)
-    torrent._removal = true
-    await this.remove(torrent, { destroyStore: !this.settings.torrentPersist })
+    await this.#removeTorrent(torrent, !this.settings.torrentPersist, !this.settings.torrentPersist)
   }
 
   /**
-   * Handles incoming IPC messages and dispatches torrent operations.
-   * Supports loading, staging, seeding, rescanning, settings updates, playback control, and torrent completion events.
-   *
-   * @param {{data: any}} opts - IPC message event object.
+   * Waits for store cleanup and final cache writes before optionally deleting metadata.
+   * @param {Torrent} torrent Torrent to remove.
+   * @param {boolean} destroyStore Whether downloaded files should be deleted.
+   * @param {boolean} [deleteCache=false] Whether cached metadata should also be deleted.
+   * @returns {Promise<void>} Resolves after removal and requested cleanup finish.
    */
-  async handleMessage({ data }) {
-    if (this.destroyed) return
-    switch (data.type) {
-      case 'load': {
-        this.loadLastTorrent(data.data)
-        break
-      } case 'destroy': {
-        this.destroy()
-        break
-      } case 'scrape': {
-        this._scrape(data.data)
-        break
-      } case 'rescan': {
-        const excludeHashes = new Set([...this.torrents.map(torrent => torrent.infoHash), ...(this.completed || []).map(torrent => torrent.infoHash)].filter(Boolean))
-        const torrents = []
-        for await (const torrent of this.torrentCache.entries()) {
-          if (!excludeHashes.has(torrent.infoHash)) torrents.push(torrent)
-        }
-        let missingCount = 0
-        let removedCount = 0
-        for (const torrent of torrents) {
-          if ((await getProgressAndSize(torrent))?.progress < 1 && this.settings.torrentPersist) {
-            missingCount++
-            this.addTorrent(torrent, torrent, false, true)
-          }
-          else if (await this.torrentCache.exists(torrent.name, this.torrentPath)) {
-            missingCount++
-            const torrentStats = await getProgressAndSize(torrent)
-            const verified = await hasIntegrity(torrent, this.torrentPath)
-            const _torrent = {
-              ...torrent,
-              length: torrentStats.size,
-              progress: torrentStats.progress,
-              incomplete: torrentStats.progress < 1 || !verified,
-              missing_pieces: !verified
-            }
-            this.completed = Array.from(new Map([...(this.completed || []), getStats(_torrent, true)].map(item => [item.infoHash, item])).values())
-            this.dispatch('completed', getStats(_torrent, true))
-          } else {
-            removedCount++
-            await this.torrentCache.delete(torrent.infoHash)
-            await this.torrentCache.delete(torrent.name, this.torrentPath)
-          }
-        }
-        this.dispatch('rescan_done', { missingCount, removedCount })
-        break
-      } case 'settings': {
-        this.settings = { ...data.data }
-        this.throttleDownload(this.settings.downloadLimit)
-        this.throttleUpload(this.settings.uploadLimit)
-        this.player = this.settings.playerPath
-        this.torrentPath = this.settings.torrentPathNew || (SUPPORTS.isAndroid ? this.TMPDIR : TMP) || ''
-        this.torrentCache = new Cache(this.torrentPath)
-        break
-      } case 'current': {
-        if (data.data) {
-          const torrent = await this.get(data.data.current.infoHash)
-          if (!torrent || torrent.destroyed) return
-          const found = torrent.files.find(file => file.path === data.data.current.path)
-          if (!found || found._destroyed) return
-          if (this.playerProcess) {
-            this.playerProcess.kill()
-            this.playerProcess = null
-          }
-          if (this.currentFile) {
-            this.currentFile.removeAllListeners('stream')
-            this.currentFile.removeAllListeners('iterator')
-            if (this.settings.torrentStreamedDownload && !this.currentFile._destroyed && found.progress < 1) this.currentFile.deselect()
-          }
-          if (this.settings.torrentStreamedDownload && found.progress < 1) {
-            this.torrents.filter(_torrent => (_torrent.staging || _torrent.seeding) && Array.isArray(_torrent.files)).forEach(_torrent => {
-              _torrent.files.forEach(file => {
-                if (!file._destroyed) file.deselect()
-              })
-            })
-          }
-          this.metadata?.destroy?.()
-          this.metadata = null
-          found.select()
-          if (this.settings.torrentStreamedDownload && (found.length > (await this.diskSpace(torrent.path)).free)) this.dispatchError('File Too Big! This File Exceeds The Selected Drive\'s Available Space. Change Download Location In Torrent Settings To A Drive With More Space And Restart The App!')
+  async #removeTorrent(torrent, destroyStore, deleteCache = false) {
+    const pending = this.removals.get(torrent.infoHash)
+    if (pending) return pending
+    torrent._removal = true
+    const torrentStore = this.torrentCache
+    const removal = Promise.resolve().then(async () => {
+      await new Promise((resolve, reject) => {
+        this.client.remove(torrent, { destroyStore }, error => error ? reject(error) : resolve()).catch(reject)
+      })
+      await torrent._cacheWrite
+      if (deleteCache) await torrentStore.delete(torrent.infoHash)
+    })
+    this.removals.set(torrent.infoHash, removal)
+    try {
+      await removal
+    } finally {
+      this.removals.delete(torrent.infoHash)
+      if (!torrent.destroyed) torrent._removal = false
+    }
+  }
 
-          if (this.settings.torrentStreamedDownload) {
-            if (this._checkProgress) {
-              const lastTorrent = this.torrents.find(torrent => torrent.current)
-              if (lastTorrent) lastTorrent.off('download', this._checkProgress)
-            }
-            this._checkProgress = () => {
-              if (this.currentFile !== found || this.destroyed) torrent.off('download', this._checkProgress)
-              else if (this.currentFile.progress === 1) {
-                debug('Current file has completed its streamed download... resuming queued torrents.', found.path)
-                this.torrents.filter(_torrent => Array.isArray(_torrent.files) && _torrent.infoHash !== torrent.infoHash).forEach(_torrent => {
-                  _torrent.files.forEach(file => {
-                    if (!file._destroyed) file.select()
-                  })
-                })
-                torrent.off('download', this._checkProgress)
-              }
-            }
-            torrent.on('download', this._checkProgress)
-          }
-          this.currentFile = found
-
-          const currentTorrent = this.torrents.find(_torrent => _torrent.current)
-          if (currentTorrent) {
-            currentTorrent.current = false
-            this.bumpTorrent(currentTorrent)
-          }
-          torrent.current = true
-          this.bumpTorrent(torrent)
-          if (!(data.data.external && (SUPPORTS.isAndroid || this.player))) {
-            this.metadata = new Metadata(this, found)
-            this.findSubtitleFiles(found)
-            this.findFontFiles(found, this.metadata)
-          } else this.dispatch('externalReady')
+  /**
+   * Scans cached torrents for entries missing from the active and completed lists.
+   * @returns {Promise<{missingCount: number, removedCount: number}>} Recovered and deleted cache entry counts.
+   */
+  async rescan() {
+    const excludeHashes = new Set([...this.client.torrents.map(torrent => torrent.infoHash), ...(this.completed || []).map(torrent => torrent.infoHash)].filter(Boolean))
+    const torrents = []
+    for await (const torrent of this.torrentCache.entries()) {
+      if (!excludeHashes.has(torrent.infoHash)) torrents.push(torrent)
+    }
+    let missingCount = 0
+    let removedCount = 0
+    for (const torrent of torrents) {
+      if ((await getProgressAndSize(torrent))?.progress < 1 && this.settings.torrentPersist) {
+        missingCount++
+        this.addTorrent(torrent, torrent, true).catch(error => this.handleError(error))
+      }
+      else if (await this.torrentCache.exists(torrent.name, this.torrentPath)) {
+        missingCount++
+        const torrentStats = await getProgressAndSize(torrent)
+        const verified = await hasIntegrity(torrent, this.torrentPath)
+        const _torrent = {
+          ...torrent,
+          length: torrentStats.size,
+          progress: torrentStats.progress,
+          incomplete: torrentStats.progress < 1 || !verified,
+          missing_pieces: !verified
         }
-        break
-      } case 'externalPlay': {
-        const startTime = Date.now()
-        const found = this.torrents.find(_torrent => _torrent.current)?.files?.find(file => file.path === data.data.current.path)
-        if (!found) return
-        this.ipc.removeAllListeners('external-close')
-        if (this.playerProcess) {
-          this.playerProcess.removeAllListeners('close')
-          this.playerProcess.kill()
-          this.playerProcess = null
-        }
-        if (this.player) {
-          this.playerProcess = spawn(this.player, ['' + new URL('http://localhost:' + this.server.address().port + found.streamURL)])
-          this.playerProcess.stdout.on('data', () => {})
-          this.playerProcess.once('close', () => {
-            if (this.destroyed) return
-            this.playerProcess = null
-            const seconds = (Date.now() - startTime) / 1000
-            this.dispatch('externalWatched', seconds)
-          })
-        } else if (SUPPORTS.isAndroid) this.dispatch('androidExternal', `intent://localhost:${this.server.address().port}${found.streamURL}#Intent;type=video/any;scheme=http;end;`)
-        break
-      } case 'torrent': {
-        const hash = data.data && data.data.hash
-        const dataID = data.data && data.data.id
-        const torrentID = data.data.base64 ? new Uint8Array(Buffer.from(dataID, 'base64')) : dataID
-        const cache = await this.torrentCache.get(hash || (await getInfoHash(torrentID)))
-        if (!cache?.infoHash && data.data.magnet) this.dispatch('info', 'A Magnet Link has been detected and is being processed. Files will be loaded shortly...')
-        this.addTorrent(torrentID, cache, true)
-        break
-      } case 'stage': {
-        const hash = data.data && data.data.hash
-        const dataID = data.data && data.data.id
-        const torrentID = data.data.base64 ? new Uint8Array(Buffer.from(dataID, 'base64')) : dataID
-        const cache = await this.torrentCache.get(hash || (await getInfoHash(torrentID)))
-        this.addTorrent(torrentID, cache)
-        break
-      } case 'complete': {
-        const cache = await this.torrentCache.get(data.data)
-        if (cache?.infoHash) {
-          if (!this.settings.torrentPersist) await this.torrentCache.delete(data.data)
-          else {
-            const torrentStats = await getProgressAndSize(cache)
-            const _torrent = {
-              ...cache,
-              length: torrentStats.size,
-              progress: torrentStats.progress,
-            }
-            this.completed = Array.from(new Map([...(this.completed || []), getStats(_torrent, true)].map(item => [item.infoHash, item])).values())
-            this.dispatch('completed', getStats(_torrent, true))
-          }
-          const completed = this.torrents.find(torrent => torrent.infoHash === cache.infoHash)
-          debug(`Completed torrent: ${completed?.infoHash}`)
-          if (completed) {
-            completed._removal = true
-            await this.remove(completed, { destroyStore: !this.settings.torrentPersist })
-          }
-        }
-        break
-      } case 'stage_all': {
-        for (const hash of data.data) {
-          const cache = await this.torrentCache.get(hash)
-          if (cache) this.addTorrent(cache, cache)
-          else this.dispatch('untrack', hash)
-        }
-        debug('Loaded staging torrents:', JSON.stringify(data.data))
-        break
-      } case 'seed_all': {
-        for (const hash of data.data) {
-          const cache = await this.torrentCache.get(hash)
-          if (cache && await this.torrentCache.exists(cache.name, this.torrentPath)) this.addTorrent(cache, cache)
-          else this.dispatch('untrack', hash)
-        }
-        debug('Loaded seeding torrents:', JSON.stringify(data.data))
-        break
-      } case 'complete_all': {
-        const stats = await Promise.all(data.data.map(async (hash) => {
-          const cache = await this.torrentCache.get(hash)
-          if (!cache?.infoHash || !(await this.torrentCache.exists(cache.name, this.torrentPath))) {
-            this.dispatch('untrack', hash)
-            return null
-          }
-          const torrentStats = await getProgressAndSize(cache)
-          const verified = await hasIntegrity(cache, this.torrentPath)
-          const _torrent = {
-            ...cache,
-            length: torrentStats.size,
-            progress: torrentStats.progress,
-            incomplete: torrentStats.progress < 1 || !verified,
-            missing_pieces: !verified
-          }
-          return getStats(_torrent, true)
-        }))
-        this.completed = Array.from(new Map([...(this.completed || []), ...(stats.filter(Boolean) || [])].map(item => [item.infoHash, item])).values())
-        this.dispatch('completedStats', this.completed.reverse())
-        debug('Loaded completed torrents:', JSON.stringify(data.data))
-        break
-      } case 'unload': {
-        if (!data.data && this.torrents.find(torrent => torrent.current)) {
-          this.currentFile = null
-          const current = this.torrents.find(torrent => torrent.current)
-          const cache = await this.torrentCache.get(current.infoHash)
-          const seedingLimit = this.settings.seedingLimit > SUPPORTS.maxSeeding ? SUPPORTS.maxSeeding : (this.settings.seedingLimit || 1)
-          if (this.settings.torrentPersist || (seedingLimit > 1 && (this.torrents.filter(_torrent => (_torrent.seeding || _torrent.staging) && !_torrent.destroyed)?.length + 1 < seedingLimit))) {
-            current._removal = true
-            await this.remove(current, { destroyStore: false })
-            if (cache) {
-              this.dispatch('loaded', {})
-              this.addTorrent(cache, cache)
-            }
-          } else {
-            current._removal = true
-            this.dispatch('loaded', {})
-            this.torrentCache.delete(current.infoHash)
-            await this.remove(current, { destroyStore: true })
-          }
-        } else if (data.data) {
-          const cache = await this.torrentCache.get(data.data?.infoHash || (data.data?.hash && data.data?.torrent) || (await getInfoHash(data.data?.torrent || data.data)))
-          if (cache?.infoHash) {
-            const torrentStats = await getProgressAndSize(cache)
-            const _torrent = {
-              ...cache,
-              length: torrentStats.size,
-              progress: torrentStats.progress,
-            }
-            this.completed = Array.from(new Map([...(this.completed || []), getStats(_torrent, true)].map(item => [item.infoHash, item])).values())
-            if (data.data?.hash) {
-              const unload = this.torrents.find(torrent => torrent.infoHash === data.data.torrent)
-              if (unload) {
-                unload._removal = true
-                await this.remove(unload, { destroyStore: !this.settings.torrentPersist })
-              }
-            }
-            this.dispatch('completed', getStats(_torrent, true))
-          }
-        }
-        break
-      } case 'untrack': { // User really doesn't want this, delete from cache and remove the file. (Probably should implement a prompt asking if the user wants to keep the associated files).
-        const untrack = this.torrents.find(torrent => torrent.infoHash === data.data)
-        if (untrack) {
-          untrack._removal = true
-          if (untrack.current) this.dispatch('loaded', {})
-          await this.torrentCache.delete(untrack.infoHash)
-          await this.remove(untrack, { destroyStore: true })
-        } else if (this.completed?.find(torrent => torrent.infoHash === data.data)) {
-          await this.torrentCache.delete(data.data)
-          await this.torrentCache.delete(this.completed.find(torrent => torrent.infoHash === data.data).name, this.torrentPath)
-        }
-        this.dispatch('untrack', data.data)
-        break
-      } case 'reannounce': {
-        const reannounce = this.torrents.find(torrent => torrent.infoHash === data.data)
-        if (!this.destroyed && !reannounce.destroyed) {
-          reannounce.discovery?.tracker?.start()
-          this.dispatch('info', `Reannounce successful for ${reannounce.name}`)
-        }
-        break
-      } case 'networking': {
-        if (this.networking === 'offline' && data.data !== 'offline') {
-          this.torrents.forEach(torrent => {
-            if (!this.destroyed && !torrent.destroyed) torrent.discovery?.tracker?.start()
-          })
-        }
-        this.networking = data.data
-        break
-      } case 'debug': {
-        Debug.disable()
-        if (data.data) Debug.enable(data.data)
-        break
+        this.completed = Array.from(new Map([...(this.completed || []), getStats(_torrent, true)].map(item => [item.infoHash, item])).values())
+        this.updateTorrent(_torrent.infoHash, { completed: getStats(_torrent, true) })
+      } else {
+        removedCount++
+        await this.torrentCache.delete(torrent.infoHash)
+        await this.torrentCache.delete(torrent.name, this.torrentPath)
       }
     }
+    return { missingCount, removedCount }
+  }
+
+  /**
+   * Restores staged and seeding torrents, completed snapshots, and optional current playback.
+   * @param {string[]|null} staging
+   * @param {string[]|null} seeding
+   * @param {string[]|null} completed
+   * @param {object|null} current
+   * @param {(files: object[], magnet: {magnet: string, hash: string}) => void} [onReady]
+   * @returns {Promise<ReturnType<typeof getStats>[]>}
+   */
+  async restoreSession(staging, seeding, completed, current, onReady) {
+    if (current) {
+      debug('Loading last torrent: ', JSON.stringify(current))
+      if (current?.length || (typeof current === 'object' && Object.keys(current).length)) {
+        const cache = await this.torrentCache.get(current?.infoHash || await getInfoHash(current))
+        this.addTorrent(current?.id ?? current, cache, false, onReady).catch(error => this.handleError(error))
+      }
+    }
+    for (const hash of staging || []) {
+      const cache = await this.torrentCache.get(hash)
+      if (cache) this.addTorrent(cache, cache).catch(error => this.handleError(error))
+      else this.updateTorrent(hash, { untrack: true })
+    }
+    debug('Loaded staging torrents:', JSON.stringify(staging))
+    for (const hash of seeding || []) {
+      const cache = await this.torrentCache.get(hash)
+      if (cache && await this.torrentCache.exists(cache.name, this.torrentPath)) this.addTorrent(cache, cache).catch(error => this.handleError(error))
+      else this.updateTorrent(hash, { untrack: true })
+    }
+    debug('Loaded seeding torrents:', JSON.stringify(seeding))
+    const stats = await Promise.all((completed || []).map(async (hash) => {
+      const cache = await this.torrentCache.get(hash)
+      if (!cache?.infoHash || !(await this.torrentCache.exists(cache.name, this.torrentPath))) {
+        this.updateTorrent(hash, { untrack: true })
+        return null
+      }
+      const torrentStats = await getProgressAndSize(cache)
+      const verified = await hasIntegrity(cache, this.torrentPath)
+      const _torrent = {
+        ...cache,
+        length: torrentStats.size,
+        progress: torrentStats.progress,
+        incomplete: torrentStats.progress < 1 || !verified,
+        missing_pieces: !verified
+      }
+      return getStats(_torrent, true)
+    }))
+    this.completed = Array.from(new Map([...(this.completed || []), ...(stats.filter(Boolean) || [])].map(item => [item.infoHash, item])).values())
+    debug('Loaded completed torrents:', JSON.stringify(completed))
+    return this.completed
+  }
+
+  /**
+   * Stops an active torrent and retains its completed snapshot when persistence is enabled.
+   * @param {string} id
+   * @returns {Promise<void>} Resolves after the active torrent is removed.
+   */
+  async complete(id) {
+    await this.removals.get(id)
+    const cache = await this.torrentCache.get(id)
+    if (cache?.infoHash) {
+      if (!this.settings.torrentPersist) {
+        this.updateTorrent(cache.infoHash, { untrack: true })
+      } else {
+        const torrentStats = await getProgressAndSize(cache)
+        const _torrent = {
+          ...cache,
+          length: torrentStats.size,
+          progress: torrentStats.progress,
+        }
+        this.completed = Array.from(new Map([...(this.completed || []), getStats(_torrent, true)].map(item => [item.infoHash, item])).values())
+        this.updateTorrent(_torrent.infoHash, { completed: getStats(_torrent, true) })
+      }
+      const completed = this.client.torrents.find(torrent => torrent.infoHash === cache.infoHash)
+      debug(`Completed torrent: ${completed?.infoHash}`)
+      if (completed) {
+        await this.#removeTorrent(completed, !this.settings.torrentPersist, !this.settings.torrentPersist)
+      } else if (!this.settings.torrentPersist) await this.torrentCache.delete(id)
+    }
+  }
+
+  /**
+   * Removes a torrent from the client, cache, and renderer lists.
+   * @param {string} id Hash of the torrent to remove.
+   * @returns {Promise<void>} Resolves after removing the torrent and cached files.
+   */
+  async untrack(id) { // User really doesn't want this, delete from cache and remove the file. (Probably should implement a prompt asking if the user wants to keep the associated files).
+    await this.removals.get(id)
+    const untrack = this.client.torrents.find(torrent => torrent.infoHash === id)
+    if (untrack) {
+      if (untrack.current) {
+        this.metadata?.destroy()
+        this.metadata = null
+        this.currentFile = null
+        this.updateTorrent(null, { current: {} })
+      }
+      await this.#removeTorrent(untrack, true, true)
+    } else if (this.completed?.find(torrent => torrent.infoHash === id)) {
+      await this.torrentCache.delete(id)
+      await this.torrentCache.delete(this.completed.find(torrent => torrent.infoHash === id).name, this.torrentPath)
+    }
+    this.completed = this.completed.filter(torrent => torrent.infoHash !== id)
+    this.updateTorrent(id, { untrack: true })
+  }
+
+  /**
+   * Unloads current playback or restores an explicitly supplied torrent as completed.
+   * @param {string|{infoHash?: string, hash?: string, torrent?: string}|null} data Torrent to unload, or null for current playback.
+   * @returns {Promise<void>} Resolves after unloading or scheduling restoration.
+   */
+  async unload(data = null) {
+    if (!data && this.client.torrents.find(torrent => torrent.current)) {
+      this.metadata?.destroy()
+      this.metadata = null
+      this.currentFile = null
+      const current = this.client.torrents.find(torrent => torrent.current)
+      const cache = await this.torrentCache.get(current.infoHash)
+      const seedingLimit = this.settings.seedingLimit > SUPPORTS.maxSeeding ? SUPPORTS.maxSeeding : (this.settings.seedingLimit || 1)
+      if (this.settings.torrentPersist || (seedingLimit > 1 && (this.client.torrents.filter(_torrent => (_torrent.seeding || _torrent.staging) && !_torrent.destroyed)?.length + 1 < seedingLimit))) {
+        await this.#removeTorrent(current, false)
+        this.updateTorrent(null, { current: {} })
+        if (cache) this.addTorrent(cache, cache).catch(error => this.handleError(error))
+      } else {
+        this.updateTorrent(null, { current: {} })
+        await this.#removeTorrent(current, true, true)
+      }
+    } else if (data) {
+      const cache = await this.torrentCache.get(data?.infoHash || (data?.hash && data?.torrent) || (await getInfoHash(data?.torrent || data)))
+      if (cache?.infoHash) {
+        const torrentStats = await getProgressAndSize(cache)
+        const _torrent = {
+          ...cache,
+          length: torrentStats.size,
+          progress: torrentStats.progress,
+        }
+        this.completed = Array.from(new Map([...(this.completed || []), getStats(_torrent, true)].map(item => [item.infoHash, item])).values())
+        if (data?.hash) {
+          const unload = this.client.torrents.find(torrent => torrent.infoHash === data.torrent)
+          if (unload) {
+            await this.#removeTorrent(unload, !this.settings.torrentPersist)
+          }
+        }
+        this.updateTorrent(_torrent.infoHash, { completed: getStats(_torrent, true) })
+      }
+    }
+  }
+
+  // TODO: addLocalFiles
+
+  /**
+   * Selects a playable file and prepares metadata for internal playback.
+   * Handles file selection/deselection, streaming metadata, and external player launching.
+   * @param {string} id Info hash of the torrent to play.
+   * @param {string} path Path of the file within the torrent to play.
+   * @param {boolean} external Whether to launch an external player.
+   * @returns {Promise<true|void>} True when using external playback; otherwise no value.
+   */
+  async setPlayback(id, path, external) {
+    if (id && path) {
+      const torrent = await this.client.get(id)
+      if (!torrent || torrent.destroyed) return
+      const found = torrent.files.find(file => file.path === path)
+      if (!found || found._destroyed) return
+      if (this.playerProcess) {
+        this.playerProcess.kill()
+        this.playerProcess = null
+      }
+      if (this.currentFile) {
+        this.currentFile.removeAllListeners('stream')
+        this.currentFile.removeAllListeners('iterator')
+        if (this.settings.torrentStreamedDownload && !this.currentFile._destroyed && found.progress < 1) this.currentFile.deselect()
+      }
+      if (this.settings.torrentStreamedDownload && found.progress < 1) {
+        this.client.torrents.filter(_torrent => (_torrent.staging || _torrent.seeding) && Array.isArray(_torrent.files)).forEach(_torrent => {
+          _torrent.files.forEach(file => {
+            if (!file._destroyed) file.deselect()
+          })
+        })
+      }
+      this.metadata?.destroy?.()
+      this.metadata = null
+      found.select()
+      if (this.settings.torrentStreamedDownload && (found.length > (await diskSpace(torrent.path)).free)) this.handleError('File Too Big! This File Exceeds The Selected Drive\'s Available Space. Change Download Location In Torrent Settings To A Drive With More Space And Restart The App!')
+
+      if (this.settings.torrentStreamedDownload) {
+        if (this._checkProgress) {
+          const lastTorrent = this.client.torrents.find(torrent => torrent.current)
+          if (lastTorrent) lastTorrent.off('download', this._checkProgress)
+        }
+        this._checkProgress = () => {
+          if (this.currentFile !== found || this.client.destroyed) torrent.off('download', this._checkProgress)
+          else if (this.currentFile.progress === 1) {
+            debug('Current file has completed its streamed download... resuming queued torrents.', found.path)
+            this.client.torrents.filter(_torrent => Array.isArray(_torrent.files) && _torrent.infoHash !== torrent.infoHash).forEach(_torrent => {
+              _torrent.files.forEach(file => {
+                if (!file._destroyed) file.select()
+              })
+            })
+            torrent.off('download', this._checkProgress)
+          }
+        }
+        torrent.on('download', this._checkProgress)
+      }
+      this.currentFile = found
+
+      const currentTorrent = this.client.torrents.find(_torrent => _torrent.current)
+      if (currentTorrent) {
+        currentTorrent.current = false
+      }
+      torrent.current = true
+      if (!(external && (SUPPORTS.isAndroid || this.settings.playerPath))) {
+        this.metadata = new Metadata(found, torrent.files)
+      } else return true
+    }
+  }
+
+  /**
+   * Launches the configured desktop player or returns an Android playback intent.
+   * @param {string} path Path of the file to view.
+   * @param {() => void} [externalWatched] Receives elapsed playback time when the desktop player closes.
+   * @returns {Promise<string|void>} Android intent URL, or no value for desktop playback or a missing file.
+   */
+  async launchExternal(path, externalWatched = () => {}) {
+    const found = this.client.torrents.find(_torrent => _torrent.current)?.files?.find(file => file.path === path)
+    if (!found) return
+    if (this.playerProcess) {
+      this.playerProcess.removeAllListeners('close')
+      this.playerProcess.kill()
+      this.playerProcess = null
+    }
+    if (this.settings.playerPath) {
+      const url = '' + new URL('http://localhost:' + this.torrentServer.address().port + found.streamURL)
+      this.playerProcess = spawn(this.settings.playerPath, [url])
+      this.playerProcess.stdout.on('data', () => {})
+      this.playerProcess.once('close', () => {
+        if (this.client.destroyed) return
+        this.playerProcess = null
+        externalWatched()
+      })
+      return url
+    } else if (SUPPORTS.isAndroid) return `intent://localhost:${this.torrentServer.address().port}${found.streamURL}#Intent;type=video/any;scheme=http;end;`
   }
 
   /**
    * Binds an HTTP tracker client to the given torrent to update seeder/leecher counts.
    * Overrides the torrent's `destroy` method to ensure the tracker client is cleaned up.
-   *
-   * @param {import('webtorrent').Torrent} torrent - Torrent to bind the tracker to.
+   * @private
+   * @param {Torrent} torrent Torrent to bind the tracker to.
+   * @returns {void}
    */
-  bindTracker(torrent) {
+  #bindTracker(torrent) {
     if (!torrent?.infoHash || torrent.destroyed || torrent.tracker || !torrent.client?.peerId || !(torrent.announce || []).length) return
 
     const client = new Client({
       infoHash: torrent.infoHash,
       announce: torrent.announce,
       peerId: torrent.client.peerId,
-      port: this.torrentPort
+      port: this.client.torrentPort
     })
 
     client.on('update', (data) => {
@@ -812,12 +729,11 @@ export default class TorrentClient extends WebTorrent {
    * Performs a tracker scrape request for one or more info hashes.
    * Used to retrieve current seeder/leecher counts from trackers.
    * TODO: Rework this, it works but is not very good and prone to hanging...
-   *
-   * @param {{id: string, infoHashes: string[]}} opts - Scrape request containing ID and info hashes.
-   * @returns {Promise<{id: string, result: object[]}>} Scrape results keyed by info hash.
+   * @param {string[]} infoHashes Hashes to scrape.
+   * @returns {Promise<object[]>} Scrape results keyed by info hash.
    */
-  async _scrape({ id, infoHashes }) {
-    debug(`Scraping ${infoHashes.length} hashes, id: ${id}`)
+  async scrape(infoHashes) {
+    debug(`Scraping ${infoHashes.length} hashes`)
     const MAX_ANNOUNCE_LENGTH = 1300 // it's likely 2048, but let's undercut it
     const RATE_LIMIT = 200 // ms
     const ANNOUNCE_LENGTH = this.tracker.scrapeUrl.length
@@ -831,12 +747,12 @@ export default class TorrentClient extends WebTorrent {
           if (err) {
             const error = errorToString(err)
             debug('Failed to scrape: ' + error)
-            this.dispatch('warn', `Failed to update seeder counts: ${error}`)
+            this.notify('warn', `Failed to update seeder counts: ${error}`)
             return resolve([])
           }
           const { files } = data
           const result = []
-          debug(`Scraped ${Object.keys(files || {}).length} hashes, id: ${id}`)
+          debug(`Scraped ${Object.keys(files || {}).length} hashes`)
           for (const [key, data] of Object.entries(files || {})) result.push({ hash: key.length !== 40 ? arr2hex(text2arr(key)) : key, ...data })
           resolve(result)
         })
@@ -853,67 +769,146 @@ export default class TorrentClient extends WebTorrent {
       currentLength += qsLength
     }
     if (batch.length) await scrape()
-    debug(`Scraped ${results.length} hashes, id: ${id}`)
+    debug(`Scraped ${results.length} hashes`)
 
-    this.dispatch('scrape_done', { id, result: results })
-    return { id, result: results }
+    return results
   }
 
   /**
-   * Moves the specified torrent to the front of the torrent list.
-   * Useful for prioritizing torrents in UI and processing order.
-   *
-   * @param {import('webtorrent').Torrent} torrent - Torrent to prioritize.
+   * Requests fresh peer information for an active torrent.
+   * @param {string} id Torrent hash to reannounce.
+   * @returns {Promise<void>}
    */
-  bumpTorrent(torrent) {
-    const index = this.torrents.indexOf(torrent)
-    if (index > -1) this.torrents.splice(index, 1)
-    this.torrents.unshift(torrent)
+  async reannounceTorrent(id) {
+    const reannounce = this.client.torrents.find(torrent => torrent.infoHash === id)
+    if (!this.client.destroyed && reannounce && !reannounce.destroyed) {
+      reannounce.discovery?.tracker?.start()
+      this.notify('info', `Reannounce successful for ${reannounce.name}`)
+    }
   }
 
   /**
-   * Dispatches an event to the IPC channel once the client is ready.
-   *
-   * @param {string} type - Event type name.
-   * @param {any} data - Event payload data.
-   * @param {Transferable[]} [transfer] - Optional transferable objects for structured cloning.
+   * Reads capacity and available space for the configured torrent directory.
+   * @returns {Promise<{total: number, free: number}>} Disk capacity and free space in bytes.
    */
-  async dispatch(type, data, transfer) {
-    await this._ready
-    this.message?.({ type, data }, transfer)
+  getDiskSpace() {
+    return diskSpace(this.torrentPath || TMP)
+  }
+
+  /**
+   * Returns a snapshot for the requested active torrent, or null if it is no longer active.
+   * @param {string} infoHash
+   * @returns {(ReturnType<typeof getStats> & {fileProgress: number})|null}
+   */
+  getTorrentStats(infoHash) {
+    const torrent = this.client.torrents.find(torrent => torrent.infoHash === infoHash && !torrent.destroyed && !torrent._removal)
+    if (!torrent) return null
+    return {
+      ...getStats(torrent, false, false),
+      fileProgress: (torrent.current && torrent.pieces && this.currentFile?.progress) || 0
+    }
+  }
+
+  /**
+   * Updates the client's settings.
+   * Applies download/upload limits, updates the player path, and initializes the torrent cache (if the location changed).
+   * @param {Record<string, any>} settings
+   * @returns {Promise<void>}
+   */
+  async updateSettings(settings) {
+    if (!this.client || this.client?.destroyed) return
+    this.settings = { ...settings }
+    this.client.throttleDownload(this.settings.downloadLimit)
+    this.client.throttleUpload(this.settings.uploadLimit)
+    this.torrentPath = this.settings.torrentPathNew || this.TMPDIR || ''
+    this.torrentCache = new Cache(this.torrentPath)
+  }
+
+  /**
+   * Applies network availability to the active torrent connections.
+   * @param {string} status
+   * @returns {Promise<void>}
+   */
+  async updateNetwork(status) {
+    if (this.networking === 'offline' && status !== 'offline') {
+      this.client.torrents.forEach(torrent => {
+        if (!this.client.destroyed && !torrent.destroyed) torrent.discovery?.tracker?.start()
+      })
+    }
+    this.networking = status
+  }
+
+  /**
+   * Replaces the enabled debug namespaces.
+   * @param {string} debug Debug namespace filter.
+   * @returns {Promise<void>}
+   */
+  async setDebug(debug) {
+    Debug.disable()
+    if (debug) Debug.enable(debug)
   }
 
   /**
    * Converts and filters an error before dispatching it to listeners.
    * Ignores common/expected connection-related errors.
-   *
-   * @param {Error|string} e - Error object or message to dispatch.
+   * @private
+   * @param {Error|string} e Error object or message to dispatch.
+   * @returns {void}
    */
-  dispatchError(e) {
+  handleError(e) {
     const error = errorToString(e)
     console.error('Error: ' + error, e)
     for (const exclude of ['WebSocket', 'User-Initiated Abort, reason=', 'Connection failed.', 'UTP_ECONNRESET']) {
       if (error.startsWith(exclude)) return
     }
-    this.dispatch('error', error)
+    this.notify('error', error)
+  }
+
+  /**
+   * Processes a torrent's files once metadata is available and prepares them for playback.
+   * Generates unique file hashes, constructs local URLs, and sets a timeout to check for stalled torrents.
+   * @private
+   * @param {Torrent} torrent The active torrent instance containing files and metadata.
+   * @returns {Array<Object>} Array of mapped file objects.
+   */
+  #mapFiles(torrent) {
+    if (this.client.destroyed) return []
+    debug('Got torrent metadata:', torrent.name)
+    const files = torrent.files.map(file => {
+      return {
+        infoHash: torrent.infoHash,
+        fileHash: makeHash(`${torrent.infoHash}:${file.name}:${file.size}`),
+        torrent_name: torrent.name,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        path: file.path,
+        url: 'http://localhost:' + this.torrentServer.address().port + file.streamURL
+      }
+    })
+    const timeout = setTimeout(() => {
+      if (this.client.destroyed || torrent.destroyed) return
+      if (torrent.progress !== 1) {
+        if (torrent.numPeers === 0 && this.networking !== 'offline') this.handleError('No peers found, try using a different torrent.')
+      }
+    }, 30_000)
+    this.timeouts.push(timeout)
+    timeout.unref?.()
+    return files
   }
 
   /**
    * Gracefully shuts down the TorrentClient, closing trackers, metadata, server, and destroying all torrents.
-   * Emits a `destroyed` event via IPC once complete.
+   * Returns a promise that resolves once the client is fully destroyed.
+   * @returns {Promise<void>} Resolves after resources are released; rejects if engine shutdown fails.
    */
   destroy() {
+    if (this.destroyed) return this.destroyed
     debug('Destroying TorrentClient')
-    if (this.destroyed) {
-      debug('Ooops! TorrentClient is already destroyed!')
-      this.ipc?.send('destroyed')
-      this.ipc?.emit('destroyed')
-      return
-    }
     this.intervals.forEach(clearInterval)
     this.timeouts.forEach(clearTimeout)
     if (this._checkProgress) {
-      const currentTorrent = this.torrents.find(t => t.current)
+      const currentTorrent = this.client.torrents.find(torrent => torrent.current)
       if (currentTorrent) currentTorrent.off('download', this._checkProgress)
       this._checkProgress = null
     }
@@ -924,12 +919,19 @@ export default class TorrentClient extends WebTorrent {
     }
     this.tracker?.destroy(() => null)
     this.metadata?.destroy?.()
-    this.clearAttachments()
-    this.attachmentServer?.close?.()
-    this.server?.close?.()
-    super.destroy(() => {
-      this.ipc?.send('destroyed')
-      this.ipc?.emit('destroyed')
+    this.torrentServer?.close?.()
+    this.destroyed = Promise.allSettled([
+      ...this.removals.values(),
+      new Promise((resolve, reject) => {
+        if (this.client.destroyed) {
+          debug('Ooops! TorrentClient is already destroyed!')
+          return resolve()
+        }
+        this.client.destroy(error => error ? reject(error) : resolve())
+      })
+    ]).then(results => {
+      for (const result of results) if (result.status === 'rejected') throw result.reason
     })
+    return this.destroyed
   }
 }

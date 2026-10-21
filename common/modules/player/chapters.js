@@ -1,6 +1,6 @@
+import { TORRENT } from '@/modules/bridge.js'
 import { settings } from '@/modules/settings.js'
 import { writable } from 'simple-store-svelte'
-import { TORRENT } from '@/modules/bridge.js'
 
 const MAX_TOTAL_SKIP_TIME = 180
 const skippableChaptersRx = [
@@ -81,9 +81,14 @@ export default class Chapters {
   #data = []
   #embedded = []
   #store = writable([])
+  /** @type {boolean} */
+  #destroyed = false
 
+  /** Requests embedded chapters after playback has been selected. */
   constructor() {
-    TORRENT.onChapters(this.setEmbedded.bind(this))
+    TORRENT.getChapters().then(embedded => {
+      if (embedded && !this.#destroyed) this.setEmbedded(embedded)
+    }).catch(error => console.warn('Failed to read chapters', error))
   }
 
   #set(_chapters) {
@@ -182,6 +187,11 @@ export default class Chapters {
     this.#set(this.#embedded)
   }
 
+  /**
+   * Stores embedded chapters and publishes them when that source is selected.
+   * @param {{start: number, end: number, text: string}[]} _chapters Embedded chapter markers in milliseconds.
+   * @returns {void}
+   */
   setEmbedded(_chapters) {
     if (_chapters.length) {
       this.#embedded = _chapters
@@ -193,7 +203,7 @@ export default class Chapters {
     if ((!this.#data.length || settings.value.playerChapterSkip.match(/aniskip/i)) && current?.media?.media) {
       const source = settings.value.playerChapterSkip
       const _chapters = await getChaptersAniSkip(current, safeduration)
-      if (_chapters?.length && settings.value.playerChapterSkip === source && (source === 'aniskip' || !this.#embedded.length)) this.#set(_chapters)
+      if (!this.#destroyed && _chapters?.length && settings.value.playerChapterSkip === source && (source === 'aniskip' || !this.#embedded.length)) this.#set(_chapters)
     }
   }
 
@@ -207,7 +217,7 @@ export default class Chapters {
   }
 
   destroy() {
-    TORRENT.offChapters()
+    this.#destroyed = true
     this.clear()
   }
 }

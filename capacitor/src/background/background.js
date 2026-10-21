@@ -1,70 +1,58 @@
-import { channel } from 'bridge'
-import { statfs } from 'fs/promises'
+import { createTorrentHost } from '@client/lib/ipc.js'
 import { env, stdout, stderr } from 'node:process'
+import { channel } from 'bridge'
 
-async function diskSpace(directory) {
-  const { bsize, blocks, bavail } = await statfs(directory)
-  return { total: bsize * blocks, free: bsize * bavail }
+/** @type {ReturnType<typeof createTorrentHost>|undefined|null} */
+let host
+/** @type {Promise<void>|undefined} */
+let destroying
+
+/**
+ * Stops the current host, allowing up to five seconds for shutdown.
+ * @returns {Promise<void>} Shared shutdown completion.
+ */
+function destroy() {
+  if (destroying) return destroying
+  const previous = host
+  host = null
+  destroying = Promise.race([
+    previous?.destroy(),
+    new Promise(resolve => setTimeout(resolve, 5_000).unref?.())
+  ]).finally(() => { destroying = undefined })
+  return destroying
 }
 
-let client
-let heartbeatId
-function setHeartBeat() {
-  heartbeatId = setInterval(() => channel.send('webtorrent-heartbeat'), 500)
-}
-
-// Intercept stream writes in webtorrent.js and forward them over IPC for logging.
+/** Original stream writer retained while forwarding background logs.
+ * @type {(buffer: string|Uint8Array, encoding?: BufferEncoding|((error?: Error|null) => void), callback?: (error?: Error|null) => void) => boolean}
+ */
 const originalStderrWrite = stderr.write.bind(stderr)
 stderr.write = (data, ...args) => {
   originalStderrWrite(data, ...args)
   channel.send('torrent:log', { level: 'error', message: typeof data === 'string' ? data.trim() : data.toString().trim() })
 }
+/** Original stream writer retained while forwarding background logs.
+ * @type {(buffer: string|Uint8Array, encoding?: BufferEncoding|((error?: Error|null) => void), callback?: (error?: Error|null) => void) => boolean}
+ */
 const originalStdoutWrite = stdout.write.bind(stdout)
 stdout.write = (data, ...args) => {
   originalStdoutWrite(data, ...args)
   channel.send('torrent:log', { level: 'debug', message: typeof data === 'string' ? data.trim() : data.toString().trim() })
 }
 
-channel.on('port-init', async() => {
-  clearInterval(heartbeatId)
-  channel.removeAllListeners('ipc')
-  channel.removeAllListeners('torrentPort')
-  channel.removeAllListeners('torrent:reload')
-  channel.removeAllListeners('main-heartbeat')
-  await destroy()
-
-  const port = {
-    onmessage: _ => {},
-    postMessage: data => {
-      channel.send('ipc', { data })
-    }
-  }
-  channel.on('ipc', a => port.onmessage(a))
-  if (!client) {
-    setHeartBeat()
-    channel.on('torrentPort', () => {
-      channel.emit('torrent:port', {
-        ports: [port]
-      })
-    })
-  }
-  channel.on('torrent:reload', async () => await destroy(true))
-  channel.on('main-heartbeat', async settings => {
-    clearInterval(heartbeatId)
+channel.on('torrent:init', async settings => {
+  try {
     await destroy()
-    const { default: TorrentClient } = await import('webtorrent-client')
-    client = new TorrentClient(channel, diskSpace, 'node', { ...settings, torrentPathNew: (settings.torrentPathNew || env.TMPDIR), TMPDIR: env.TMPDIR })
-  })
-})
-
-async function destroy(heartbeat = false) {
-  if (client) {
-    client.destroy()
-    await new Promise(resolve => {
-      channel.once('destroyed', resolve)
-      setTimeout(resolve, 5_000).unref?.()
-    })
-    client = null
-    if (heartbeat) setHeartBeat()
+    channel.removeAllListeners('torrent:message')
+    channel.removeAllListeners('torrent:connect')
+    const port = {
+      onmessage: _ => {},
+      postMessage: data => channel.send('torrent:message', { data })
+    }
+    channel.on('torrent:message', a => port.onmessage?.(a))
+    channel.once('torrent:connect', () => channel.emit('torrent:port', { ports: [port] }))
+    host = createTorrentHost(channel, settings, env.TMPDIR)
+  } catch (error) {
+    channel.send('torrent:init-error', error.message)
   }
-}
+})
+channel.on('torrent:reload', () => destroy().catch(console.error))

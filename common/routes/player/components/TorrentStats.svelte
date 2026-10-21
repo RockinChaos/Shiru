@@ -1,12 +1,19 @@
 <script>
   import { Users, ArrowDown, ArrowUp } from 'lucide-svelte'
   import { fastPrettyBytes } from '@/modules/util.js'
-  import { TORRENT } from '@/modules/bridge.js'
+  import { currentStats } from '@/modules/torrent.js'
 
   export let visible = true
 
   const torrent = {}
-  TORRENT.onCurrentStats(updateStats)
+
+  $: updateStats($currentStats)
+
+  /**
+   * Updates the displayed peer count and transfer speeds.
+   * @param {{numPeers?: number, uploadSpeed?: number, downloadSpeed?: number}} detail
+   * @returns {void}
+   */
   function updateStats (detail) {
     torrent.peers = detail.numPeers || 0
     torrent.up = detail.uploadSpeed || 0

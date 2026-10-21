@@ -1,5 +1,5 @@
 <script>
-  import { diskSpace, loadingSession, loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
+  import { watchStats, currentStats, diskSpace, loadingSession, loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
   import { Search, RefreshCw, TriangleAlert, Percent, Activity, Gauge, UserSearch, Timer, CloudAlert, CloudUpload, CloudDownload, FolderX, FolderCheck, HardDrive, HardDriveUpload } from 'lucide-svelte'
   import TorrentCard from '@/routes/torrentManager/components/TorrentCard.svelte'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
@@ -15,6 +15,7 @@
   import { COMMON, TORRENT } from '@/modules/bridge.js'
   import { scale } from 'svelte/transition'
   import { flip } from 'svelte/animate'
+  import { onDestroy } from 'svelte'
 
   /** @type {boolean} */
   export let statusTransition = false
@@ -28,7 +29,7 @@
    * @property {string} [file_name]
    */
 
-  /** @typedef {import('@/modules/torrent.js').Torrent & { current: boolean, completed: boolean, category: string }} Torrent */
+  /** @typedef {import('@/types').Torrent & { current: boolean, completed: boolean, category: string }} Torrent */
 
   /** @type {number} */
   const TORRENT_PAGE_SIZE = 25
@@ -50,6 +51,8 @@
     incomplete: { icon: FolderX, label: 'Incomplete' },
     completed: { icon: FolderCheck, label: 'Completed' }
   }
+  /** @type {Map<string, {stop: () => void, duration: number}>} */
+  const stats = new Map()
   /** @type {{ key: string, direction: string }} */
   const sortOrder = { key: 'status', direction: 'asc' }
   const resolvedCache = /** @type {Map<string, { name: string, anime_title: string|null, resolvedId: number|null }>} */ (new Map())
@@ -60,6 +63,10 @@
   let searchText = ''
   /** @type {StatusKey|null} */
   let statusFilter = null
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let storageTimer
+  /** @type {Promise<{total: number, free: number}>|null} */
+  let storageRequest = null
   /** @type {number} */
   let torrentCount = TORRENT_PAGE_SIZE
   /** @type {Torrent[]} All torrents merged from every source */
@@ -71,14 +78,17 @@
   /** @type {Set<string>} Hashes seen since the last search/sort change */
   let knownHashes = new Set(allTorrents.map(torrent => torrent.infoHash))
 
-  $: shiruBytes = [...($seedingTorrents ?? []), ...($completedTorrents ?? []), ...($stagingTorrents ?? []), ...($loadedTorrent?.infoHash ? [$loadedTorrent] : [])].reduce((sum, torrent) => sum + (torrent.downloaded ?? (torrent.size ?? 0) * (torrent.progress ?? 1)), 0)
+  $: currentTorrent = { ...$loadedTorrent, ...($currentStats.infoHash === $loadedTorrent.infoHash ? $currentStats : {}) }
+  $: shiruBytes = [...($seedingTorrents ?? []), ...($completedTorrents ?? []), ...($stagingTorrents ?? []), ...(currentTorrent?.infoHash ? [currentTorrent] : [])].reduce((sum, torrent) => sum + (torrent.downloaded ?? (torrent.size ?? 0) * (torrent.progress ?? 1)), 0)
+  $: refreshStorage(shiruBytes)
   $: otherBytes = Math.max(0, ($diskSpace?.total ? $diskSpace.total - $diskSpace.free : 0) - shiruBytes)
   $: freePercent = $diskSpace?.total ? ($diskSpace.free / $diskSpace.total) * 100 : 0
   $: noDiskSpace = freePercent <= 5 && ($diskSpace?.free ?? 0) < 30 * 1024 ** 3
   $: lowDiskSpace = !noDiskSpace && freePercent <= 15 && ($diskSpace?.free ?? 0) < 80 * 1024 ** 3
 
-  $: allTorrents = mergeTorrents($loadedTorrent, $stagingTorrents, $seedingTorrents, $completedTorrents)
+  $: allTorrents = mergeTorrents(currentTorrent, $stagingTorrents, $seedingTorrents, $completedTorrents)
   $: torrentsByHash = Object.fromEntries(allTorrents.map(torrent => [torrent.infoHash, torrent]))
+  $: syncStats($stagingTorrents, $seedingTorrents, $loadedTorrent?.infoHash)
   $: statusCounts = getStatuses(allTorrents)
   $: resyncTorrents(allTorrents, searchText)
   $: resortTorrents(torrentsByHash)
@@ -133,10 +143,10 @@
   /**
    * Combines the current, staging, seeding, and completed torrents into one flat list with categories.
    *
-   * @param {Partial<import('@/modules/torrent.js').Torrent>} loadedTorrent
-   * @param {import('@/modules/torrent.js').Torrent[]} stagingTorrents
-   * @param {import('@/modules/torrent.js').Torrent[]} seedingTorrents
-   * @param {import('@/modules/torrent.js').Torrent[]} completedTorrents
+   * @param {Partial<import('@/types').Torrent>} loadedTorrent
+   * @param {import('@/types').Torrent[]} stagingTorrents
+   * @param {import('@/types').Torrent[]} seedingTorrents
+   * @param {import('@/types').Torrent[]} completedTorrents
    * @returns {Torrent[]}
    */
   function mergeTorrents(loadedTorrent, stagingTorrents, seedingTorrents, completedTorrents) {
@@ -363,6 +373,35 @@
   }
 
   /**
+   * Starts, updates, and stops page-owned polls as torrent roles change.
+   * @param {import("@/types").Torrent[]} staging
+   * @param {import("@/types").Torrent[]} seeding
+   * @param {string|undefined} currentHash
+   * @returns {void}
+   */
+  function syncStats(staging, seeding, currentHash) {
+    /** Desired polling cadence and destination store for each active hash. */
+    const active = /** @type {Map<string, {store: import("simple-store-svelte").Writable<import("@/types").Torrent[]>, duration: number, category: string}>} */ (new Map())
+    for (const torrent of staging) active.set(torrent.infoHash, { store: stagingTorrents, duration: 1_000, category: 'staging' })
+    for (const torrent of seeding) active.set(torrent.infoHash, { store: seedingTorrents, duration: 8_000, category: 'seeding' })
+    active.delete(currentHash)
+    for (const [hash, subscription] of stats) {
+      if (active.get(hash)?.duration !== subscription.duration) {
+        subscription.stop()
+        stats.delete(hash)
+      }
+    }
+    for (const [hash, { store, duration, category }] of active) {
+      if (stats.has(hash)) continue
+      const stop = watchStats(hash, stats => {
+        if (stats.current || !stats[category]) return
+        store.update(torrents => torrents.map(torrent => torrent.infoHash === hash ? { ...torrent, ...stats } : torrent))
+      }, duration)
+      stats.set(hash, { stop, duration })
+    }
+  }
+
+  /**
    * Toggles a status filter on/off.
    *
    * @param {StatusKey} statusKey
@@ -432,6 +471,31 @@
     filteredHashes = filterAndSort(allTorrents, searchText, statusFilter).map(torrent => torrent.infoHash)
     currentHashes = filteredHashes.slice(0, torrentCount)
   }
+
+  /**
+   * Refreshes disk space and defers the next fallback refresh by 30 seconds, ignoring superseded responses.
+   * @param {number} [_bytes]
+   * @returns {Promise<void>}
+   */
+  async function refreshStorage(_bytes) {
+    clearTimeout(storageTimer)
+    storageTimer = setTimeout(refreshStorage, 30_000)
+    /** @type {Promise<{total: number, free: number}>} */
+    const request = storageRequest = TORRENT.getDiskSpace()
+    try {
+      const storage = await request
+      if (storageRequest === request) diskSpace.set(storage)
+    } catch (error) {
+      if (storageRequest === request) console.warn('Failed to read disk space', error)
+    }
+  }
+
+  onDestroy(() => {
+    clearTimeout(storageTimer)
+    storageRequest = null
+    for (const subscription of stats.values()) subscription.stop()
+    stats.clear()
+  })
 </script>
 
 <div class='root bg-dark d-flex flex-column h-full w-full overflow-y-scroll overflow-x-hidden' bind:this={container} on:scroll={handleScroll}>

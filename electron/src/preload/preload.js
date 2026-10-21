@@ -1,112 +1,208 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { createRemote } from '@client/lib/remote.js'
 
-const listeners = {}
-let _port = null
-let _portReady, _resolvePort
-function resetPortReady() {
-  _portReady = new Promise(resolve => { _resolvePort = resolve })
-}
-resetPortReady()
-
-function addListener(type, callback) {
-  if (!listeners[type]) listeners[type] = []
-  listeners[type].push(callback)
-}
-
-function send(type, data, transfer) {
-  _portReady.then(() => _port.postMessage({ type, data }, transfer))
-}
-
-function once(type, callback) {
-  const wrapper = (data) => {
-    callback(data)
-    listeners[type] = listeners[type].filter(fn => fn !== wrapper)
-  }
-  if (!listeners[type]) listeners[type] = []
-  listeners[type].push(wrapper)
-}
+/** Current worker transport; replaced when requesting a fresh connection.
+ * @type {any}
+ */
+let torrentPort = null
+/** Awaitable proxy for the connected torrent worker.
+ * @type {ReturnType<typeof createRemote>}
+ */
+const client = createRemote()
+ipcRenderer.on('torrent:onCrash', () => client.disconnect(new Error('Torrent worker crashed')))
 
 contextBridge.exposeInMainWorld('torrent', {
-  reload: () => ipcRenderer.send('torrent:reload'),
+  /**
+   * Requests a fresh torrent host and disconnects the current remote.
+   * @returns {void}
+   */
+  reload: () => {
+    client.disconnect()
+    ipcRenderer.send('torrent:reload')
+  },
+  /**
+   * Registers a torrent-worker crash callback when supported by the platform.
+   * @param {() => void} callback
+   * @returns {any}
+   */
   onCrash: (callback) => ipcRenderer.on('torrent:onCrash', callback),
-  onRequest: (callback) => ipcRenderer.on('torrent:onRequest', (event, updateVersion) => callback(updateVersion)),
-  debug: (debug) => send('debug', debug),
-  rescan: () => new Promise(resolve => {
-    once('rescan_done', ({ missingCount, removedCount }) => resolve({ missingCount, removedCount }))
-    send('rescan')
-  }),
-  scrape: (id, infoHashes) => new Promise(resolve => {
-    function check(detail) {
-      if (detail.id !== id) return
-      resolve(detail.result)
-      listeners['scrape_done'] = listeners['scrape_done'].filter(fn => fn !== check)
-    }
-    if (!listeners['scrape_done']) listeners['scrape_done'] = []
-    listeners['scrape_done'].push(check)
-    send('scrape', { id, infoHashes })
-  }),
-  stream: (id, hash, magnet, base64) => send('torrent', { id, hash, magnet, base64 }),
-  stage: (id, hash, base64) => send('stage', { id, hash, base64 }),
-  complete: (hash) => send('complete', hash),
-  unload: (data) => send('unload', data),
-  untrack: (hash) => send('untrack', hash),
-  reannounce: (hash) => send('reannounce', hash),
-  onStats: (callback) => addListener('activity', callback),
-  onFiles: (callback) => addListener('files', callback),
-  onMagnet: (callback) => addListener('magnet', callback),
-  onTracks: (callback) => addListener('tracks', callback),
-  offTracks: () => (listeners['tracks'] = []),
-  onSubtitles: (cbSubtitle, cbFont, cbFiles) => {
-    addListener('subtitle', cbSubtitle)
-    addListener('file', cbFont)
-    addListener('subtitleFile', cbFiles)
+  /**
+   * Registers a callback for externally opened torrent requests.
+   * @param {(request: any) => void} callback
+   * @returns {any}
+   */
+  onRequest: (callback) => {
+    ipcRenderer.on('torrent:onRequest', (event, updateVersion) => callback(updateVersion))
+    ipcRenderer.send('torrent:rendererReady')
   },
-  offSubtitles: () => {
-    listeners['subtitle'] = []
-    listeners['file'] = []
-    listeners['subtitleFile'] = []
+  /**
+   * Updates the worker debug filter
+   * @param {string} debug Enabled debug namespaces
+   * @returns {Promise<void>}
+   */
+  debug: async (debug) => (await client).setDebug(debug),
+  /**
+   * Rescans cached torrent files.
+   * @returns {Promise<{missingCount: number, removedCount: number}>}
+   */
+  rescan: async () => (await client).rescan(),
+  /**
+   * Retrieves tracker statistics for torrent hashes.
+   * @param {string[]} infoHashes Hashes to scrape.
+   * @returns {Promise<object[]>}
+   */
+  scrape: async (infoHashes) => (await client).scrape(infoHashes),
+  /**
+   * Loads a torrent for playback and reports its playable files.
+   * @param {string|Uint8Array} id Magnet, hash, torrent bytes, or encoded torrent file.
+   * @param {string|false} hash Known hash when available.
+   * @param {boolean} magnet Whether the request originated from a magnet link.
+   * @param {boolean} base64 Whether id contains base64-encoded torrent bytes.
+   * @param {(files: object[], magnet: {magnet: string, hash: string}) => void} [onReady] Receives playable files and magnet information.
+   * @returns {Promise<object|void>}
+   */
+  stream: async (id, hash, magnet, base64, onReady) => (await client).streamTorrent({ id, hash, magnet, base64 }, onReady),
+  /**
+   * Queues a torrent for background downloading.
+   * @param {string|Uint8Array} id Torrent identifier or bytes.
+   * @param {string} hash Known torrent hash.
+   * @param {boolean} [base64] Whether id contains base64-encoded torrent bytes.
+   * @returns {Promise<object|void>}
+   */
+  stage: async (id, hash, base64) => (await client).stageTorrent({ id, hash, base64 }),
+  /**
+   * Stops an active torrent and applies the persistence setting.
+   * @param {string} hash
+   * @returns {Promise<void>}
+   */
+  complete: async (hash) => (await client).complete(hash),
+  /**
+   * Unloads current playback or an explicitly selected torrent.
+   * @param {any} data Torrent descriptor, or null for current playback.
+   * @returns {Promise<void>}
+   */
+  unload: async (data) => (await client).unload(data),
+  /**
+   * Removes a torrent and its persisted files.
+   * @param {string} hash
+   * @returns {Promise<void>}
+   */
+  untrack: async (hash) => (await client).untrack(hash),
+  /**
+   * Requests fresh peer information for a torrent.
+   * @param {string} hash
+   * @returns {Promise<void>}
+   */
+  reannounce: async (hash) => (await client).reannounceTorrent(hash),
+  /**
+   * Registers renderer notification and torrent lifecycle callbacks.
+   * @param {(level: string, message: string) => void} onNotify Displays worker and RPC errors.
+   * @param {(infoHash: string|null, update: object) => void} onUpdate Applies torrent lifecycle updates.
+   * @returns {Promise<void>}
+   */
+  subscribe: async (onNotify, onUpdate) => {
+    (await client).setErrorHandler(error => onNotify('error', error.message))
+    return (await client).subscribe(onNotify, onUpdate)
   },
-  onChapters: (callback) => addListener('chapters', callback),
-  offChapters: () => { listeners['chapters'] = [] },
-  onProgress: (callback) => addListener('progress', callback),
-  onCurrentStats: (callback) => addListener('stats', callback),
-  onExternalReady: (callback) => (listeners['externalReady'] = [callback]),
-  onExternalWatched: (callback) => (listeners['externalWatched'] = [callback]),
-  onAndroidExternal: (callback) => (listeners['androidExternal'] = [callback]),
-  onLoaded: (callback) => addListener('loaded', callback),
-  onUntrack: (callback) => addListener('untrack', callback),
-  onStage: (callback) => addListener('staging', callback),
-  onSeed: (callback) => addListener('seeding', callback),
-  onComplete: (callback) => addListener('completed', callback),
-  onCompletedStats: (callback) => addListener('completedStats', callback),
-  setPlayback: (current, external) => send('current', { current, external }),
-  restoreSession: (staging, seeding, completed, current) => {
-    if (staging) send('stage_all', staging)
-    if (seeding) send('seed_all', seeding)
-    if (completed) send('complete_all', completed)
-    if (current) send('load', current)
-  },
-  launchExternal: (current) => send('externalPlay', { current }),
-  updateNetwork: (status) => send('networking', status),
-  updateSettings: (settings) => send('settings', settings),
-  onNotify: (callback) => {
-    addListener('info', (detail) => callback('info', detail))
-    addListener('warn', (detail) => callback('warn', detail))
-    addListener('error', (detail) => callback('error', detail))
-  },
-  portRequest: (settings) => new Promise(resolve => {
-    resetPortReady()
-    ipcRenderer.once('electron:torrentPort', ({ ports }) => {
-      _port = ports[0]
-      _port.addEventListener('message', ({ data }) => {
-        const cbs = listeners[data.type]
-        if (cbs) cbs.forEach(callback => callback(data.data))
+  /**
+   * Reads one active torrent snapshot without its piece map.
+   * @param {string} infoHash
+   * @returns {Promise<object|null>}
+   */
+  getTorrentStats: async (infoHash) => (await client).getTorrentStats(infoHash),
+  /**
+   * Reads capacity and free bytes for the torrent directory.
+   * @returns {Promise<{total: number, free: number}>}
+   */
+  getDiskSpace: async () => (await client).getDiskSpace(),
+  /**
+   * Reads tracks from the current metadata parser.
+   * @returns {Promise<any[]|null>}
+   */
+  getTracks: async () => (await client).metadata.getTracks(),
+  /**
+   * Reads chapter markers from the current metadata parser.
+   * @returns {Promise<any[]|null>}
+   */
+  getChapters: async () => (await client).metadata.getChapters(),
+  /**
+   * Registers callbacks for streamed subtitles, fonts, and files.
+   * @param {(packet: {subtitle: any, trackNumber: number}) => void} cbSubtitle Receives subtitle packets.
+   * @param {(font: {url: string}) => void} cbFont Receives font URLs.
+   * @param {(file: {name: string, url: string}) => void} cbFiles Receives subtitle files.
+   * @returns {Promise<void|null>}
+   */
+  onSubtitles: async (cbSubtitle, cbFont, cbFiles) => (await client).metadata.onSubtitles(cbSubtitle, cbFont, cbFiles),
+  /**
+   * Stops subtitle delivery and buffering for the current metadata parser.
+   * @returns {Promise<void|null>}
+   */
+  offSubtitles: async () => (await client).metadata.offSubtitles(),
+  /**
+   * Selects a torrent file and prepares internal or external playback.
+   * @param {string} id Info hash of the torrent to play.
+   * @param {string} path Path of the file within the torrent to play.
+   * @param {boolean} external Whether to launch an external player.
+   * @returns {Promise<true|void>}
+   */
+  setPlayback: async (id, path, external) => (await client).setPlayback(id, path, external),
+  /**
+   * Restores queued torrents, completed snapshots, and optional current playback.
+   * @param {string[]|null} staging Staged torrent hashes.
+   * @param {string[]|null} seeding Seeding torrent hashes.
+   * @param {string[]|null} completed Completed torrent hashes.
+   * @param {object|null} current Saved current torrent identifier.
+   * @param {(files: object[], magnet: {magnet: string, hash: string}) => void} onReady Receives playable files.
+   * @returns {Promise<object[]>} Restored completed snapshots.
+   */
+  restoreSession: async (staging, seeding, completed, current, onReady) => (await client).restoreSession(staging, seeding, completed, current, onReady),
+  /**
+   * Launches a desktop player or returns an Android playback intent.
+   * @param {string} path
+   * @param {() => void} [externalWatched]
+   * @returns {Promise<string|void>}
+   */
+  launchExternal: async (path, externalWatched) => (await client).launchExternal(path, externalWatched),
+  /**
+   * Updates worker network availability.
+   * @param {string} status
+   * @returns {Promise<void>}
+   */
+  updateNetwork: async (status) => (await client).updateNetwork(status),
+  /**
+   * Updates torrent configuration and bandwidth limits.
+   * @param {Record<string, any>} settings
+   * @returns {Promise<void>}
+   */
+  updateSettings: async (settings) => (await client).updateSettings(settings),
+  /**
+   * Requests a worker message port and connects the remote client.
+   * @param {Record<string, any>} settings
+   * @returns {Promise<void>}
+   */
+  portRequest: (settings) => new Promise((resolve, reject) => {
+    if (torrentPort) client.disconnect()
+    torrentPort?.close()
+    torrentPort = null
+    const onPort = ({ ports }) => {
+      torrentPort = ports[0]
+      const port = torrentPort
+      torrentPort.addEventListener('message', event => {
+        if (torrentPort === port) client.receive(event)
       })
-      _port.start()
-      _resolvePort()
+      torrentPort.addEventListener('messageerror', () => {
+        if (torrentPort === port) client.disconnect(new Error('Torrent message could not be decoded'))
+      })
+      torrentPort.start()
+      client.connect(torrentPort.postMessage.bind(torrentPort))
       resolve()
+    }
+    ipcRenderer.once('torrent:port', onPort)
+    ipcRenderer.invoke('torrent:portRequest', settings).catch(error => {
+      ipcRenderer.removeListener('torrent:port', onPort)
+      client.disconnect(error)
+      reject(error)
     })
-    ipcRenderer.invoke('torrent:portRequest', settings)
   })
 })
 

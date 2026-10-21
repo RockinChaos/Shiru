@@ -6,7 +6,8 @@ const nodeEnv = process.env.NODE_ENV?.trim()
 const mode = nodeEnv === 'production' || nodeEnv === 'none' ? nodeEnv : 'development'
 const alias = {
   '@/modules/support.js': join(__dirname, 'src', 'main', 'support.js'),
-  '@': resolve(__dirname, '..', 'common')
+  '@': resolve(__dirname, '..', 'common'),
+  '@client': resolve(__dirname, '..', 'client')
 }
 const common = commonConfig(__dirname, alias, 'browser', 'index')
 
@@ -39,7 +40,6 @@ const capacitorConfig = {
       ...alias,
       wrtc: false,
       'node-datachannel': false,
-      '@client': resolve(__dirname, '..', 'client'),
       'webtorrent-client': resolve(__dirname, '..', 'client/core/webtorrent.js'),
       debug: resolve(__dirname, '..', 'common/modules/lib/debug.js'),
       'http-tracker': resolve(__dirname, '../client/node_modules/bittorrent-tracker/lib/client/http-tracker.js'),

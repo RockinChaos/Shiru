@@ -66,7 +66,10 @@ module.exports = [
       filename: 'preload.js'
     },
     resolve: {
-      aliasFields: []
+      aliasFields: [],
+      alias: {
+        '@client': resolve(__dirname, '..', 'client')
+      }
     },
     mode,
     target: 'electron39.0-preload'

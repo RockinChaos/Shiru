@@ -32,7 +32,7 @@
   import { SUPPORTS } from '@/modules/support.js'
   import 'rvfc-polyfill'
   import { ELECTRON, ANDROID, TORRENT } from '@/modules/bridge.js'
-  import { unload } from '@/modules/torrent.js'
+  import { unload, currentStats } from '@/modules/torrent.js'
   import { Settings, Gauge, Timer, X, Minus, Captions, CaptionsOff, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone, ClockArrowDown, ClockArrowUp } from 'lucide-svelte'
   import Debug from 'debug'
   const debug = Debug('ui:player')
@@ -229,6 +229,11 @@
   }
   $: loadDeband($settings.playerDeband, video)
 
+  /**
+   * Clears the previous playback state and prepares the selected file.
+   * @param {object} file Selected playable file descriptor.
+   * @returns {Promise<void>}
+   */
   async function handleCurrent (file) {
     dismissErrorToasts()
     holdSpeed.reset()
@@ -255,38 +260,47 @@
         chapters = null
       }
       current = file
-      setCurrent(file)
+      setCurrent(file).catch(error => console.warn('Failed to prepare playback', error))
     }
   }
 
+  /**
+   * Prepares playback before creating chapter and subtitle consumers.
+   * @param {object} file Selected playable file descriptor.
+   * @param {boolean} [launchExternal=false]
+   * @returns {Promise<void>}
+   */
   async function setCurrent(file, launchExternal = false) {
     if ((externalPlayback || launchExternal) && document.fullscreenElement) document.exitFullscreen()
     if (!externalPlayback) {
       src = file.url
       if (!launchExternal) {
-        chapters = new Chapters()
-        subs = new Subtitles(video, files, current, handleHeaders)
         video.load()
         await loadAnimeProgress()
       } else video.load()
     } else externalPlaying = false
-    emit('current', current) // #handleCurrent in MediaHandler
-    if (externalPlayback) {
-      TORRENT.onExternalReady(() => {
-        hideBuffering()
-        externalPlayerReady = true
-        setTimeout(() => {
-          if (externalPlayerReady && !externalPlaying) autoPlay()
-        }, 1_500)
-      })
-    }
+    if (current !== file) return
+    emit('current', current) // #handleCurrent in MediaHandler TODO: Change this...
     paused = true
     if (!launchExternal) {
       currentTime = 0
       targetTime = 0
     }
     launchedExternal = launchExternal
-    TORRENT.setPlayback(file, settings.value.enableExternal || launchExternal)
+    return TORRENT.setPlayback(file?.infoHash, file?.path, settings.value.enableExternal || launchExternal).then(async (isExternal) => {
+      if (current !== file) return
+      if (isExternal && externalPlayback) {
+        hideBuffering()
+        externalPlayerReady = true
+        setTimeout(() => {
+          if (current === file && externalPlayerReady && !externalPlaying) autoPlay()
+        }, 1_500)
+      } else if (!isExternal && !externalPlayback && !launchExternal) {
+        chapters = new Chapters()
+        if (video.readyState >= 1) chapters.load(current, safeduration)
+        subs = new Subtitles(video, files, current, handleHeaders)
+      }
+    })
   }
 
   export let media
@@ -433,31 +447,21 @@
     if (hidden) return
     if (externalPlayback) {
       const duration = current.media?.media?.duration || durationMap[current.media?.media?.format]
-      if (duration) {
-        TORRENT.onExternalWatched(watchTime => {
-          const watchDuration = duration * 60
-          checkCompletionByTime(watchTime, watchDuration)
-          currentTime = watchTime > watchDuration ? watchDuration : watchTime
-          targetTime = watchTime > watchDuration ? watchDuration : watchTime
-          launchedExternal = false
-        })
+      const file = current
+      const startTime = Date.now()
+      const externalWatched = () => {
+        if (!duration || current !== file) return
+        const watchTime = (Date.now() - startTime) / 1_000
+        const watchDuration = duration * 60
+        checkCompletionByTime(watchTime, watchDuration)
+        currentTime = watchTime > watchDuration ? watchDuration : watchTime
+        targetTime = watchTime > watchDuration ? watchDuration : watchTime
+        launchedExternal = false
       }
-      externalPlaying = true
-      if (SUPPORTS.isAndroid) {
-        TORRENT.onAndroidExternal(url => {
-          const startTime = Date.now()
-          const externalWatched = () => {
-            const watchTime = (Date.now() - startTime) / 1_000
-            const watchDuration = duration * 60
-            checkCompletionByTime(watchTime, watchDuration)
-            currentTime = watchTime > watchDuration ? watchDuration : watchTime
-            targetTime = watchTime > watchDuration ? watchDuration : watchTime
-            launchedExternal = false
-          }
-          ANDROID.launchExternal?.(url)?.then?.(() => externalWatched())
-        })
-      }
-      TORRENT.launchExternal(current)
+      TORRENT.launchExternal(file?.path, externalWatched).then(url => {
+        if (SUPPORTS.isAndroid && url && current === file) ANDROID.launchExternal?.(url)?.then?.(() => externalWatched())
+        externalPlaying = true
+      }).catch(error => console.warn('Failed to launch external player', error))
     } else paused = !paused
     resetImmerse()
     updateSubs()
@@ -886,9 +890,7 @@
     else autoPlay(true)
   }
   let buffer = 0
-  TORRENT.onProgress(progress => {
-    buffer = progress * 100
-  })
+  $: buffer = $currentStats.fileProgress * 100
 
   let currentSkippable = null
   function checkSkippableChapters () {

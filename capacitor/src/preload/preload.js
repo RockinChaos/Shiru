@@ -7,6 +7,7 @@ import { Filesystem } from '@capacitor/filesystem'
 import { development, keyboardVisible} from '../main/util.js'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { FileManager, MediaSession } from '../main/plugin.js'
+import { createRemote } from '@client/lib/remote.js'
 import { ipcWire } from '../main/ipc.js'
 import { SystemBars, SystemBarsStyle, SystemBarType } from '@capacitor/core'
 import { ForegroundService, Importance, ServiceType } from '@capawesome-team/capacitor-android-foreground-service'
@@ -47,111 +48,201 @@ ForegroundService.createNotificationChannel({
   importance: Importance.Min
 })
 
-const listeners = {}
-let _port = null
-let _portReady, _resolvePort
-function resetPortReady() {
-  _portReady = new Promise(resolve => { _resolvePort = resolve })
-}
-resetPortReady()
-
-function addListener(type, callback) {
-  if (!listeners[type]) listeners[type] = []
-  listeners[type].push(callback)
-}
-
-function send(type, data, transfer) {
-  if ((type === 'torrent' || type === 'stage') && data.id instanceof Uint8Array) {
-    data = { ...data, id: btoa(Array.from(data.id, byte => String.fromCharCode(byte)).join('')), base64: true }
+/** Current worker transport; replaced when requesting a fresh connection.
+ * @type {any}
+ */
+let torrentPort = null
+/** Awaitable proxy for the connected torrent worker.
+ * @type {ReturnType<typeof createRemote>}
+ */
+const client = createRemote(undefined, (method, data) => {
+  if ((method === 'streamTorrent' || method === 'stageTorrent') && data.id instanceof Uint8Array) {
+    return { ...data, id: btoa(Array.from(data.id, byte => String.fromCharCode(byte)).join('')), base64: true }
   }
-  _portReady.then(() => _port.postMessage({ type, data }, transfer))
-}
-
-function once(type, callback) {
-  const wrapper = (data) => {
-    callback(data)
-    listeners[type] = listeners[type].filter(fn => fn !== wrapper)
-  }
-  if (!listeners[type]) listeners[type] = []
-  listeners[type].push(wrapper)
-}
+  return data
+})
 
 window.torrent = {
-  reload: () => ipcWire.send('torrent:reload'),
+  /**
+   * Requests a fresh torrent host and disconnects the current remote.
+   * @returns {void}
+   */
+  reload: () => {
+    client.disconnect()
+    ipcWire.send('torrent:reload')
+  },
+  /**
+   * Registers a torrent-worker crash callback when supported by the platform.
+   * @param {() => void} callback
+   * @returns {any}
+   */
   onCrash: (callback) => {}, // Currently not used for Capacitor...
+  /**
+   * Registers a callback for externally opened torrent requests.
+   * @param {(request: any) => void} callback
+   * @returns {any}
+   */
   onRequest: (callback) => ipcWire.on('torrent:onRequest', (event, opts) => callback(opts)),
-  debug: (debug) => send('debug', debug),
-  rescan: () => new Promise(resolve => {
-    once('rescan_done', ({ missingCount, removedCount }) => resolve({ missingCount, removedCount }))
-    send('rescan')
-  }),
-  scrape: (id, infoHashes) => new Promise(resolve => {
-    function check(detail) {
-      if (detail.id !== id) return
-      resolve(detail.result)
-      listeners['scrape_done'] = listeners['scrape_done'].filter(fn => fn !== check)
-    }
-    if (!listeners['scrape_done']) listeners['scrape_done'] = []
-    listeners['scrape_done'].push(check)
-    send('scrape', { id, infoHashes })
-  }),
-  stream: (id, hash, magnet, base64) => send('torrent', { id, hash, magnet, base64 }),
-  stage: (id, hash, base64) => send('stage', { id, hash, base64 }),
-  complete: (hash) => send('complete', hash),
-  unload: (data) => send('unload', data),
-  untrack: (hash) => send('untrack', hash),
-  reannounce: (hash) => send('reannounce', hash),
-  onStats: (callback) => addListener('activity', callback),
-  onFiles: (callback) => addListener('files', callback),
-  onMagnet: (callback) => addListener('magnet', callback),
-  onTracks: (callback) => addListener('tracks', callback),
-  offTracks: () => { listeners['tracks'] = [] },
-  onSubtitles: (cbSubtitle, cbFont, cbFiles) => {
-    addListener('subtitle', cbSubtitle)
-    addListener('file', cbFont)
-    addListener('subtitleFile', cbFiles)
+  /**
+   * Updates the worker debug filter.
+   * @param {string} debug Enabled debug namespaces.
+   * @returns {Promise<void>}
+   */
+  debug: async (debug) => (await client).setDebug(debug),
+  /**
+   * Rescans cached torrent files.
+   * @returns {Promise<{missingCount: number, removedCount: number}>}
+   */
+  rescan: async () => (await client).rescan(),
+  /**
+   * Retrieves tracker statistics for torrent hashes.
+   * @param {string[]} infoHashes Hashes to scrape.
+   * @returns {Promise<object[]>}
+   */
+  scrape: async (infoHashes) => (await client).scrape(infoHashes),
+  /**
+   * Loads a torrent for playback and reports its playable files.
+   * @param {string|Uint8Array} id Magnet, hash, torrent bytes, or encoded torrent file.
+   * @param {string|false} hash Known hash when available.
+   * @param {boolean} magnet Whether the request originated from a magnet link.
+   * @param {boolean} base64 Whether id contains base64-encoded torrent bytes.
+   * @param {(files: object[], magnet: {magnet: string, hash: string}) => void} [onReady] Receives playable files and magnet information.
+   * @returns {Promise<object|void>}
+   */
+  stream: async (id, hash, magnet, base64, onReady) => (await client).streamTorrent({ id, hash, magnet, base64 }, onReady),
+  /**
+   * Queues a torrent for background downloading.
+   * @param {string|Uint8Array} id Torrent identifier or bytes.
+   * @param {string} hash Known torrent hash.
+   * @param {boolean} [base64] Whether id contains base64-encoded torrent bytes.
+   * @returns {Promise<object|void>}
+   */
+  stage: async (id, hash, base64) => (await client).stageTorrent({ id, hash, base64 }),
+  /**
+   * Stops an active torrent and applies the persistence setting.
+   * @param {string} hash
+   * @returns {Promise<void>}
+   */
+  complete: async (hash) => (await client).complete(hash),
+  /**
+   * Unloads current playback or an explicitly selected torrent.
+   * @param {any} data Torrent descriptor, or null for current playback.
+   * @returns {Promise<void>}
+   */
+  unload: async (data) => (await client).unload(data),
+  /**
+   * Removes a torrent and its persisted files.
+   * @param {string} hash
+   * @returns {Promise<void>}
+   */
+  untrack: async (hash) => (await client).untrack(hash),
+  /**
+   * Requests fresh peer information for a torrent.
+   * @param {string} hash
+   * @returns {Promise<void>}
+   */
+  reannounce: async (hash) => (await client).reannounceTorrent(hash),
+  /**
+   * Registers renderer notification and torrent lifecycle callbacks.
+   * @param {(level: string, message: string) => void} onNotify Displays worker and RPC errors.
+   * @param {(infoHash: string|null, update: object) => void} onUpdate Applies torrent lifecycle updates.
+   * @returns {Promise<void>}
+   */
+  subscribe: async (onNotify, onUpdate) => {
+    (await client).setErrorHandler(error => onNotify('error', error.message))
+    return (await client).subscribe(onNotify, onUpdate)
   },
-  offSubtitles: () => {
-    listeners['subtitle'] = []
-    listeners['file'] = []
-    listeners['subtitleFile'] = []
-  },
-  onChapters: (callback) => addListener('chapters', callback),
-  offChapters: () => { listeners['chapters'] = [] },
-  onProgress: (callback) => addListener('progress', callback),
-  onCurrentStats: (callback) => addListener('stats', callback),
-  onExternalReady: (callback) => { listeners['externalReady'] = [callback] },
-  onExternalWatched: (callback) => { listeners['externalWatched'] = [callback] },
-  onAndroidExternal: (callback) => { listeners['androidExternal'] = [callback] },
-  onLoaded: (callback) => addListener('loaded', callback),
-  onUntrack: (callback) => addListener('untrack', callback),
-  onStage: (callback) => addListener('staging', callback),
-  onSeed: (callback) => addListener('seeding', callback),
-  onComplete: (callback) => addListener('completed', callback),
-  onCompletedStats: (callback) => addListener('completedStats', callback),
-  setPlayback: (current, external) => send('current', { current, external }),
-  restoreSession: (staging, seeding, completed, current) => {
-    if (staging) send('stage_all', staging)
-    if (seeding) send('seed_all', seeding)
-    if (completed) send('complete_all', completed)
-    if (current) send('load', current)
-  },
-  launchExternal: (current) => send('externalPlay', { current }),
-  updateNetwork: (status) => send('networking', status),
-  updateSettings: (settings) => send('settings', settings),
-  onNotify: (callback) => {
-    addListener('info', (detail) => callback('info', detail))
-    addListener('warn', (detail) => callback('warn', detail))
-    addListener('error', (detail) => callback('error', detail))
-  },
+  /**
+   * Reads one active torrent snapshot without its piece map.
+   * @param {string} infoHash
+   * @returns {Promise<object|null>}
+   */
+  getTorrentStats: async (infoHash) => (await client).getTorrentStats(infoHash),
+  /**
+   * Reads capacity and free bytes for the torrent directory.
+   * @returns {Promise<{total: number, free: number}>}
+   */
+  getDiskSpace: async () => (await client).getDiskSpace(),
+  /**
+   * Reads tracks from the current metadata parser.
+   * @returns {Promise<any[]|null>}
+   */
+  getTracks: async () => (await client).metadata.getTracks(),
+  /**
+   * Reads chapter markers from the current metadata parser.
+   * @returns {Promise<any[]|null>}
+   */
+  getChapters: async () => (await client).metadata.getChapters(),
+  /**
+   * Registers callbacks for streamed subtitles, fonts, and files.
+   * @param {(packet: {subtitle: any, trackNumber: number}) => void} cbSubtitle Receives subtitle packets.
+   * @param {(font: {url: string}) => void} cbFont Receives font URLs.
+   * @param {(file: {name: string, url: string}) => void} cbFiles Receives subtitle files.
+   * @returns {Promise<void|null>}
+   */
+  onSubtitles: async (cbSubtitle, cbFont, cbFiles) => (await client).metadata.onSubtitles(cbSubtitle, cbFont, cbFiles),
+  /**
+   * Stops subtitle delivery and buffering for the current metadata parser.
+   * @returns {Promise<void|null>}
+   */
+  offSubtitles: async () => (await client).metadata.offSubtitles(),
+  /**
+   * Selects a torrent file and prepares internal or external playback.
+   * @param {string} id Info hash of the torrent to play.
+   * @param {string} path Path of the file within the torrent to play.
+   * @param {boolean} external Whether to launch an external player.
+   * @returns {Promise<true|void>}
+   */
+  setPlayback: async (id, path, external) => (await client).setPlayback(id, path, external),
+  /**
+   * Restores queued torrents, completed snapshots, and optional current playback.
+   * @param {string[]|null} staging Staged torrent hashes.
+   * @param {string[]|null} seeding Seeding torrent hashes.
+   * @param {string[]|null} completed Completed torrent hashes.
+   * @param {object|null} current Saved current torrent identifier.
+   * @param {(files: object[], magnet: {magnet: string, hash: string}) => void} onReady Receives playable files.
+   * @returns {Promise<object[]>} Restored completed snapshots.
+   */
+  restoreSession: async (staging, seeding, completed, current, onReady) => (await client).restoreSession(staging, seeding, completed, current, onReady),
+  /**
+   * Launches a desktop player or returns an Android playback intent.
+   * @param {string} path
+   * @param {() => void} [externalWatched]
+   * @returns {Promise<string|void>}
+   */
+  launchExternal: async (path, externalWatched) => (await client).launchExternal(path, externalWatched),
+  /**
+   * Updates worker network availability.
+   * @param {string} status
+   * @returns {Promise<void>}
+   */
+  updateNetwork: async (status) => (await client).updateNetwork(status),
+  /**
+   * Updates torrent configuration and bandwidth limits.
+   * @param {Record<string, any>} settings
+   * @returns {Promise<void>}
+   */
+  updateSettings: async (settings) => (await client).updateSettings(settings),
+  /**
+   * Requests a worker message port and connects the remote client.
+   * @param {Record<string, any>} settings
+   * @returns {Promise<void>}
+   */
   portRequest: async (settings) => {
-    resetPortReady()
-    _port = await ipcWire.invoke('torrent:portRequest', settings)
-    _port.onmessage(({ data }) => {
-      const cbs = listeners[data.type]
-      if (cbs) cbs.forEach(callback => callback(data.data))
+    if (torrentPort) client.disconnect()
+    await torrentPort?.close()
+    torrentPort = null
+    try {
+      torrentPort = await ipcWire.invoke('torrent:portRequest', settings)
+    } catch (error) {
+      client.disconnect(error)
+      throw error
+    }
+    const port = torrentPort
+    await torrentPort.onmessage(event => {
+      if (torrentPort === port) client.receive(event)
     })
-    _resolvePort()
+    client.connect(torrentPort.postMessage.bind(torrentPort))
   }
 }
 
@@ -210,31 +301,26 @@ window.android = {
   toast: async (text, duration = 'short') => await Toast.show({ text, duration, position: 'bottom' }),
   /**
    * Listens for system back button presses.
-   *
    * @param {(event: any) => void} callback
    */
   onBackButton: (callback) => Capacitor.addListener('backButton', callback),
   /**
    * Listens for the app moving between the foreground and background.
-   *
    * @param {(isActive: boolean) => void} callback
    */
   onAppStateChange: (callback) => Capacitor.addListener('appStateChange', ({ isActive }) => callback(isActive)),
   /**
    * Listens for native Android PiP mode changes.
-   *
    * @param {(isInPictureInPictureMode: boolean) => void} callback
    */
   onPictureInPictureModeChanged: (callback) => MediaSession.onPictureInPictureModeChanged(callback),
   /**
    * Listens for playback actions from Android media controls.
-   *
    * @param {(action: 'play' | 'pause' | 'last' | 'next' | 'seek', position?: number) => void} callback
    */
   onMediaAction: (callback) => MediaSession.onAction(callback),
   /**
    * Activates Android media controls and keeps their playback state in sync.
-   *
    * @param {{ active: boolean, playing?: boolean, title?: string, subtitle?: string, artwork?: string, position?: number, duration?: number, playbackRate?: number, hasLast?: boolean, hasNext?: boolean }} state
    */
   setMediaSession: (state) => MediaSession.setPlaybackState(state),
@@ -246,13 +332,11 @@ window.android = {
   },
   /**
    * Sets the system bar icon and text style to light or dark.
-   *
    * @param {'LIGHT' | 'DARK'} style The style to apply to the system bars.
    */
   setSystemStyle: (style) => SystemBars.setStyle({ style: style === 'LIGHT' ? SystemBarsStyle.Light : SystemBarsStyle.Dark }),
   /**
    * Requests "All Files" access permission when needed, resolves with granted `true` if access is granted, or `false` if denied.
-   *
    * @returns {Promise<{ granted: boolean, error?: string | null }>} Resolves with granted `true` when access is granted, otherwise `false`.
    */
   requestFileAccess: async () => {
@@ -271,8 +355,7 @@ window.android = {
   },
   /**
    * Launches an external playback intent and shows a foreground service while playback is active, resolves when the app returns to the foreground.
-   *
-   * @param {string} url - The intent URL to launch externally.
+   * @param {string} url The intent URL to launch externally.
    * @returns {Promise<void>} Resolves when the app returns and the service stops.
    */
   launchExternal: (url) => {

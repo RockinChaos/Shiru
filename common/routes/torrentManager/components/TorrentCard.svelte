@@ -13,7 +13,7 @@
   import { mediaCache } from '@/modules/cache.js'
   import { click } from '@/modules/lib/click.js'
   import { onDestroy, onMount } from 'svelte'
-  /** @type {import('@/modules/torrent.js').Torrent} */
+  /** @type {import('@/types').Torrent} */
   export let data
   /** @type {boolean} */
   export let current = false
