@@ -191,7 +191,7 @@ function addAnimeType(obj, newType) {
 
 /**
  * Checks if a series has a zero episode.
- *
+ * AniList: 146065, 20657, 21180, 195153.
  * @param media
  * @param existingMappings
  * @returns {Promise<[unknown]|[{title: (string|string|*), thumbnail, length, summary, airingAt: *}]|null>}
@@ -202,7 +202,7 @@ export async function hasZeroEpisode(media, existingMappings) { // really wish t
   const hasZeroEpisode = media.streamingEpisodes?.filter((ep) => { const match = (/Episode (\d+(\.\d+)?) - /).exec(ep.title); return match ? Number.isInteger(parseFloat(match[1])) && Number(parseFloat(match[1])) === 0 : false })
   const zeroAsFirstEpisode = /episode\s*0/i.test(mappings?.episodes?.[1]?.title?.en || mappings?.episodes?.[1]?.title?.jp) // The first episode is titled as Episode 0 so this is likely a Prologue, fixes issues with series like `Fate/stay night: Unlimited Blade Works`
   // no clue what fixed Mushoku but this initial part seems to allow 'Episode 0 : Guardian Fits' to properly be mapped to season 2 part 1, ensure when making changes this doesn't appear on season 1 part 1.
-  if (hasZeroEpisode?.length > 0 && ((media.episodes >= media.streamingEpisodes?.length) || zeroAsFirstEpisode)) {
+  if (hasZeroEpisode?.length > 0 && ((media.episodes >= media.streamingEpisodes?.length) || zeroAsFirstEpisode)) { // TODO: This assumption is risky and needs more testing.
     const title = hasZeroEpisode[0]?.title?.replace('Episode 0 - ', '')
     const prequel = title?.length > 4 && await AnimeResolver.getAnimeById(AnimeResolver.findEdge(media, 'PREQUEL', ['SPECIAL'])?.node?.id)
     if (!prequel || !Object.values(prequel.title).filter(Boolean).some(_title => _title.toLowerCase().includes(title.toLowerCase()))) {
@@ -211,7 +211,16 @@ export async function hasZeroEpisode(media, existingMappings) { // really wish t
   }
   if (!(media.episodes && media.episodes === mappings?.episodeCount && media.status === 'FINISHED')) {
     const special = (mappings?.episodes?.S0 || mappings?.episodes?.s0 || mappings?.episodes?.S1 || mappings?.episodes?.s1)
-    if (mappings?.specialCount > 0 && special?.airedBeforeEpisodeNumber > 0) { // very likely it's a zero episode, streamingEpisodes were likely just empty...
+    const firstEpisode = mappings?.episodes?.[1]
+    const firstSeason = firstEpisode?.seasonNumber
+    const specialDate = Date.parse(special?.airDateUtc || special?.airdate || special?.airDate)
+    const firstDate = Date.parse(firstEpisode?.airDateUtc || firstEpisode?.airdate || firstEpisode?.airDate)
+    // A special must precede episode 1 of this season; season 0 alone also includes mid-season specials.
+    if (mappings?.specialCount > 0 && firstSeason > 0 &&
+      special?.airedBeforeEpisodeNumber === 1 && special?.airedBeforeSeasonNumber === firstSeason &&
+      !(special?.airedAfterSeasonNumber >= firstSeason) &&
+      !(special?.airedAfterEpisodeNumber > 0 && !special?.airedAfterSeasonNumber) &&
+      !(specialDate > firstDate)) {
       return [{title: special.title?.en, thumbnail: special.image, length: special.length, summary: special.summary, airingAt: special.airDateUtc}]
     }
   }
