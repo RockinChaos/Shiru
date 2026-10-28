@@ -515,11 +515,11 @@
             bind:value={searchText}
             on:input={(event) => updateSearch(/** @type {HTMLInputElement | null} */ (event.target)?.value)}/>
       </div>
-      <button type='button' use:click={rescan} disabled={disableRescan || $loadingSession} title={disableRescan ? 'Enable Persist Files or Increase Seeding Limit' : $loadingSession ? 'Rescanning Cache...' : 'Rescan Cache'} class='btn btn-primary d-flex align-items-center justify-content-center ml-20 mr-20 font-scale-16 h-full' class:cursor-wait={$loadingSession}>
-        <RefreshCw class='mr-10' size='1.8rem' strokeWidth='2.4'/><span>Rescan</span>
+      <button type='button' use:click={rescan} aria-label='Rescan cache' disabled={disableRescan || $loadingSession} title={disableRescan ? 'Enable Persist Files or Increase Seeding Limit' : $loadingSession ? 'Rescanning Cache...' : 'Rescan Cache'} class='btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0 ml-10 mr-10 px-0 px-md-15 font-scale-16 h-40 w-40 w-md-auto' class:cursor-wait={$loadingSession}>
+        <RefreshCw class='mr-md-10' size='1.8rem' strokeWidth='2.4'/><span class='d-none d-md-inline'>Rescan</span>
       </button>
-      <button type='button' use:click={handleMedia} disabled={disableRescan || $loadingSession} title='Add Media File(s) or Add Torrent File(s)' class='btn btn-primary d-flex align-items-center justify-content-center mr-20 font-scale-16 h-full' class:cursor-wait={$loadingSession}>
-        <HardDriveUpload class='mr-10' size='1.8rem' strokeWidth='2.4'/><span>Add File</span>
+      <button type='button' use:click={handleMedia} aria-label='Add media or torrent files' disabled={disableRescan || $loadingSession} title='Add Media File(s) or Add Torrent File(s)' class='btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0 mr-20 px-0 px-md-15 font-scale-16 h-40 w-40 w-md-auto' class:cursor-wait={$loadingSession}>
+        <HardDriveUpload class='mr-md-10' size='1.8rem' strokeWidth='2.4'/><span class='d-none d-md-inline'>Add File</span>
       </button>
     </div>
   </div>
@@ -535,7 +535,7 @@
           <HardDrive size='2rem' strokeWidth='2.4' class='flex-shrink-0 mb-3'/>
           <span class='font-size-13 text-truncate select-text' title={$settings.torrentPathNew ?? 'tmp'}>{$settings.torrentPathNew ?? 'tmp'}</span>
         </div>
-      <span class='font-size-13 flex-shrink-0 ml-15' title='{formatBytes($diskSpace?.free)} free of {formatBytes($diskSpace?.total)}'>
+        <span class='font-size-13 flex-shrink-0 ml-15' title='{formatBytes($diskSpace?.free)} free of {formatBytes($diskSpace?.total)}'>
         <span class='font-scale-16 font-weight-bold' class:text-white={!lowDiskSpace && !noDiskSpace} class:text-warning={lowDiskSpace} class:text-danger={noDiskSpace}>{formatBytes($diskSpace?.free)}</span> free of {formatBytes($diskSpace?.total)}
       </span>
       </div>
