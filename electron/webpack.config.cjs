@@ -1,4 +1,5 @@
 const { join, resolve } = require('path')
+const { spawn } = require('node:child_process')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const commonConfig = require('common/webpack.config.cjs')
 
@@ -8,6 +9,7 @@ const mode = nodeEnv === 'production' || nodeEnv === 'none' ? nodeEnv : 'develop
 /** @type {import('webpack').Configuration[]} */
 module.exports = [
   {
+    name: 'background',
     devtool: 'source-map',
     stats: { warnings: false },
     entry: join(__dirname, 'src', 'background', 'background.js'),
@@ -39,6 +41,26 @@ module.exports = [
     plugins: [new HtmlWebpackPlugin({ filename: 'background.html' })],
     target: 'electron45.0-renderer',
     devServer: {
+      onListening(server) {
+        if (process.env.DEV_APP !== 'electron') return
+        let electron
+        const startElectron = stats => {
+          if (electron || stats.hasErrors()) return
+          electron = spawn(
+            require('electron'),
+            [join(__dirname, 'build/main.js')],
+            { cwd: __dirname, stdio: 'inherit' }
+          )
+          electron.once('error', error => {
+            console.error(error)
+            process.exit(1)
+          })
+          electron.once('exit', code => process.exit(code ?? 0))
+        }
+        process.once('exit', () => electron?.kill())
+        server.compiler.hooks.done.tap('StartElectron', startElectron)
+        server.middleware.waitUntilValid(startElectron)
+      },
       devMiddleware: {
         writeToDisk: true
       },
@@ -58,6 +80,7 @@ module.exports = [
   },
   commonConfig(__dirname, {}, 'browser', 'app'),
   {
+    name: 'preload',
     devtool: 'source-map',
     stats: { warnings: false },
     entry: join(__dirname, 'src', 'preload', 'preload.js'),
@@ -75,6 +98,7 @@ module.exports = [
     target: 'electron45.0-preload'
   },
   {
+    name: 'main',
     devtool: 'source-map',
     entry: join(__dirname, 'src', 'main', 'main.js'),
     output: {

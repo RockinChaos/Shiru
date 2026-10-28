@@ -10,7 +10,7 @@
   "homepage": "https://shiru.app/",
   "desktopName": "com.github.rockinchaos.shiru.desktop",
   "scripts": {
-    "start": "cross-env NODE_ENV=development webpack build && concurrently --kill-others \"npm run web:watch\" \"npm run electron:start\"",
+    "start": "cross-env NODE_ENV=development DEV_APP=electron webpack serve",
     "web:watch": "webpack serve",
     "web:build": "cross-env NODE_ENV=production webpack build",
     "electron:start": "electron ./build/main.js",
