@@ -299,8 +299,8 @@ importers:
         specifier: ^10.0.6
         version: 10.0.6
       electron:
-        specifier: 42.11.0
-        version: 42.11.0
+        specifier: 45.0.0
+        version: 45.0.0
       electron-builder:
         specifier: ^26.17.0
         version: 26.17.0(electron-builder-squirrel-windows@26.17.0)
@@ -1005,9 +1005,6 @@ packages:
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
-
-  '@types/node@24.12.4':
-    resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
 
   '@types/node@24.13.6':
     resolution: {integrity: sha512-SGrw/h3KPFshy3OE6ZL53LMBG5vGQQ8/gIpiqz/kRZhPJ7HgwCEs8LBuNtWLa8dvGZVpSF7+Bf+c11HUrCb/yg==}
@@ -2092,8 +2089,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@42.11.0:
-    resolution: {integrity: sha512-cVKNrRk+qedJspxeQm7HpPbALpPK8shfIBYAdqRbpw+4Gwn9+1HySne11ILs93Pmxt3z89wjso0AftadPd6Nqg==}
+  electron@45.0.0:
+    resolution: {integrity: sha512-yjz4uhMBcO6L5X7CWgRMobf2EMJPnb9j4zuf+nu/TU/6E4Sqfx7fn/a2eACo4qngjml/0JnsoZhxYroJLxLd2w==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -4578,9 +4575,6 @@ packages:
   uint8-util@2.3.2:
     resolution: {integrity: sha512-u1c0/eiT1IW+c5+ogbmE2Fu2hmtJQPkuzDmXD/4crMU4FPMjkTkFnjJ2NN/9AsZ9YWcc7yE869uc3WB8wIZEEA==}
 
-  undici-types@7.16.0:
-    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
-
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
@@ -5965,10 +5959,6 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@24.12.4':
-    dependencies:
-      undici-types: 7.16.0
-
   '@types/node@24.13.6':
     dependencies:
       undici-types: 7.18.2
@@ -7223,11 +7213,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@42.11.0:
+  electron@45.0.0:
     dependencies:
       '@electron-internal/extract-zip': 1.0.5
       '@electron/get': 5.0.0
-      '@types/node': 24.12.4
+      '@types/node': 24.13.6
     transitivePeerDependencies:
       - supports-color
 
@@ -9835,8 +9825,6 @@ snapshots:
     optional: true
 
   uint8-util@2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57): {}
-
-  undici-types@7.16.0: {}
 
   undici-types@7.18.2: {}
 
