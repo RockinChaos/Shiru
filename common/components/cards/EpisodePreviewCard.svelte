@@ -63,13 +63,13 @@
     {/if}
     <Play class='mb-5 ml-5 pl-10 pb-10 z-10' fill='currentColor' size='3rem' />
     <div class='pr-20 pb-10 font-size-16 font-weight-medium z-10' class:hidden={isSpoiler && ['hermit'].includes($settings.spoilers)}>
-      {#if media?.duration}
+      {#if media?.duration || data.episodeData?.length}
         {#if (data.episodeRange || data.parseObject?.episodeRange)}
           {media.duration * (((data.episodeRange || data.parseObject?.episodeRange)?.last - (data.episodeRange || data.parseObject?.episodeRange)?.first) + 1)}m
         {:else if episodeRange && isValidNumber(episodeRange.first) && isValidNumber(episodeRange.last)}
           {media.duration * ((episodeRange.first - episodeRange.last) + 1)}m
         {:else}
-          {media.duration}m
+          {data.episodeData?.length ?? media.duration}m
         {/if}
       {/if}
     </div>
