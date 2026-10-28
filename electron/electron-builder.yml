@@ -27,7 +27,7 @@ directories:
   buildResources: buildResources
 asarUnpack: "**/*.node"
 toolsets:
-  appimage: "1.0.2"
+  appimage: "1.0.3"
 portable:
   artifactName: ${os}-${productName}-v${version}-portable.${ext}
 nsis:
