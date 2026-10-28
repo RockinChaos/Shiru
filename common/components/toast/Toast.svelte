@@ -4,8 +4,6 @@
 
   /** @type {import('@/modules/lib/toast.js').ToastData} */
   export let data
-  /** @type {string} */
-  export let position = 'top-right'
   /** @type {boolean} */
   export let isFront = false
   /** @type {boolean} */
@@ -22,9 +20,16 @@
   /** @type {boolean} */
   let didDrag = false
 
-  $: elapsedSinceUpdate = Date.now() - data.updatedAt
   $: showProgress = data.duration && data.duration !== Infinity
-  $: allowedDirection = position.includes('right') ? 'left' : position.includes('left') ? 'right' : 'either'
+  $: if (dragging && !expanded) toast.pause(data.id)
+
+  /**
+   * Aligns a newly mounted progress bar with its timer, including time spent paused.
+   * @param {HTMLDivElement} node
+   */
+  function syncProgress(node) {
+    if (showProgress) node.style.setProperty('--toast-delay', `-${Math.max(0, data.duration - toast.remainingTime(data.id))}ms`)
+  }
 
   /** Dismisses this toast */
   function dismiss() {
@@ -33,7 +38,6 @@
 
   /**
    * Begins a drag gesture, pausing the toast's auto-dismiss timer.
-   *
    * @param {PointerEvent} event
    */
   function onPointerDown(event) {
@@ -46,22 +50,21 @@
   }
 
   /**
-   * Tracks pointer movement during a drag, damping motion in the wrong swipe direction.
-   *
+   * Tracks pointer movement during a drag.
    * @param {PointerEvent} event
    */
   function onPointerMove(event) {
     if (!dragging) return
     const raw = event.clientX - startX
     if (Math.abs(raw) > 5) didDrag = true
-    dragX = ((allowedDirection === 'left' && raw > 0) || (allowedDirection === 'right' && raw < 0)) ? raw * .3 : raw
+    dragX = raw
   }
 
-  /** Ends a drag gesture, dismissing the toast if the swipe passed the distance and direction threshold */
+  /** Ends a drag gesture, dismissing the toast if the swipe passed the distance threshold */
   function onPointerUp() {
     if (!dragging) return
     dragging = false
-    if ((Math.abs(dragX) > 80) && (allowedDirection === 'either' || (allowedDirection === 'left' && dragX < 0) || (allowedDirection === 'right' && dragX > 0))) {
+    if (Math.abs(dragX) > 80) {
       dismiss()
       return
     }
@@ -71,7 +74,6 @@
 
   /**
    * Handles keyboard activation (Enter/Space), mirroring onClick for the frontmost toast.
-   *
    * @param {KeyboardEvent} event
    */
   function onKeydown(event) {
@@ -143,9 +145,9 @@
     </div>
     {#if data.action}
       <button
-        type='button'
-        class='toast-action position-absolute tr-6 flex-shrink-0 border-0 pointer font-size-12 font-weight-semi-bold text-white'
-        on:click|stopPropagation={() => {
+          type='button'
+          class='toast-action position-absolute tr-6 flex-shrink-0 border-0 pointer font-size-12 font-weight-semi-bold text-white'
+          on:click|stopPropagation={() => {
           data.action?.onClick?.()
           dismiss()
         }}>
@@ -157,14 +159,14 @@
       </button>
     {/if}
   </div>
-  {#key data.updatedAt}
+  {#key data}
     <div class='toast-progress-track' class:blur-10={!isFront && !expanded}>
       <div
           class='toast-progress-bar w-full h-full'
           class:toast-progress-static={!showProgress}
           style:--toast-duration={showProgress ? `${data.duration}ms` : undefined}
-          style:--toast-delay={showProgress ? `-${elapsedSinceUpdate}ms` : undefined}
-          style:--toast-play-state={dragging || expanded ? 'paused' : 'running'} />
+          style:--toast-play-state={dragging || expanded ? 'paused' : 'running'}
+          use:syncProgress />
     </div>
   {/key}
 </div>

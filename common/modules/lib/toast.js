@@ -25,6 +25,7 @@ import { writable } from 'simple-store-svelte'
  * @property {(id: string, options: Object) => void} update
  * @property {(id: string) => void} pause
  * @property {(id: string) => void} resume
+ * @property {(id: string) => number} remainingTime
  * @property {(title: string, options?: Object) => string} success
  * @property {(title: string, options?: Object) => string} error
  * @property {(title: string, options?: Object) => string} warning
@@ -45,7 +46,6 @@ const timers = new Map()
 
 /**
  * Clears and removes a toast's auto-dismiss timer entry, if one exists.
- *
  * @param {string} id
  */
 function clearTimer(id) {
@@ -56,7 +56,6 @@ function clearTimer(id) {
 
 /**
  * Schedules a toast's auto-dismiss timer, replacing any existing one.
- *
  * @param {string} id
  * @param {number} duration ms, skipped entirely for falsy or Infinity durations
  */
@@ -70,7 +69,6 @@ function scheduleTimer(id, duration) {
 
 /**
  * Gets how much time is left before a toast auto-dismisses.
- *
  * @param {string} id
  * @returns {number} ms remaining, or Infinity if the toast has no active timer
  */
@@ -82,7 +80,6 @@ function remainingTime(id) {
 
 /**
  * Builds the identity key for a toast used for deduping, defaulting to type:title:description when no explicit key is given.
- *
  * @param {Object} options
  * @returns {string}
  */
@@ -92,7 +89,6 @@ function buildKey(options) {
 
 /**
  * Shows a new toast, or refreshes/replaces a matching one when de-duping.
- *
  * @param {Object} options
  * @param {string} [options.id]
  * @param {'default'|'success'|'error'|'warning'|'info'|'loading'} [options.type]
@@ -114,14 +110,18 @@ function show(options) {
   const position = options.position ?? DEFAULT_POSITION
   const duration = options.duration ?? DEFAULT_DURATION
 
+  if (options.id && toasts.value.some(toast => toast.id === options.id)) {
+    update(options.id, { ...options, duration })
+    return options.id
+  }
+
   if (options.dedupe) {
     const dedupeKey = buildKey(options)
     const existing = toasts.value.find(toast => toast.dedupeKey === dedupeKey)
     if (existing) {
       if (remainingTime(existing.id) > (options.dedupeGrace ?? DEFAULT_DEDUPE_GRACE_MS)) {
         if (options.dedupeRefresh ?? true) {
-          scheduleTimer(existing.id, duration)
-          toasts.update(all => all.map(toast => (toast.id === existing.id ? { ...toast, ...options, id: existing.id, position, dedupeKey, updatedAt: Date.now() } : toast)))
+          update(existing.id, { ...options, id: existing.id, position, duration, dedupeKey })
         }
         return existing.id
       }
@@ -146,14 +146,13 @@ function show(options) {
     updatedAt: Date.now()
   }
 
-  toasts.update(all => [...all, toast])
   scheduleTimer(id, duration)
+  toasts.update(all => [...all, toast])
   return id
 }
 
 /**
  * Dismisses a toast by id, clearing its timer and firing its onDismiss callback unless silenced.
- *
  * @param {string} id
  * @param {{silent?: boolean}} [options]
  */
@@ -169,7 +168,6 @@ function dismiss(id, { silent = false } = {}) {
 
 /**
  * Dismisses every toast, optionally scoped to a single position.
- *
  * @param {string} [position] if omitted, dismisses toasts in all positions
  */
 function dismissAll(position) {
@@ -178,18 +176,17 @@ function dismissAll(position) {
 
 /**
  * Updates an existing toast's fields in place and bumps its updatedAt timestamp.
- *
  * @param {string} id
  * @param {Object} options fields to merge into the existing toast
  */
 function update(id, options) {
-  toasts.update(all => all.map(toast => (toast.id === id ? { ...toast, ...options, updatedAt: Date.now() } : toast)))
+  if (!toasts.value.some(toast => toast.id === id)) return
   if (options.duration != null) scheduleTimer(id, options.duration)
+  toasts.update(all => all.map(toast => (toast.id === id ? { ...toast, ...options, updatedAt: Date.now() } : toast)))
 }
 
 /**
  * Pauses a toast's auto-dismiss timer, e.g. while the pointer is over it or dragging it.
- *
  * @param {string} id
  */
 function pause(id) {
@@ -202,7 +199,6 @@ function pause(id) {
 
 /**
  * Resumes a previously paused toast's auto-dismiss timer.
- *
  * @param {string} id
  */
 function resume(id) {
@@ -216,7 +212,6 @@ function resume(id) {
 
 /**
  * Builds a type-preset shorthand function.
- *
  * @param {'default'|'success'|'error'|'warning'|'info'|'loading'} type
  * @returns {(title: string, options?: Object) => string}
  */
@@ -237,10 +232,10 @@ export const toast = Object.assign(buildShorthand('default'), {
   update,
   pause,
   resume,
+  remainingTime,
 
   /**
    * Ties a toast's lifecycle to a promise: shows a loading toast immediately, then flips it to success/error once it settles.
-   *
    * @param {Promise} work
    * @param {{ loading?: string, success?: string|((result: any) => string), error?: string|((error: any) => string), description?: string, id?: string, position?: string }} [messages]
    * @returns {Promise} resolves/rejects with the original promise's result, after updating the toast
