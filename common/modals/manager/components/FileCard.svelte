@@ -116,7 +116,7 @@
                     <input
                         type='text'
                         inputmode='text'
-                        pattern='[0-9 ~-]*'
+                        pattern='[0-9 ~\-]*'
                         bind:value={episode}
                         use:click|stopPropagation
                         on:blur={(event) => {
