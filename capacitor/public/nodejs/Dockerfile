@@ -4,7 +4,7 @@ USER root
 
 ENV LIBNODE_PATH=/opt/libnode
 
-# Install nodejs 24.5.0 (same version as capacitor-nodejs)
+# Install nodejs 24.22.1 (same version as capacitor-nodejs)
 ARG NODE_MAJOR=24
 
 RUN apt-get update && apt-get install -y \
@@ -20,8 +20,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.14/capacitor-nodejs-1.0.0-beta.14.tgz | tar -xz \
-    && mv package/android/libnode /opt/libnode \
-    && rm -rf package
+# Reuse libnode from the existing capacitor-nodejs package.
+COPY --from=libnode / /opt/libnode/
 
 WORKDIR /app

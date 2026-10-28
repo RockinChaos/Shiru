@@ -132,8 +132,8 @@ importers:
         specifier: ^0.0.2
         version: 0.0.2(@capacitor/core@8.5.2)
       capacitor-nodejs:
-        specifier: https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.14/capacitor-nodejs-1.0.0-beta.14.tgz
-        version: https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.14/capacitor-nodejs-1.0.0-beta.14.tgz(@capacitor/core@8.5.2)
+        specifier: https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.16/capacitor-nodejs-1.0.0-beta.16.tgz
+        version: https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.16/capacitor-nodejs-1.0.0-beta.16.tgz(@capacitor/core@8.5.2)
       client:
         specifier: workspace:*
         version: link:../client
@@ -1549,9 +1549,9 @@ packages:
     peerDependencies:
       '@capacitor/core': ^6.0.0
 
-  capacitor-nodejs@https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.14/capacitor-nodejs-1.0.0-beta.14.tgz:
-    resolution: {integrity: sha512-mQgt4ZGHEp42mW8mRQ+2CgBw+p4muFiucdePBZW7d9HVPwU7LrmK4DstWRrENI3phCasnyPlIzkLX+hbCzSX+A==, tarball: https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.14/capacitor-nodejs-1.0.0-beta.14.tgz}
-    version: 1.0.0-beta.14
+  capacitor-nodejs@https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.16/capacitor-nodejs-1.0.0-beta.16.tgz:
+    resolution: {integrity: sha512-CIEqfQrd65LaLE+puMpnmKMyJRR/U+vfRhF4xGySELq0AzlsMvcTkxejOMx9nlNgMzMfm4IgCaeqOy6zAQoXHQ==, tarball: https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.16/capacitor-nodejs-1.0.0-beta.16.tgz}
+    version: 1.0.0-beta.16
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
@@ -6615,7 +6615,7 @@ snapshots:
     dependencies:
       '@capacitor/core': 8.5.2
 
-  capacitor-nodejs@https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.14/capacitor-nodejs-1.0.0-beta.14.tgz(@capacitor/core@8.5.2):
+  capacitor-nodejs@https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.16/capacitor-nodejs-1.0.0-beta.16.tgz(@capacitor/core@8.5.2):
     dependencies:
       '@capacitor/core': 8.5.2
 
