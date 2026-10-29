@@ -85,6 +85,8 @@ flatpak:
     - --talk-name=org.kde.StatusNotifierWatcher
 mac:
   artifactName: ${os}-${productName}-v${version}.${ext}
+  files:
+    - "!node_modules/utp-native/build{,/**/*}"
   singleArchFiles: node_modules/+(register-scheme|utp-native|fs-native-extensions)/**
   entitlements: buildResources/entitlements.mac.plist
   category: public.app-category.video
