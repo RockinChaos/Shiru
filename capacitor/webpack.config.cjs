@@ -95,7 +95,9 @@ const capacitorConfig = {
             ignore: [
               '**/Dockerfile',
               '**/setup-deps.sh',
-              '**/package-lock.json'
+              '**/pnpm-lock.yaml',
+              '**/node_modules/.modules.yaml',
+              '**/node_modules/.pnpm/**'
             ]
           }
         }

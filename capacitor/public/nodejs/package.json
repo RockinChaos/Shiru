@@ -1,5 +1,6 @@
 {
   "name": "nodejs-capacitor-thread",
+  "packageManager": "pnpm@10.34.1",
   "private": true,
   "dependencies": {
     "utp-native": "^2.5.3"
