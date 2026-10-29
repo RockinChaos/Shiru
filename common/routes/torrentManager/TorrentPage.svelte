@@ -124,8 +124,8 @@
    */
   function getResolvedInfo(torrent) {
     const cached = resolvedCache.get(torrent.infoHash)
-    if (cached) return cached
     const cleanName = torrent.name ? AnimeResolver.cleanFileName(torrent.name) : ''
+    if (cached?.name === cleanName) return cached
     const resolvedId = getId(torrent.infoHash, { client: true }, true)?.mediaId ?? null
     /** @type {{ name: string, anime_title: string|null, resolvedId: number|null }} */
     const info = { name: cleanName, anime_title: null, resolvedId }
@@ -174,8 +174,8 @@
       if (stillMatchesFiltered.length !== filteredHashes.length) filteredHashes = stillMatchesFiltered
     }
     const newTorrents = allTorrents.filter(torrent => !knownHashes.has(torrent.infoHash))
+    knownHashes = new Set(allTorrents.map(torrent => torrent.infoHash))
     if (newTorrents.length) {
-      knownHashes = new Set(allTorrents.map(torrent => torrent.infoHash))
       const matchingHashes = new Set(filterAndSort(newTorrents, searchText, statusFilter).map(torrent => torrent.infoHash))
       if (matchingHashes.size) {
         filteredHashes = filterAndSort(allTorrents, searchText, statusFilter).map(torrent => torrent.infoHash)
@@ -362,7 +362,7 @@
       // if (paths.length) await TORRENT.addLocalFiles(paths)
 
       toast.update(id, { title: 'Queuing Torrents', description: 'Requesting torrents for background download, this may take a moment...' })
-      for (const torrentData of torrents) TORRENT.stage(torrentData, false)
+      await Promise.all(torrents.map(torrentData => TORRENT.stage(torrentData, false)))
       const selectedCount = torrents.length
       toast.update(id, { type: 'success', title: 'Queued Torrents', description: selectedCount + ' torrent' + (selectedCount === 1 ? '' : 's') + ' queued for background download. Check the management page for progress...', duration: 6_000 })
     } catch (error) {
@@ -418,7 +418,7 @@
    * @returns {boolean}
    */
   function isStalled(torrent) {
-    if (torrent.completed || torrent.progress === 1) return false
+    if (torrent.resolving || torrent.verifying || torrent.completed || torrent.progress === 1) return false
     if (torrent.size && (torrent.downloadSpeed || torrent.uploadSpeed)) return false
     return !(!(torrent.downloadSpeed || torrent.uploadSpeed) && torrent.eta > 1000 && torrent.eta < Infinity && torrent.progress < 1 && !settings.value.torrentStreamedDownload)
   }

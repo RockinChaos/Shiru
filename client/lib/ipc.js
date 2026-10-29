@@ -113,6 +113,5 @@ export function createTorrentHost(ipc, ...args) {
   ipc.on('torrent:port', connect)
   ipc.on('torrent:destroy', onDestroy)
   process.on('uncaughtException', handleError)
-  ipc.send('torrent:ready')
   return { client, destroy }
 }

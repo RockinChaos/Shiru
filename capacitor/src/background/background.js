@@ -6,6 +6,8 @@ import { channel } from 'bridge'
 let host
 /** @type {Promise<void>|undefined} */
 let destroying
+/** @type {string|null} */
+let initialization = null
 
 /**
  * Stops the current host, allowing up to five seconds for shutdown.
@@ -39,20 +41,33 @@ stdout.write = (data, ...args) => {
   channel.send('torrent:log', { level: 'debug', message: typeof data === 'string' ? data.trim() : data.toString().trim() })
 }
 
-channel.on('torrent:init', async settings => {
+channel.on('torrent:init', async ({ settings, requestId }) => {
+  initialization = requestId
   try {
     await destroy()
+    if (requestId !== initialization) throw new Error('Torrent initialization superseded')
     channel.removeAllListeners('torrent:message')
     channel.removeAllListeners('torrent:connect')
     const port = {
       onmessage: _ => {},
-      postMessage: data => channel.send('torrent:message', { data })
+      postMessage: data => channel.send('torrent:message', { requestId, data })
     }
-    channel.on('torrent:message', a => port.onmessage?.(a))
-    channel.once('torrent:connect', () => channel.emit('torrent:port', { ports: [port] }))
+    channel.on('torrent:message', message => {
+      if (message?.requestId === requestId) port.onmessage?.({ data: message.data })
+    })
+    const connect = id => {
+      if (id !== requestId) return
+      channel.removeListener('torrent:connect', connect)
+      channel.emit('torrent:port', { ports: [port] })
+    }
+    channel.on('torrent:connect', connect)
     host = createTorrentHost(channel, settings, env.TMPDIR)
+    channel.send('torrent:ready', requestId)
   } catch (error) {
-    channel.send('torrent:init-error', error.message)
+    channel.send('torrent:init-error', requestId, error.message)
   }
 })
-channel.on('torrent:reload', () => destroy().catch(console.error))
+channel.on('torrent:reload', () => {
+  initialization = null
+  destroy().catch(console.error)
+})

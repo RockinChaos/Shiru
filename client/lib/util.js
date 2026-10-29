@@ -157,11 +157,13 @@ export function getStats(torrent, completed = false, includePieces = false) {
   const pieces = completed ? getPiecesFromBitfield(torrent?._bitfield, torrent?.info?.pieces ? torrent.info.pieces.length / 20 : 0) : getPieces(torrent)
   return {
     infoHash: torrent?.infoHash,
-    name: torrent?.name,
+    name: torrent?.name || torrent?.infoHash,
     size: torrent?.length,
     current: torrent?.current,
     staging: torrent?.staging,
     seeding: torrent?.seeding,
+    resolving: !completed && !torrent?.destroyed && torrent?.ready === false && !torrent.metadata,
+    verifying: !completed && !torrent?.destroyed && torrent?.ready === false && !!torrent.metadata,
     progress: torrent?.progress,
     downloaded: getDownloadedBytes(pieces, completed ? torrent?.info?.['piece length'] : torrent?.pieceLength, torrent?.length || torrent?.info?.length || (Array.isArray(torrent?.info?.files) ? torrent.info.files.reduce((sum, file) => sum + file.length, 0) : 0)),
     numSeeders: torrent?.wires?.filter(wire => wire.isSeeder).length || 0,

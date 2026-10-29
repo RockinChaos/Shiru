@@ -7,6 +7,8 @@ export interface Torrent {
   current?: boolean
   staging?: boolean
   seeding?: boolean
+  resolving?: boolean
+  verifying?: boolean
   progress: number
   downloaded: number
   numSeeders: number
@@ -38,7 +40,7 @@ export interface TorrentFile {
   url: string
 }
 
-/** Identifier persisted for the current torrent. */
+/** Identifier persisted for the current or a pending staged torrent. */
 export interface TorrentSource {
   id?: string | Uint8Array
   infoHash?: string
@@ -90,8 +92,8 @@ declare global {
       debug: (debug: string) => Promise<void>
       rescan: () => Promise<{ missingCount: number, removedCount: number }>
       scrape: (infoHashes: string[]) => Promise<{ hash: string; complete: number; incomplete: number; downloaded?: number }[]>
-      stream: (id: string | Uint8Array, hash?: string | false | null, magnet?: boolean | null, base64?: boolean, onReady?: TorrentReady) => Promise<Torrent | void>
-      stage: (id: string | Uint8Array, hash?: string | false | null, base64?: boolean) => Promise<Torrent | void>
+      stream: (id: string | Uint8Array, hash?: string | false | null, magnet?: boolean | null, base64?: boolean, onReady?: TorrentReady) => Promise<Partial<Torrent> | void>
+      stage: (id: string | Uint8Array, hash?: string | false | null, base64?: boolean) => Promise<Partial<Torrent> | void>
       complete: (hash: string) => Promise<void>
       unload: (data?: string | TorrentSource | { torrent: string; hash?: string | boolean } | null) => Promise<void>
       untrack: (hash: string) => Promise<void>
@@ -104,7 +106,7 @@ declare global {
       onSubtitles: (cbSubtitle: (packet: { subtitle: any; trackNumber: number }) => void, cbFont: (font: { url: string }) => void, cbFiles: (file: { name: string; url: string }) => void | Promise<void>) => Promise<void | null>
       offSubtitles: () => Promise<void | null>
       setPlayback: (infoHash: string, path: string, external: boolean) => Promise<true | void>
-      restoreSession: (staging: string[] | null, seeding: string[] | null, completed: string[] | null, current?: string | TorrentSource | null, onReady?: TorrentReady) => Promise<Torrent[]>
+      restoreSession: (staging: (string | TorrentSource)[] | null, seeding: string[] | null, completed: string[] | null, current?: string | TorrentSource | null, onReady?: TorrentReady) => Promise<Torrent[]>
       launchExternal: (path: string, externalWatched?: () => void) => Promise<string | void>
       updateNetwork: (status: string) => Promise<void>
       updateSettings: (settings: Record<string, any>) => Promise<void>

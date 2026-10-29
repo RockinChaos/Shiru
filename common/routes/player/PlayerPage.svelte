@@ -1370,7 +1370,7 @@
             icon: SquareArrowOutUpRight,
             label: 'External Player',
             close: true,
-            onSelect: () => setCurrent(current, true)
+            onSelect: () => setCurrent(current, true).catch(error => console.warn('Failed to prepare playback', error))
           }] : []),
           ...(!externalPlayback ? [{
             icon: Contrast,

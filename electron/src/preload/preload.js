@@ -5,11 +5,17 @@ import { createRemote } from '@client/lib/remote.js'
  * @type {any}
  */
 let torrentPort = null
+/** @type {((error: Error) => void)|null} */
+let cancelPortRequest = null
 /** Awaitable proxy for the connected torrent worker.
  * @type {ReturnType<typeof createRemote>}
  */
 const client = createRemote()
-ipcRenderer.on('torrent:onCrash', () => client.disconnect(new Error('Torrent worker crashed')))
+ipcRenderer.on('torrent:onCrash', () => {
+  const error = new Error('Torrent worker crashed')
+  cancelPortRequest?.(error)
+  client.disconnect(error)
+})
 
 contextBridge.exposeInMainWorld('torrent', {
   /**
@@ -17,6 +23,7 @@ contextBridge.exposeInMainWorld('torrent', {
    * @returns {void}
    */
   reload: () => {
+    cancelPortRequest?.(new Error('Torrent connection reloaded'))
     client.disconnect()
     ipcRenderer.send('torrent:reload')
   },
@@ -181,28 +188,43 @@ contextBridge.exposeInMainWorld('torrent', {
    * @returns {Promise<void>}
    */
   portRequest: (settings) => new Promise((resolve, reject) => {
+    cancelPortRequest?.(new Error('Torrent connection request superseded'))
     if (torrentPort) client.disconnect()
     torrentPort?.close()
     torrentPort = null
-    const onPort = ({ ports }) => {
-      torrentPort = ports[0]
-      const port = torrentPort
-      torrentPort.addEventListener('message', event => {
-        if (torrentPort === port) client.receive(event)
-      })
-      torrentPort.addEventListener('messageerror', () => {
-        if (torrentPort === port) client.disconnect(new Error('Torrent message could not be decoded'))
-      })
-      torrentPort.start()
-      client.connect(torrentPort.postMessage.bind(torrentPort))
-      resolve()
-    }
-    ipcRenderer.once('torrent:port', onPort)
-    ipcRenderer.invoke('torrent:portRequest', settings).catch(error => {
+    const requestId = Date.now() + ':' + Math.random()
+    const finish = error => {
+      if (cancelPortRequest !== finish) return
       ipcRenderer.removeListener('torrent:port', onPort)
-      client.disconnect(error)
-      reject(error)
-    })
+      cancelPortRequest = null
+      if (error) {
+        client.disconnect(error)
+        reject(error)
+      } else resolve()
+    }
+    const onPort = ({ ports }, data) => {
+      if (data?.requestId !== requestId) {
+        for (const port of ports) port.close()
+        return
+      }
+      try {
+        const port = ports[0]
+        if (!port) throw new Error('Torrent message port is unavailable')
+        torrentPort = port
+        port.addEventListener('message', event => {
+          if (torrentPort === port) client.receive(event)
+        })
+        port.addEventListener('messageerror', () => {
+          if (torrentPort === port) client.disconnect(new Error('Torrent message could not be decoded'))
+        })
+        port.start()
+        client.connect(port.postMessage.bind(port))
+        finish()
+      } catch (error) { finish(error) }
+    }
+    cancelPortRequest = finish
+    ipcRenderer.on('torrent:port', onPort)
+    ipcRenderer.invoke('torrent:portRequest', { settings, requestId }).catch(finish)
   })
 })
 

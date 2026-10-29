@@ -78,12 +78,12 @@ if (!SUPPORTS.isAndroid) {
 _settings = { userID: cache.cacheID, dht: !settings.value.torrentDHT, torrentUTP: !settings.value.torrentUTP, torrentPeX: !settings.value.torrentPeX, maxConns: settings.value.maxConns, downloadLimit: (settings.value.torrentSpeed * 1048576) || 0, uploadLimit: (settings.value.torrentSpeed * 1048576) || 0, torrentPort: settings.value.torrentPort || 0, dhtPort: settings.value.dhtPort || 0, torrentPersist: settings.value.torrentPersist, torrentStreamedDownload: settings.value.torrentStreamedDownload, torrentPathNew: settings.value.torrentPathNew, playerPath: settings.value.playerPath, seedingLimit: settings.value.seedingLimit, trackers: settings.value.trackers, debug: get(debugStore) }
 TORRENT.portRequest(_settings).then(async () => {
   await setupTorrentClient()
-  status.subscribe(value => TORRENT.updateNetwork(value))
+  status.subscribe(value => TORRENT.updateNetwork(value).catch(error => notify('error', error)))
   settings.subscribe(value => {
     const settingsVal = { userID: cache.cacheID, dht: !value.torrentDHT, torrentUTP: !value.torrentUTP, torrentPeX: !value.torrentPeX, maxConns: value.maxConns, downloadLimit: (value.torrentSpeed * 1048576) || 0, uploadLimit: (value.torrentSpeed * 1048576) || 0, torrentPort: value.torrentPort || 0, dhtPort: value.dhtPort || 0, torrentPersist: value.torrentPersist, torrentStreamedDownload: value.torrentStreamedDownload, torrentPathNew: value.torrentPathNew, playerPath: value.playerPath, seedingLimit: value.seedingLimit, trackers: value.trackers, debug: get(debugStore) }
     if (JSON.stringify(_settings) !== JSON.stringify(settingsVal)) {
       _settings = settingsVal
-      TORRENT.updateSettings(_settings)
+      TORRENT.updateSettings(_settings).catch(error => notify('error', error))
     }
   })
 
@@ -135,7 +135,8 @@ function updateTorrent(hash, update) {
     const detail = update.staging
     debug(`Staging torrent:`, JSON.stringify(detail.infoHash))
     const torrents = cache.getEntry(caches.GENERAL, 'stagingTorrents') || []
-    if (!torrents.includes(detail.infoHash)) cache.setEntry(caches.GENERAL, 'stagingTorrents', Array.from(new Set([...torrents, detail.infoHash])))
+    const source = (detail.resolving || detail.verifying) && detail.magnetURI ? { id: detail.magnetURI, infoHash: detail.infoHash } : detail.infoHash
+    cache.setEntry(caches.GENERAL, 'stagingTorrents', [...torrents.filter(torrent => !equalsIgnoreCase(torrent?.infoHash ?? torrent, detail.infoHash)), source])
     deduplicate(detail.infoHash, 'seedingTorrents', 'completedTorrents')
     if (equalsIgnoreCase(loadedTorrent.value?.infoHash, detail.infoHash)) loadedTorrent.update(() => ({}))
     stagingTorrents.update(prev => [detail, ...prev.filter(torrent => !equalsIgnoreCase(torrent.infoHash, detail.infoHash))])
@@ -185,14 +186,20 @@ export async function add(torrentID, search, hash, magnet, base64 = false) {
     media.value = search ? { media: (search.media || media.value?.media), episode: (search.episode || media.value?.episode), ...(media.value?.torrent ? { torrent: true } : { feed: true }) } : { torrent: true }
     if (hash && search) setHash(hash, { mediaId: search.media?.id, episode: search.episode, client: true })
     if (SUPPORTS.isAndroid && !settings.value.enableExternal && settings.value.autoFullscreen) document.querySelector('.content-wrapper').requestFullscreen() // this WILL not work with auto-select torrents due to permissions check.
-    TORRENT.stream(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, magnet, base64, onReady)
+    TORRENT.stream(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, magnet, base64, onReady).catch(error => notify('error', error))
   }
 }
 export async function stage(torrentID, search, hash, base64 = false) {
   if (torrentID) {
     debug('Pre-Adding torrent', JSON.stringify({ torrentID, search, hash }))
     if (hash && search) setHash(hash, { mediaId: search.media?.id, episode: search.episode, client: true })
-    TORRENT.stage(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, base64)
+    let torrent
+    try {
+      torrent = await TORRENT.stage(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, base64)
+    } catch (error) {
+      notify('error', error)
+      return false
+    }
     if (hash) {
       const existingTorrent = seedingTorrents.value.find(torrent => torrent.infoHash === hash) || completedTorrents.value.find(torrent => equalsIgnoreCase(torrent.infoHash, hash))
       if (existingTorrent) {
@@ -201,16 +208,18 @@ export async function stage(torrentID, search, hash, base64 = false) {
         completedTorrents.update(torrents => torrents.filter(torrent => !equalsIgnoreCase(torrent.infoHash, hash)))
       }
     }
+    return torrent || false
   }
+  return false
 }
 export async function unload(torrent, hash, force = false) {
   if (torrent) {
     debug('Unloading torrent', JSON.stringify({ torrent, hash }))
-    TORRENT.unload({ torrent, hash })
+    TORRENT.unload({ torrent, hash }).catch(error => notify('error', error))
   } else if (force) {
     files.value = []
     media.value = { ...media.value, display: true } // set display to true to allow the 'Last Watched' button to remain on the SideBar.
-    TORRENT.unload(null) // this will not override the cached loadedTorrent, we rely on users to enable disableStartupTorrent if they don't want to load the previous torrent when the app starts.
+    TORRENT.unload(null).catch(error => notify('error', error)) // this will not override the cached loadedTorrent, we rely on users to enable disableStartupTorrent if they don't want to load the previous torrent when the app starts.
   }
 }
 export async function untrack(hash) {
@@ -220,19 +229,19 @@ export async function untrack(hash) {
       files.value = []
       media.value = { ...media.value, display: true } // set display to true to allow the 'Last Watched' button to remain on the SideBar.
     }
-    TORRENT.untrack(hash)
+    TORRENT.untrack(hash).catch(error => notify('error', error))
   }
 }
 export async function complete(hash) {
   if (hash) {
     debug('Stopping Seeding torrent', hash)
-    TORRENT.complete(hash)
+    TORRENT.complete(hash).catch(error => notify('error', error))
   }
 }
 export async function reannounce(hash) {
   if (hash) {
     debug('Requesting reannounce for torrent', hash)
-    TORRENT.reannounce(hash)
+    TORRENT.reannounce(hash).catch(error => notify('error', error))
   }
 }
 
@@ -241,7 +250,7 @@ function deduplicate(hash, ..._caches) {
   const cacheList = _caches.length ? _caches : ['stagingTorrents', 'seedingTorrents', 'completedTorrents']
   for (const cacheName of cacheList) {
     const list = cache.getEntry(caches.GENERAL, cacheName) || []
-    const filtered = list.filter(_hash => !equalsIgnoreCase(_hash, hash))
+    const filtered = list.filter(torrent => !equalsIgnoreCase(torrent?.infoHash ?? torrent, hash))
     if (filtered.length !== list.length) {
       debug(`Detected duplicate torrent in: ${cacheName}`)
       cache.setEntry(caches.GENERAL, cacheName, filtered)
@@ -296,8 +305,8 @@ async function setupTorrentClient() {
   if (!settings.value.disableStartupTorrent) TORRENT.restoreSession((cache.getEntry(caches.GENERAL, 'stagingTorrents') || []).filter(Boolean), (cache.getEntry(caches.GENERAL, 'seedingTorrents') || []).filter(Boolean), (cache.getEntry(caches.GENERAL, 'completedTorrents') || []).filter(Boolean), cache.getEntry(caches.GENERAL, 'loadedTorrent'), onReady).then(onCompleted).catch(error => notify('error', error.message))
   else {
     debug(`Unloading torrent(s) from previous session`)
-    TORRENT.unload(cache.getEntry(caches.GENERAL, 'loadedTorrent'))
-    const unloadedCompleted = Array.from(new Set([...(cache.getEntry(caches.GENERAL, 'completedTorrents') || []), ...(cache.getEntry(caches.GENERAL, 'seedingTorrents') || []), ...(cache.getEntry(caches.GENERAL, 'stagingTorrents') || [])])).filter(Boolean)
+    TORRENT.unload(cache.getEntry(caches.GENERAL, 'loadedTorrent')).catch(error => notify('error', error))
+    const unloadedCompleted = Array.from(new Set([...(cache.getEntry(caches.GENERAL, 'completedTorrents') || []), ...(cache.getEntry(caches.GENERAL, 'seedingTorrents') || []), ...(cache.getEntry(caches.GENERAL, 'stagingTorrents') || [])].map(torrent => torrent?.infoHash ?? torrent))).filter(Boolean)
     cache.setEntry(caches.GENERAL, 'loadedTorrent', {})
     cache.setEntry(caches.GENERAL, 'completedTorrents', unloadedCompleted)
     cache.setEntry(caches.GENERAL, 'stagingTorrents', [])

@@ -26,8 +26,6 @@
 
   /** @type {string} */
   const infoHash = data.infoHash
-  /** @type {string} */
-  const cleanName = data.name && AnimeResolver.cleanFileName(data.name)
   /** @type {{ reactive: import('simple-store-svelte').Writable<boolean>, init: (create: boolean, boundary?: boolean) => void }} */
   const { reactive, init } = createListener([`react-${infoHash}`])
   /** @type {EventListenerOrEventListenerObject} */
@@ -40,6 +38,7 @@
   let showLoadIn = true
 
   $: resolvedId = resolved?.mediaId
+  $: cleanName = data.name && AnimeResolver.cleanFileName(data.name)
   $: episode = resolved?.files?.length <= 1 ? !resolved?.files?.length ? resolved?.episode : (Number.isFinite(Number(resolved?.files?.[0]?.episode)) ? Number(resolved?.files?.[0]?.episode) : resolved?.episode) : null
   $: episodeRange = resolved?.files?.length <= 1 ? !resolved?.files?.length ? (resolved?.episodeRange && `${resolved.episodeRange.first} ~ ${resolved.episodeRange.last}`)
       : (resolved?.files?.[0]?.episodeRange && `${resolved?.files?.[0].episodeRange.first} ~ ${resolved?.files?.[0].episodeRange.last}`) || (resolved?.episodeRange && `${resolved.episodeRange.first} ~ ${resolved.episodeRange.last}`)
@@ -48,10 +47,12 @@
   $: watched = isWatched(search, resolved)
   $: progressPct = data.size && (!data.missing_pieces || (data.progress && data.progress < 1)) ? ((data.progress * 100) || 0).toFixed(1) : (data.missing_pieces ? null : '0')
   $: statusLabel = completed ? (data.incomplete ? ((data.missing_pieces && !(data.progress && data.progress < 1)) ? 'Missing Pieces' : 'Incomplete') : 'Completed')
-    : data.progress === 1 ? 'Seeding'
-      : data.size && (data.downloadSpeed || data.uploadSpeed) ? 'Downloading'
-        : !(data.downloadSpeed || data.uploadSpeed) && data.eta > 1000 && data.eta < Infinity && data.progress < 1 && !settings.value.torrentStreamedDownload ? 'Scanning'
-          : data.name ? 'Stalled' : '—'
+    : data.resolving ? 'Resolving'
+      : data.verifying ? 'Verifying'
+        : data.progress === 1 ? 'Seeding'
+          : data.size && (data.downloadSpeed || data.uploadSpeed) ? 'Downloading'
+            : !(data.downloadSpeed || data.uploadSpeed) && data.eta > 1000 && data.eta < Infinity && data.progress < 1 && !settings.value.torrentStreamedDownload ? 'Scanning'
+              : data.name ? 'Stalled' : '—'
 
   /**
    * Determines whether the resolved media for this torrent has been fully watched.
@@ -159,14 +160,14 @@
         </div>
       </div>
 
-      <div class='p-5 d-none d-md-block font-weight-semi-bold align-self-center' class:watched>{fastPrettyBytes(data.size)}</div>
+      <div class='p-5 d-none d-md-block font-weight-semi-bold align-self-center' class:watched>{data.resolving ? '—' : fastPrettyBytes(data.size)}</div>
       <div class='p-5 font-weight-semi-bold align-self-center' class:watched>{progressPct != null ? `${Number(progressPct)}%` : '—'}</div>
       <div class='p-5 font-weight-semi-bold align-self-center' class:watched>
         <span class='dot mr-sm-5 d-inline-block flex-shrink-0'
               style:--dot-color={
                 statusLabel === 'Downloading' ? 'var(--warning-color-dim)' :
                 statusLabel === 'Stalled' ? 'var(--octonary-color)' :
-                statusLabel === 'Scanning' ? 'var(--white-color)' :
+                ['Scanning', 'Resolving', 'Verifying'].includes(statusLabel) ? 'var(--white-color)' :
                 statusLabel === 'Seeding' ? 'var(--success-color)' :
                 statusLabel === 'Completed' ? 'var(--slateblue-color)' :
                 'var(--error-color-light)'
@@ -211,12 +212,12 @@
             close: true,
             onSelect: () => stage(infoHash, null, infoHash)
           }] : []),
-          ...(current && infoHash ? [{
+          ...(current && !data.resolving && !data.verifying && infoHash ? [{
             label: 'Stop Playing',
             close: true,
             onSelect: () => unload(infoHash, true)
           }] : []),
-          ...(!completed && !current && data.progress < 1 && settings.value.torrentPersist && infoHash ? [{
+          ...(!completed && !current && !data.resolving && !data.verifying && data.progress < 1 && settings.value.torrentPersist && infoHash ? [{
             label: 'Stop Download',
             close: true,
             onSelect: () => unload(infoHash, true)

@@ -5,6 +5,8 @@ import { ipcRenderer } from 'electron'
 let host
 /** @type {Promise<void>|undefined} */
 let destroying
+/** @type {string|null} */
+let initialization = null
 
 /**
  * Stops the current host before another initialization, allowing five seconds for shutdown.
@@ -21,12 +23,18 @@ function destroy() {
   return destroying
 }
 
-ipcRenderer.on('torrent:init', async (event, settings) => {
+ipcRenderer.on('torrent:init', async (event, { settings, requestId }) => {
+  initialization = requestId
   try {
     await destroy()
+    if (requestId !== initialization) throw new Error('Torrent initialization superseded')
     host = createTorrentHost(ipcRenderer, settings)
+    ipcRenderer.send('torrent:ready', requestId)
   } catch (error) {
-    ipcRenderer.send('torrent:init-error', error.message)
+    ipcRenderer.send('torrent:init-error', requestId, error.message)
   }
 })
-ipcRenderer.on('torrent:reload', () => destroy().catch(console.error))
+ipcRenderer.on('torrent:reload', () => {
+  initialization = null
+  destroy().catch(console.error)
+})

@@ -215,7 +215,7 @@ export default class App {
       }
     })
 
-    ipcMain.handle('torrent:portRequest', async (event, settings) => {
+    ipcMain.handle('torrent:portRequest', async (event, { settings, requestId }) => {
       this.torrentAlive = false
       await this.torrentLoad
       const worker = this.webtorrentWindow?.webContents
@@ -232,23 +232,23 @@ export default class App {
             reject(error)
           } else resolve()
         }
-        const onReady = reply => {
-          if (reply.sender !== worker) return
+        const onReady = (reply, id) => {
+          if (reply.sender !== worker || id !== requestId) return
           try {
             if (this.destroyed || worker.isDestroyed() || event.sender.isDestroyed()) throw new Error('Torrent connection closed')
             worker.postMessage('torrent:port', null, [port1])
-            event.sender.postMessage('torrent:port', null, [port2])
+            event.sender.postMessage('torrent:port', { requestId }, [port2])
             this.torrentAlive = true
             finish()
           } catch (error) { finish(error) }
         }
-        const onError = (reply, message) => {
-          if (reply.sender === worker) finish(new Error(message))
+        const onError = (reply, id, message) => {
+          if (reply.sender === worker && id === requestId) finish(new Error(message))
         }
         const timer = setTimeout(() => finish(new Error('Torrent initialization timed out')), 15_000)
         ipcMain.on('torrent:ready', onReady)
         ipcMain.on('torrent:init-error', onError)
-        try { worker.postMessage('torrent:init', settings) } catch (error) { finish(error) }
+        try { worker.postMessage('torrent:init', { settings, requestId }) } catch (error) { finish(error) }
       })
     })
     ipcMain.on('torrent:reload', () => {

@@ -64,14 +64,16 @@ export default class App {
       level === 'error' ? console.error(message) : console.debug(message)
     })
 
-    ipcWire.handle('torrent:portRequest', async (event, settings) => {
+    ipcWire.handle('torrent:portRequest', async (event, { settings, requestId }) => {
       /** @type {import('@capacitor/core').PluginListenerHandle|undefined} */
       let messageListener
       const port = {
         onmessage: async cb => {
-          messageListener = await NodeJS.addListener('torrent:message', ({ args }) => cb(args[0]))
+          messageListener = await NodeJS.addListener('torrent:message', ({ args }) => {
+            if (args[0]?.requestId === requestId) cb({ data: args[0].data })
+          })
         },
-        postMessage: data => NodeJS.send({ eventName: 'torrent:message', args: [{ data }] }),
+        postMessage: data => NodeJS.send({ eventName: 'torrent:message', args: [{ requestId, data }] }),
         close: async () => messageListener?.remove()
       }
       await this.ready
@@ -85,21 +87,25 @@ export default class App {
       try {
         return await new Promise((resolve, reject) => {
           timer = setTimeout(() => reject(new Error('Torrent initialization timed out')), 15_000)
-          const onReady = async () => {
+          const onReady = async ({ args }) => {
+            if (settled || args[0] !== requestId) return
             try {
-              await NodeJS.send({ eventName: 'torrent:connect', args: [] })
+              await NodeJS.send({ eventName: 'torrent:connect', args: [requestId] })
+              if (settled) return
               loadingClient.resolve()
               resolve(port)
             } catch (error) { reject(error) }
           }
           Promise.all([
             NodeJS.addListener('torrent:ready', onReady),
-            NodeJS.addListener('torrent:init-error', ({ args }) => reject(new Error(args[0])))
+            NodeJS.addListener('torrent:init-error', ({ args }) => {
+              if (args[0] === requestId) reject(new Error(args[1]))
+            })
           ].map(registration => registration.then(handle => {
             if (settled) return handle.remove()
             listeners.push(handle)
           }))).then(() => {
-            if (!settled) return NodeJS.send({ eventName: 'torrent:init', args: [settings] })
+            if (!settled) return NodeJS.send({ eventName: 'torrent:init', args: [{ settings, requestId }] })
           }).catch(reject)
         })
       } finally {

@@ -52,6 +52,8 @@ ForegroundService.createNotificationChannel({
  * @type {any}
  */
 let torrentPort = null
+/** @type {string|null} */
+let portRequest = null
 /** Awaitable proxy for the connected torrent worker.
  * @type {ReturnType<typeof createRemote>}
  */
@@ -68,6 +70,7 @@ window.torrent = {
    * @returns {void}
    */
   reload: () => {
+    portRequest = null
     client.disconnect()
     ipcWire.send('torrent:reload')
   },
@@ -229,20 +232,31 @@ window.torrent = {
    * @returns {Promise<void>}
    */
   portRequest: async (settings) => {
-    if (torrentPort) client.disconnect()
-    await torrentPort?.close()
+    const requestId = Date.now() + ':' + Math.random()
+    const assertRequest = () => {
+      if (requestId !== portRequest) throw new Error('Torrent connection request superseded')
+    }
+    portRequest = requestId
+    const previous = torrentPort
     torrentPort = null
+    if (previous) client.disconnect()
+    let port
     try {
-      torrentPort = await ipcWire.invoke('torrent:portRequest', settings)
+      await previous?.close()
+      assertRequest()
+      port = await ipcWire.invoke('torrent:portRequest', { settings, requestId })
+      assertRequest()
+      await port.onmessage(event => {
+        if (torrentPort === port) client.receive(event)
+      })
+      assertRequest()
+      torrentPort = port
+      client.connect(port.postMessage.bind(port))
     } catch (error) {
-      client.disconnect(error)
+      await port?.close()
+      if (requestId === portRequest) client.disconnect(error)
       throw error
     }
-    const port = torrentPort
-    await torrentPort.onmessage(event => {
-      if (torrentPort === port) client.receive(event)
-    })
-    client.connect(torrentPort.postMessage.bind(torrentPort))
   }
 }
 
