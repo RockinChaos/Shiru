@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install --global pnpm@10.34.1 \
+RUN corepack enable pnpm \
+    && corepack install --global pnpm@10.34.1 \
     && pnpm config set store-dir /pnpm/store
 
 # Reuse libnode from the existing capacitor-nodejs package.

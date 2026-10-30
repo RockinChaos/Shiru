@@ -9,7 +9,6 @@ shopt -s nullglob
 # Dependencies are installed without host lifecycle scripts, each addon is built below.
 rm -rf node_modules
 pnpm install --frozen-lockfile --ignore-scripts --node-linker=hoisted
-node_gyp="$(npm root -g)/npm/node_modules/node-gyp/bin/node-gyp.js"
 
 toolchain_folder=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
 export PATH=$toolchain_folder:$PATH
@@ -34,7 +33,7 @@ for ((i=0;i<${#toolchain_target_archs[@]};i++)); do
   echo "Rebuilding for $node_target_arch"
   for package_dir in node_modules/*; do
     [ -f "$package_dir/binding.gyp" ] || continue
-    node "$node_gyp" rebuild --directory="$package_dir" \
+    pnpm run rebuild:native --directory="$package_dir" \
       --arch="$node_target_arch" --nodedir="$LIBNODE_PATH" -- -f make-android
 
     files=("$package_dir"/build/Release/*.node)
