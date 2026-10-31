@@ -78,7 +78,9 @@ module.exports = [
       port: 5000
     }
   },
-  commonConfig(__dirname, {}, 'browser', 'app'),
+  commonConfig(__dirname, {
+    'jassub/dist/jassub-worker.wasm.js$': false
+  }, 'browser', 'app'),
   {
     name: 'preload',
     devtool: 'source-map',
