@@ -1,119 +1,88 @@
-diff --git a/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotification.java b/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotification.java
-index 7463256d40cdf87580e2b7d20a29cf6f80de281a..eb0bff4429c22ebd81879e214f5ad888fabfe931 100644
---- a/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotification.java
-+++ b/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotification.java
-@@ -1,5 +1,6 @@
- package com.capacitorjs.plugins.localnotifications;
- 
-+import android.net.Uri;
- import android.content.ContentResolver;
- import android.content.Context;
- import android.graphics.Bitmap;
-@@ -107,7 +108,15 @@ public class LocalNotification {
-     }
- 
-     public void setLargeIcon(String largeIcon) {
--        this.largeIcon = AssetUtil.getResourceBaseName(largeIcon);
-+		if (largeIcon == null) {
-+			this.largeIcon = null;
-+			return;
-+		}
-+		if (largeIcon.startsWith("http://") || largeIcon.startsWith("https://") || largeIcon.startsWith("file://")) {
-+			this.largeIcon = largeIcon;
-+		} else {
-+			this.largeIcon = AssetUtil.getResourceBaseName(largeIcon);
-+		}
-     }
- 
-     public void setInboxList(List<String> inboxList) {
-@@ -343,21 +352,55 @@ public class LocalNotification {
- 
-         return resId;
-     }
--
--    public Bitmap getLargeIcon(Context context) {
--        if (largeIcon != null) {
-+	
-+	public Bitmap getLargeIcon(Context context) {
-+		if (largeIcon != null) {
-+			try {
-+				final AssetUtil assets = AssetUtil.getInstance(context);
-+				Uri uri = assets.parse(largeIcon);
-+				if (uri != Uri.EMPTY) {
-+					return assets.getIconFromUri(uri);
-+				} else {
-+					return getLargeDrawableIcon(context);
-+				}
-+			} catch (Exception e) {
-+				return getLargeDrawableIcon(context);
-+			}
-+		}
-+		return null;
-+	}
-+	
-+	public Bitmap getLargeDrawableIcon(Context context) {
-+		if (largeIcon != null) {
-             int resId = AssetUtil.getResourceID(context, largeIcon, "drawable");
-             return BitmapFactory.decodeResource(context.getResources(), resId);
--        }
--
--        return null;
--    }
-+		}
-+		return null;
-+	}
-+		
- 
-     public boolean isScheduled() {
-         return (
-             this.schedule != null && (this.schedule.getOn() != null || this.schedule.getAt() != null || this.schedule.getEvery() != null)
-         );
-     }
-+	
-+	public Bitmap getBigImage(Context context) {
-+	  if (attachments != null && attachments.size() > 0) {
-+		try {
-+		  LocalNotificationAttachment bp = attachments.get(0);
-+		  String bpUrl = bp.getUrl();
-+		  final AssetUtil assets = AssetUtil.getInstance(context);
-+		  Uri uri = assets.parse(bpUrl);
-+		  if (uri != Uri.EMPTY) {
-+			return assets.getIconFromUri(uri);
-+		  }
-+		} catch (Exception e){
-+		  e.printStackTrace();
-+		}
-+	  }
-+	  return null;
-+	}
- 
-     @Override
-     public String toString() {
-diff --git a/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java b/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java
-index a1c896f39b64a13a043465dcd45479c52eb9dc42..ea88397bd3a371a36082bf9d2928c3263c357ef2 100644
---- a/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java
-+++ b/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java
-@@ -171,7 +171,8 @@ public class LocalNotificationManager {
-             .setAutoCancel(localNotification.isAutoCancel())
-             .setOngoing(localNotification.isOngoing())
-             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
--            .setGroupSummary(localNotification.isGroupSummary());
-+            .setGroupSummary(localNotification.isGroupSummary())
-+            .setShowWhen(false);
- 
-         if (localNotification.getLargeBody() != null) {
-             // support multiline text
-@@ -182,6 +183,13 @@ public class LocalNotificationManager {
-             );
+diff --git a/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotification.kt b/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotification.kt
+index 7646cc97..ee026765 100644
+--- a/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotification.kt
++++ b/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotification.kt
+@@ -4,6 +4,7 @@ import android.content.ContentResolver
+ import android.content.Context
+ import android.graphics.Bitmap
+ import android.graphics.BitmapFactory
++import android.net.Uri
+ import com.getcapacitor.JSArray
+ import com.getcapacitor.JSObject
+ import com.getcapacitor.PluginCall
+@@ -52,14 +53,18 @@ class LocalNotification {
+      */
+     var cancelled: Boolean = false
+
+-    // Icons are stored as their bare resource base name.
++    // Small icons are stored as their bare resource base name.
+     var smallIcon: String? = null
+         set(value) {
+             field = AssetUtil.getResourceBaseName(value)
          }
- 
-+		if (localNotification.getAttachments() != null) {
-+		  mBuilder.setStyle(
-+			new NotificationCompat.BigPictureStyle()
-+			  .bigPicture(localNotification.getBigImage(context))
-+			);
-+		}
+     var largeIcon: String? = null
+         set(value) {
+-            field = AssetUtil.getResourceBaseName(value)
++            field = if (value != null && (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("file://"))) {
++                value
++            } else {
++                AssetUtil.getResourceBaseName(value)
++            }
+         }
+
+     fun resolveSound(context: Context, defaultSound: Int): String? {
+@@ -85,12 +90,31 @@ class LocalNotification {
+
+     fun resolveLargeIcon(context: Context): Bitmap? {
+         largeIcon?.let {
++            try {
++                val assets = AssetUtil.getInstance(context)
++                val uri = assets.parse(it)
++                if (uri != Uri.EMPTY) {
++                    assets.getIconFromUri(uri)?.let { icon -> return icon }
++                }
++            } catch (ignored: Exception) {
++            }
+             val resId = AssetUtil.getResourceID(context, it, "drawable")
+             return BitmapFactory.decodeResource(context.resources, resId)
+         }
+         return null
+     }
+
++    fun resolveBigImage(context: Context): Bitmap? {
++        val source = attachments?.firstOrNull()?.url ?: return null
++        return try {
++            val assets = AssetUtil.getInstance(context)
++            val uri = assets.parse(source)
++            if (uri != Uri.EMPTY) assets.getIconFromUri(uri) else null
++        } catch (ignored: Exception) {
++            null
++        }
++    }
 +
-         if (localNotification.getInboxList() != null) {
-             NotificationCompat.InboxStyle inboxStyle = new NotificationCompat.InboxStyle();
-             for (String line : localNotification.getInboxList()) {
+     fun isScheduled(): Boolean {
+         val s = schedule ?: return false
+         return s.on != null || s.at != null || s.every != null
+diff --git a/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt b/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt
+index 72c31a70..103e66b7 100644
+--- a/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt
++++ b/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt
+@@ -159,6 +159,7 @@ class LocalNotificationManager(
+             .setOngoing(localNotification.ongoing)
+             .setPriority(if (foreground) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+             .setGroupSummary(localNotification.groupSummary)
++            .setShowWhen(false)
+
+         localNotification.badge?.let { mBuilder.setNumber(it) }
+
+@@ -170,6 +171,10 @@ class LocalNotificationManager(
+             )
+         }
+
++        localNotification.resolveBigImage(context)?.let { image ->
++            mBuilder.setStyle(NotificationCompat.BigPictureStyle().bigPicture(image))
++        }
++
+         localNotification.inboxList?.let { lines ->
+             val inboxStyle = NotificationCompat.InboxStyle()
+             for (line in lines) inboxStyle.addLine(line)
