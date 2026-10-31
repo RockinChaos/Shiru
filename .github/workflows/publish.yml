@@ -6,6 +6,7 @@ on:
 
 jobs:
   upload-storage:
+    if: github.repository == 'RockinChaos/Shiru'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -59,7 +60,7 @@ jobs:
           done
 
   publish-gitlab:
-    if: github.event.release.prerelease == false
+    if: github.repository == 'RockinChaos/Shiru' && github.event.release.prerelease == false
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,7 +127,7 @@ jobs:
           fi
 
   publish-codeberg:
-    if: github.event.release.prerelease == false
+    if: github.repository == 'RockinChaos/Shiru' && github.event.release.prerelease == false
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
