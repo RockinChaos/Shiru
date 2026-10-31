@@ -44,7 +44,7 @@
     "cordova-plugin-screen-orientation": "^3.0.4",
     "cordova-plugin-secure-logger": "^1.4.17",
     "es6-promise-plugin": "^4.2.2",
-    "fake-indexeddb": "^6.2.6",
+    "fake-indexeddb": "^6.2.7",
     "yaml": "^2.9.1"
   }
 }

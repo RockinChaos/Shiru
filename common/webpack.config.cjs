@@ -14,7 +14,6 @@ module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'ap
     css: true
   },
   entry: [join(__dirname, 'main.js')],
-  stats: { warnings: false },
   output: {
     path: join(parentDir, 'build'),
     filename: 'renderer.js'

@@ -11,7 +11,6 @@ module.exports = [
   {
     name: 'background',
     devtool: 'source-map',
-    stats: { warnings: false },
     entry: join(__dirname, 'src', 'background', 'background.js'),
     output: {
       path: join(__dirname, 'build'),
@@ -84,7 +83,6 @@ module.exports = [
   {
     name: 'preload',
     devtool: 'source-map',
-    stats: { warnings: false },
     entry: join(__dirname, 'src', 'preload', 'preload.js'),
     output: {
       path: join(__dirname, 'build'),
