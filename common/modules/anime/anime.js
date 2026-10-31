@@ -139,6 +139,44 @@ export function getMediaMaxEp (media, playable) {
   else return Math.max(media.airingSchedule?.nodes?.[media.airingSchedule?.nodes?.length - 1]?.episode || 0, media.airingSchedule?.nodes?.length || 0, (!media.streamingEpisodes || (media.status === 'FINISHED' && media.episodes) ? 0 : media.streamingEpisodes?.filter((ep) => { const match = (/Episode (\d+(\.\d+)?) - /).exec(ep.title); return match ? Number.isInteger(parseFloat(match[1])) : false }).length), media.episodes || 0, media.nextAiringEpisode?.episode || 0) || (media.status === 'RELEASING' ? (media.mediaListEntry?.progress ?? 1) : 0)
 }
 
+/**
+ * Returns the mapped episode count for a media entry, taking into account the known episode count and any additional information from the mappings.
+ * @param media
+ * @param mappings
+ * @returns {number}
+ */
+export function getMappedEpisodeCount(media, mappings) {
+  const count = mappings?.episodeCount
+  const knownCount = media?.episodes
+  if (media?.status !== 'FINISHED' || !knownCount || !(count > knownCount)) return count
+
+  if (media.airingSchedule?.nodes?.some(node => node.episode > knownCount) ||
+    media.streamingEpisodes?.some(episode => Number(/^Episode (\d+) - /.exec(episode.title)?.[1]) > knownCount)) return count
+
+  const regularEpisodes = Object.entries(mappings.episodes || {}).filter(([key]) => Number.isInteger(Number(key)) && Number(key) > 0)
+  // A movie split into streaming parts can legitimately have a much larger episode count.
+  const runtimes = regularEpisodes.map(([, episode]) => Number(episode.length || episode.runtime))
+  const totalRuntime = runtimes.reduce((sum, runtime) => sum + runtime, 0)
+  const splitMovie = media.duration > 0 && regularEpisodes.length === count && runtimes.every(runtime => runtime > 0) &&
+    totalRuntime >= media.duration * 0.75 && totalRuntime <= media.duration * 1.25
+  if (knownCount === 1 && splitMovie) return count
+
+  // A completed one-episode release mapped to an entire season is suspicious even without dates.
+  if (knownCount === 1 && count >= 6) return knownCount
+
+  const end = media.endDate
+  if (!end?.year || !end.month || !end.day) return count
+  const endTime = Date.UTC(end.year, end.month - 1, end.day)
+  const tolerance = 30 * 24 * 60 * 60 * 1_000 // 30 days
+  const episodeDate = episode => Date.parse(episode?.airDateUtc || episode?.airdate || episode?.airDate)
+  const lastDate = episodeDate(mappings.episodes?.[knownCount])
+  const extras = regularEpisodes.filter(([key]) => Number(key) > knownCount)
+  // Require a matching final episode and complete evidence that the extras aired after this entry ended.
+  if (Math.abs(lastDate - endTime) <= tolerance && extras.length === count - knownCount &&
+    extras.every(([, episode]) => episodeDate(episode) > endTime + tolerance)) return knownCount
+  return count
+}
+
 // utility method for correcting anitomyscript woes for what's needed
 export async function anitomyscript (...args) {
   // @ts-ignore
