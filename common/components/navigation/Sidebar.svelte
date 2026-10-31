@@ -6,7 +6,7 @@
   import { status, previousStatus } from '@/modules/networking.js'
   import { ELECTRON, COMMON } from '@/modules/bridge.js'
   import { fadeIn, fadeOut } from '@/modules/util.js'
-  import { MoveLeft, MoveRight } from 'lucide-svelte'
+  import { ChevronLeft, ChevronRight } from 'lucide-svelte'
   import { settings } from '@/modules/settings.js'
   import { click } from '@/modules/lib/click.js'
   import { writable } from 'simple-store-svelte'
@@ -58,10 +58,10 @@
     <div class='w-50 top-0 flex-shrink-0 pointer-events-none {$status !== 'online' ? `h-25` : `${COMMON.getPlatformInfo().platform === `darwin` && !fullScreen ? `h-25` : `h-0`}`}' class:status-transition={statusTransition}/>
     <div class='d-flex justify-content-center z-102' style='width: var(--sidebar-width); margin-top: 1rem !important'>
       <NavLink sidebar={true} center={false} click={goBack} class={`h-auto w-30 ${$canGoBack ? 'active' : ''}`} css='rounded-left-block p-0 m-0'>
-        <MoveLeft size='2.5rem' class='flex-shrink-0 rounded m-0' strokeWidth='2.5' />
+        <ChevronLeft size='2.5rem' class='flex-shrink-0 rounded m-0' strokeWidth='2.5' />
       </NavLink>
       <NavLink sidebar={true} center={false} click={goForward} class={`h-auto w-30 ${$canGoForward ? 'active' : ''}`} css='rounded-right-block p-0 m-0'>
-        <MoveRight size='2.5rem' class='flex-shrink-0 rounded m-0' strokeWidth='2.5' />
+        <ChevronRight size='2.5rem' class='flex-shrink-0 rounded m-0' strokeWidth='2.5' />
       </NavLink>
     </div>
     <div class='d-flex flex-column align-items-center' style='width: var(--sidebar-width)'>
