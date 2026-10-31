@@ -945,12 +945,14 @@ aniLimiter.on('failed', async (error) => {
 })
 
 export async function getAniMappings(opts) {
+  const corrections = correctAniMappings(opts)
+  opts = corrections.options
   if (!opts?.id && !opts?.idMal) return
   const cacheKey = opts.id ? `ani-${opts.id}` : `mal-${opts.idMal}`
   const cachedEntry = cache.cachedEntry(caches.QUERY_MAPPINGS, cacheKey, status.value === 'offline')
-  if (cachedEntry) return cachedEntry
+  if (cachedEntry) return corrections.apply(await cachedEntry)
   else if (status.value === 'offline') return
-  if (concurrentRequests.has(cacheKey)) return concurrentRequests.get(cacheKey)
+  if (concurrentRequests.has(cacheKey)) return corrections.apply(await concurrentRequests.get(cacheKey))
   const requestPromise = aniLimiter.wrap(async () => {
     await aniRateLimitPromise
     let res
@@ -995,7 +997,28 @@ export async function getAniMappings(opts) {
     concurrentRequests.delete(cacheKey)
   })
   concurrentRequests.set(cacheKey, requestPromise)
-  return requestPromise
+  return corrections.apply(await requestPromise)
+}
+
+// TODO: Find a better way to handle this instead of hardcoding.
+function correctAniMappings(opts) {
+  const id = Number(opts?.id)
+  return {
+    options: id === 210482 ? { ...opts, id: 190327 } : opts,
+    apply(mappings) {
+      const steelBallRun = id === 190327 || id === 210482
+      if (!steelBallRun || !mappings?.episodes) return mappings
+
+      // AniList splits Steel Ball Run after episode 1
+      const episodes = Object.fromEntries(Object.entries(mappings.episodes)
+        .filter(([key]) => id === 190327 ? key === '1' : Number.isInteger(Number(key)) && Number(key) > 1)
+        .map(([key, episode]) => {
+          const number = id === 190327 ? key : String(Number(key) - 1)
+          return [number, { ...episode, episode: number }]
+        }))
+      return { ...mappings, episodes, episodeCount: Object.keys(episodes).length, specialCount: 0 }
+    }
+  }
 }
 
 function checkError(error, type) {
