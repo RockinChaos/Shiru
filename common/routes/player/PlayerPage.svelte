@@ -33,7 +33,7 @@
   import 'rvfc-polyfill'
   import { ELECTRON, ANDROID, TORRENT } from '@/modules/bridge.js'
   import { unload, currentStats } from '@/modules/torrent.js'
-  import { Settings, Gauge, Timer, X, Minus, Captions, CaptionsOff, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone, ClockArrowDown, ClockArrowUp } from 'lucide-svelte'
+  import { Settings, Gauge, Timer, X, Minus, Captions, CaptionsOff, CircleHelp, Contrast, FastForward, Keyboard, EllipsisVertical, SquareArrowOutUpRight, List, Eye, FilePlus2, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Volume1, Volume2, VolumeX, SlidersVertical, SquarePen, Milestone, ClockArrowDown, ClockArrowUp, Info } from 'lucide-svelte'
   import Debug from 'debug'
   const debug = Debug('ui:player')
 
@@ -1139,7 +1139,7 @@
       </div>
     {/if}
     <div class='d-flex justify-content-center bottom-0 d-title d-filler' class:col-4={$settings.playerTitleTop}>
-      <TorrentStats visible={!SUPPORTS.isAndroid || !$pictureInPicture} />
+      <TorrentStats visible={$settings.playerTorrentStats && (!SUPPORTS.isAndroid || !$pictureInPicture)} />
       {#if resolvePrompt}
         <div class='position-absolute text-monospace rounded skipPrompt d-flex flex-column align-items-center text-center bg-dark-light p-20 z-50 mt-60' class:w-500={SUPPORTS.isAndroid}>
           <div class='skipFont'>
@@ -1378,6 +1378,12 @@
             value: $settings.playerDeband ? 'On' : 'Off',
             onSelect: () => { $settings.playerDeband = !$settings.playerDeband }
           }] : []),
+          {
+            icon: Info,
+            label: 'Torrent Stats',
+            value: $settings.playerTorrentStats ? 'On' : 'Off',
+            onSelect: () => { $settings.playerTorrentStats = !$settings.playerTorrentStats }
+          },
           {
             icon: List,
             label: 'Stats',
