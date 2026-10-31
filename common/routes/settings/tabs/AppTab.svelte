@@ -85,7 +85,7 @@
   function updateDebug (debug) {
     Debug.disable()
     if (debug) Debug.enable(debug)
-    TORRENT.debug(debug)
+    TORRENT.debug(debug).catch(error => console.warn('Failed to update torrent debug filter', error))
   }
 
   $: updateDebug($debugStore)

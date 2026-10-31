@@ -33,4 +33,4 @@ include ':capacitor-intent-uri'
 project(':capacitor-intent-uri').projectDir = new File('../../node_modules/.pnpm/capacitor-intent-uri@0.0.2_@capacitor+core@8.5.2/node_modules/capacitor-intent-uri/android')
 
 include ':capacitor-nodejs'
-project(':capacitor-nodejs').projectDir = new File('../../node_modules/.pnpm/capacitor-nodejs@https+++gi_076957948b75bcc7b2f29dc521328f25/node_modules/capacitor-nodejs/android')
+project(':capacitor-nodejs').projectDir = new File('../../node_modules/.pnpm/capacitor-nodejs@https+++gi_5334aade9d35e1d2e582ab5217102deb/node_modules/capacitor-nodejs/android')

@@ -1,27 +1,40 @@
+import { createTorrentHost } from '@client/lib/ipc.js'
 import { ipcRenderer } from 'electron'
-import { statfs } from 'fs/promises'
 
-async function diskSpace(directory) {
-  const { bsize, blocks, bavail } = await statfs(directory)
-  return { total: bsize * blocks, free: bsize * bavail }
+/** @type {ReturnType<typeof createTorrentHost>|undefined|null} */
+let host
+/** @type {Promise<void>|undefined} */
+let destroying
+/** @type {string|null} */
+let initialization = null
+
+/**
+ * Stops the current host before another initialization, allowing five seconds for shutdown.
+ * @returns {Promise<void>} Shared shutdown completion.
+ */
+function destroy() {
+  if (destroying) return destroying
+  const previous = host
+  host = null
+  destroying = Promise.race([
+    previous?.destroy(),
+    new Promise(resolve => setTimeout(resolve, 5_000).unref?.())
+  ]).finally(() => { destroying = undefined })
+  return destroying
 }
 
-let heartbeatId
-function setHeartBeat() {
-  heartbeatId = setInterval(() => ipcRenderer.send('webtorrent-heartbeat'), 500)
-}
-
-setHeartBeat()
-ipcRenderer.on('main-heartbeat', async (event, settings) => {
-  clearInterval(heartbeatId)
-  const { default: TorrentClient } = await import('webtorrent-client')
-  globalThis.client = new TorrentClient(ipcRenderer, diskSpace, 'node', settings)
+ipcRenderer.on('torrent:init', async (event, { settings, requestId }) => {
+  initialization = requestId
+  try {
+    await destroy()
+    if (requestId !== initialization) throw new Error('Torrent initialization superseded')
+    host = createTorrentHost(ipcRenderer, settings)
+    ipcRenderer.send('torrent:ready', requestId)
+  } catch (error) {
+    ipcRenderer.send('torrent:init-error', requestId, error.message)
+  }
 })
-ipcRenderer.on('torrent:reload', async () => {
-  globalThis.client?.destroy()
-  await new Promise(resolve => {
-    ipcRenderer.once('destroyed', resolve)
-    setTimeout(resolve, 5000).unref?.()
-  })
-  setHeartBeat()
+ipcRenderer.on('torrent:reload', () => {
+  initialization = null
+  destroy().catch(console.error)
 })

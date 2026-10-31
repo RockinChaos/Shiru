@@ -21,12 +21,23 @@ Style: Default, ${settings.value.font?.name.toLowerCase() || 'Roboto Medium'},52
 `
 const stylesRx = /^Style:[^,]*/gm
 export default class Subtitles {
+  /**
+   * Initializes subtitle delivery and loads tracks after playback is selected.
+   * @param {HTMLVideoElement} video Video element used for subtitle rendering.
+   * @param {object[]} files Available torrent files.
+   * @param {object|null} selected Selected video file.
+   * @param {() => void} onHeader Refreshes subtitle choices when headers arrive.
+   */
   constructor (video, files, selected, onHeader) {
     this.video = video
     this.selected = selected || null
     this.files = files || []
     this.headers = []
     this.tracks = []
+    /** @type {{subtitle: any, trackNumber: number}[]} */
+    this.pendingSubtitles = []
+    /** @type {boolean} */
+    this.tracksReady = false
     this._tracksString = []
     this._stylesMap = []
     this.fonts = ['/Roboto.ttf', './NotoSansCJK.otf']
@@ -39,15 +50,26 @@ export default class Subtitles {
     this.videoFiles = files.filter(file => videoRx.test(file.name))
     this.subtitleFiles = []
     this.timeout = null
+    /** Registers a remotely exposed font file.
+     * @param {{url: string}} detail Font attachment URL.
+     * @returns {void}
+     */
     this.handleFile = detail => {
       if (!this.selected || !detail?.url) return
       this.fonts.push(detail.url)
       this.renderer?.addFont(detail.url)
     }
+    /** Buffers or renders a subtitle packet for its track.
+     * @param {{subtitle: any, trackNumber: number}} packet Subtitle packet and track identifier.
+     * @returns {void}
+     */
     this.handleSubtitle = ({ subtitle, trackNumber }) => {
       if (!this.selected) return
       const seen = this._tracksString[trackNumber]
-      if (!seen) return
+      if (!seen) {
+        if (!this.tracksReady) this.pendingSubtitles.push({ subtitle, trackNumber })
+        return
+      }
       const string = JSON.stringify(subtitle)
       if (seen.has(string)) return
       const assSub = this.constructSub({ ...subtitle }, this.headers[trackNumber].type !== 'ass', this.tracks[trackNumber].length, trackNumber)
@@ -56,6 +78,10 @@ export default class Subtitles {
       if (this.current === trackNumber) this.renderer?.createEvent(assSub)
     }
 
+    /** Initializes track headers, drains queued packets, and selects a subtitle language.
+     * @param {any[]} detail Parsed subtitle tracks.
+     * @returns {void}
+     */
     this.handleTracks = (detail) => {
       if (this.selected) {
         for (const track of detail) {
@@ -76,6 +102,10 @@ export default class Subtitles {
 
             this.onHeader()
           }
+        }
+        this.tracksReady = true
+        for (const subtitle of this.pendingSubtitles.splice(0)) {
+          if (this._tracksString[subtitle.trackNumber]) this.handleSubtitle(subtitle)
         }
         this.initSubtitleRenderer()
         const tracks = this.headers?.filter(t => t)
@@ -108,12 +138,24 @@ export default class Subtitles {
         if (subRx.test(file.name)) this.addSingleSubtitleFile(file)
       }
     }
-    this.handleSubtitleFile = (detail) => {
-      this.addSingleSubtitleFile(new File([detail.data], detail.name))
+    this.handleSubtitleFile = async (detail) => {
+      if (!this.selected) return
+      try {
+        const response = await fetch(detail.url)
+        if (!response.ok) throw new Error('Subtitle attachment request failed: ' + response.status)
+        const data = await response.arrayBuffer()
+        if (this.selected) await this.addSingleSubtitleFile(new File([data], detail.name))
+      } catch (error) {
+        if (this.selected) console.warn('Failed to load subtitle file', error)
+      }
     }
 
-    TORRENT.onTracks(this.handleTracks)
     TORRENT.onSubtitles(this.handleSubtitle, this.handleFile, this.handleSubtitleFile)
+      .catch(error => console.warn('Failed to subscribe to subtitles', error))
+    TORRENT.getTracks().then(tracks => {
+      if (tracks && this.selected) this.handleTracks(tracks)
+    }).catch(error => console.warn('Failed to read tracks', error))
+
     clipboard.addEventListener('text', this.handleClipboardText)
     clipboard.addEventListener('files', this.handleClipboardFiles)
   }
@@ -137,6 +179,7 @@ export default class Subtitles {
     this.onHeader()
     this.tracks[index] = []
     const subtitles = Subtitles.convertSubText(await file.text(), type)
+    if (!this.selected) return
     if (subtitles) {
       if (type === 'ass') this.headers[index].header = subtitles
       else this.headers[index].header += subtitles.join('\n')
@@ -166,7 +209,7 @@ export default class Subtitles {
         },
         workerUrl: new URL('jassub/dist/jassub-worker.js', import.meta.url).toString(),
         wasmUrl: new URL('jassub/dist/jassub-worker.wasm', import.meta.url).toString(),
-        legacyWasmUrl: new URL('jassub/dist/jassub-worker.wasm.js', import.meta.url).toString(),
+        legacyWasmUrl: SUPPORTS.isAndroid ? new URL('jassub/dist/jassub-worker.wasm.js', import.meta.url).toString() : undefined,
         modernWasmUrl: new URL('jassub/dist/jassub-worker-modern.wasm', import.meta.url).toString(),
         useLocalFonts: settings.value.missingFont,
         dropAllBlur: settings.value.disableSubtitleBlur
@@ -291,8 +334,7 @@ export default class Subtitles {
   }
 
   destroy () {
-    TORRENT.offTracks()
-    TORRENT.offSubtitles()
+    TORRENT.offSubtitles().catch(error => console.warn('Failed to stop subtitles', error))
     clipboard.removeEventListener('text', this.handleClipboardText)
     clipboard.removeEventListener('files', this.handleClipboardFiles)
     this.stream?.destroy()
@@ -301,6 +343,7 @@ export default class Subtitles {
     this.files = null
     this.video = null
     this.selected = null
+    this.pendingSubtitles = []
     this.tracks = null
     this.headers = null
     this.onHeader()

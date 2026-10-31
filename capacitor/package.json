@@ -3,17 +3,16 @@
   "packageManager": "pnpm@10.34.1",
   "private": true,
   "scripts": {
-    "build:native": "cd public/nodejs/ && npm install && docker build -t android-build:latest . && docker run -v ${PWD}:/app/ android-build:latest /bin/bash /app/setup-deps.sh",
-    "build:native-win": "cd public\\nodejs && docker build --no-cache -t android-build:latest . && for %I in (.) do docker run --rm -v %~fI:/app/ -it android-build:latest /bin/bash /app/setup-deps.sh",
+    "build:native": "cd public/nodejs/ && docker build --build-context libnode=../../node_modules/capacitor-nodejs/android/libnode -t android-build:latest . && docker run -v ${PWD}:/app/ android-build:latest /bin/bash /app/setup-deps.sh",
+    "build:native-win": "cd public\\nodejs && docker build --no-cache --build-context libnode=../../node_modules/capacitor-nodejs/android/libnode -t android-build:latest . && for %I in (.) do docker run --rm -v %~fI:/app/ -it android-build:latest /bin/bash /app/setup-deps.sh",
     "build:app": "cross-env NODE_ENV=production run-s build:native build:web && cross-env NODE_ENV=production cap sync android",
     "build:web": "webpack build",
     "build:assets": "capacitor-assets generate --iconBackgroundColor #EBEBEB --iconBackgroundColorDark #EBEBEB --splashBackgroundColor #EBEBEB --splashBackgroundColorDark #EBEBEB --android --logoSplashScale 0.3",
-    "dev:adb-port": "adb reverse tcp:5001 tcp:5001",
-    "dev:ios": "run-p dev:start cap-run:ios",
+    "dev:ios": "cross-env NODE_ENV=development DEV_APP=ios webpack serve",
     "dev:android": "cap run android",
-    "dev:android-port": "run-s dev:android dev:adb-port",
+    "dev:android-port": "cap run android --forwardPorts 5001:5001",
     "dev:preview": "vite preview",
-    "dev:start": "run-p dev:webpack dev:android-port",
+    "dev:start": "cross-env NODE_ENV=development DEV_APP=android webpack serve",
     "dev:webpack": "webpack serve",
     "test:e2e": "cross-env NODE_ENV=production run-s build:web dev:android"
   },
@@ -35,7 +34,7 @@
     "@capacitor/toast": "^8.0.1",
     "@capawesome-team/capacitor-android-foreground-service": "^8.1.0",
     "capacitor-intent-uri": "^0.0.2",
-    "capacitor-nodejs": "https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.14/capacitor-nodejs-1.0.0-beta.14.tgz",
+    "capacitor-nodejs": "https://github.com/RockinChaos/capacitor-nodejs/releases/download/v1.0.0-beta.16/capacitor-nodejs-1.0.0-beta.16.tgz",
     "client": "workspace:*",
     "common": "workspace:*",
     "cordova-plugin-apkupdater": "^5.0.1",
@@ -45,7 +44,7 @@
     "cordova-plugin-screen-orientation": "^3.0.4",
     "cordova-plugin-secure-logger": "^1.4.17",
     "es6-promise-plugin": "^4.2.2",
-    "fake-indexeddb": "^6.2.5",
+    "fake-indexeddb": "^6.2.7",
     "yaml": "^2.9.1"
   }
 }

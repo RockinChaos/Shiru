@@ -67,8 +67,8 @@ Want to contribute code? Great! Here's how:
 
 ### 📋 Prerequisites
 
-- **PNPM** (or any package manager)
-- **Node.js 24.19.0**
+- **pnpm 10.34.1**
+- **Node.js 24.22.1**
 - **Visual Studio 2022** (if on Windows)
 - **Docker** (with WSL if on Windows)
 - **ADB & Android Studio** (SDK 34) - for Android development
@@ -96,12 +96,12 @@ pnpm install --frozen-lockfile
 
 4. Start development mode:
 ```bash
-npm run start
+pnpm run start
 ```
 
 5. Build for release:
 ```bash
-npm run build
+pnpm run build
 ```
 
 #### 📱 Android

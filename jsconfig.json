@@ -19,9 +19,10 @@
       "three": ["./types.d.ts"],
       "rxjs": ["./types.d.ts"],
       "@client/*": ["./client/*"],
+      "bridge": ["./types.d.ts"],
       "debug": ["./common/modules/lib/debug.js"],
       "webtorrent-client": ["./client/core/webtorrent.js"],
-      "http-tracker": ["./node_modules/bittorrent-tracker/lib/client/http-tracker.js"]
+      "http-tracker": ["./types.d.ts"]
     },
     "types": ["node"]
   },

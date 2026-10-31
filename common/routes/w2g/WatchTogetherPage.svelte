@@ -4,7 +4,7 @@
   import { status } from '@/modules/networking.js'
   import { SUPPORTS } from '@/modules/support.js'
   import { page } from '@/modules/navigation.js'
-  import { COMMON, TORRENT } from '@/modules/bridge.js'
+  import { COMMON } from '@/modules/bridge.js'
   import { loadedTorrent } from '@/modules/torrent.js'
   import { settings } from '@/modules/settings.js'
   import { toast } from '@/modules/lib/toast.js'
@@ -47,8 +47,8 @@
 
   // Only allow host to change magnet.
   // TODO: Make this an optional setting.
-  TORRENT.onMagnet(magnet => {
-    if (state.value?.isHost) state.value.magnetLink(magnet)
+  loadedTorrent.subscribe(torrent => {
+    if (torrent?.magnetURI && state.value?.isHost && state.value.magnet?.hash !== torrent.infoHash) state.value.magnetLink({ magnet: torrent.magnetURI, hash: torrent.infoHash })
   })
 
   w2gEmitter.addEventListener('player', ({ detail }) => state.value?.playerStateChanged(detail))

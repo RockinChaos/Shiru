@@ -24,6 +24,8 @@
   let toasterEl
   /** @type {boolean} */
   let expanded = false
+  /** @type {string[]} */
+  let stackPausedIds = []
 
   /** Whether this toaster is anchored to the top of the screen */
   $: fromTop = position.startsWith('top')
@@ -37,16 +39,26 @@
   $: visibleIds = activeVisible.map(toast => toast.id)
   /** Visible toasts in render order, frontmost (newest) first */
   $: stackOrder = [...activeVisible].reverse()
-  /** Pauses auto-dismiss for visible toasts while the stack is expanded, resumes otherwise */
-  $: for (const id of visibleIds) (expanded ? toast.pause : toast.resume)(id)
+  /** Tracks stack-owned pauses so hidden toasts resume and updates do not interrupt drag pauses */
+  $: syncTimers(visibleIds, expanded)
   /** Cumulative pixel offset of each toast in stackOrder when the stack is expanded */
   $: expandedOffsets = getExpandedOffsets(stackOrder, heightsById, gap)
   /** Total height of the expanded stack, used to size the toaster container */
   $: expandedHeight = stackOrder.length ? expandedOffsets[expandedOffsets.length - 1] + (heightsById[stackOrder[stackOrder.length - 1]?.id] ?? 0) : 0
 
   /**
+   * Resumes toasts leaving the expanded stack without interrupting timers paused by dragging.
+   * @param {string[]} ids
+   * @param {boolean} isExpanded
+   */
+  function syncTimers(ids, isExpanded) {
+    for (const id of stackPausedIds) if (!isExpanded || !ids.includes(id)) toast.resume(id)
+    if (isExpanded) for (const id of ids) toast.pause(id)
+    stackPausedIds = isExpanded ? ids : []
+  }
+
+  /**
    * Computes each toast's cumulative vertical offset for the expanded (spaced-out) layout.
-   *
    * @param {import('@/modules/lib/toast.js').ToastData[]} order Toasts in display order
    * @param {Record<string, number>} heights Measured height per toast id
    * @param {number} spacing Pixel gap between toasts
@@ -64,7 +76,6 @@
   /**
    * Determines whether a toast of the given type is allowed to be shown under the given Toast Levels setting.
    * 'info'/'loading'/'default' toasts are always allowed, since they're typically important status updates rather than noise.
-   *
    * @param {string} type
    * @param {string} level current value of settings.toasts
    * @returns {boolean}
@@ -90,37 +101,37 @@
 <svelte:window on:click={handleWindowClick} />
 
 <div
-  class='toaster position-fixed z-105 wm-420 {$$restProps.class}'
-  class:expanded
-  style='height: {expandedHeight}px'
-  bind:this={toasterEl}
-  class:toaster-top-left={position === 'top-left'}
-  class:toaster-top-center={position === 'top-center'}
-  class:toaster-top-right={position === 'top-right'}
-  class:toaster-bottom-left={position === 'bottom-left'}
-  class:toaster-bottom-center={position === 'bottom-center'}
-  class:toaster-bottom-right={position === 'bottom-right'}
-  style:--menu-bar={!SUPPORTS.isAndroid ? '4rem' : '0rem'}
-  style:--top-bar={$page === page.SETTINGS && !$isLg ? '7rem' : '0rem'}
-  style:--miniplayer-left={(position.endsWith('left') && ($miniplayerPos.trim() === position.replace('-', ' '))) ? '3rem' : '0rem'}
-  style:--miniplayer-right={(position.endsWith('right') && ($miniplayerPos.trim() === position.replace('-', ' '))) ? '3rem' : '0rem'}
-  style:--seekbar-height={$page === page.PLAYER && (!$modal || !modal.length) ? '7rem' : '0rem'}
-  on:mouseenter={() => (expanded = true)}
-  on:mouseleave={() => (expanded = false)}
-  on:focusin={() => (expanded = true)}
-  on:focusout={() => (expanded = false)}
-  role='group'>
+    class='toaster position-fixed z-105 wm-420 {$$restProps.class}'
+    class:expanded
+    style='height: {expandedHeight}px'
+    bind:this={toasterEl}
+    class:toaster-top-left={position === 'top-left'}
+    class:toaster-top-center={position === 'top-center'}
+    class:toaster-top-right={position === 'top-right'}
+    class:toaster-bottom-left={position === 'bottom-left'}
+    class:toaster-bottom-center={position === 'bottom-center'}
+    class:toaster-bottom-right={position === 'bottom-right'}
+    style:--menu-bar={!SUPPORTS.isAndroid ? '4rem' : '0rem'}
+    style:--top-bar={$page === page.SETTINGS && !$isLg ? '7rem' : '0rem'}
+    style:--miniplayer-left={(position.endsWith('left') && ($miniplayerPos.trim() === position.replace('-', ' '))) ? '3rem' : '0rem'}
+    style:--miniplayer-right={(position.endsWith('right') && ($miniplayerPos.trim() === position.replace('-', ' '))) ? '3rem' : '0rem'}
+    style:--seekbar-height={$page === page.PLAYER && (!$modal || !modal.length) ? '7rem' : '0rem'}
+    on:mouseenter={() => (expanded = true)}
+    on:mouseleave={() => (expanded = false)}
+    on:focusin={() => (expanded = true)}
+    on:focusout={() => (expanded = false)}
+    role='group'>
   {#each stackOrder as data, index (data.id)}
     <div
-      class='toaster-item position-absolute left-0 right-0'
-      style:--y={`${signY * expandedOffsets[index]}px`}
-      style:--y-collapsed={`${signY * Math.min(index, 2) * peek}px`}
-      style:--scale-collapsed={Math.max(1 - index * .045, .9)}
-      style:--opacity-collapsed={Math.max(1 - index * .1, .7)}
-      style='z-index: {stackOrder.length - index};'
-      bind:clientHeight={heightsById[data.id]}
-      out:fade={{ duration: 150 }}>
-      <Toast {data} {position} {expanded} isFront={index === 0} onTap={() => (expanded = true)} />
+        class='toaster-item position-absolute left-0 right-0'
+        style:--y={`${signY * expandedOffsets[index]}px`}
+        style:--y-collapsed={`${signY * Math.min(index, 2) * peek}px`}
+        style:--scale-collapsed={Math.max(1 - index * .045, .9)}
+        style:--opacity-collapsed={Math.max(1 - index * .1, .7)}
+        style='z-index: {stackOrder.length - index};'
+        bind:clientHeight={heightsById[data.id]}
+        out:fade={{ duration: 150 }}>
+      <Toast {data} {expanded} isFront={index === 0} onTap={() => (expanded = true)} />
     </div>
   {/each}
 </div>

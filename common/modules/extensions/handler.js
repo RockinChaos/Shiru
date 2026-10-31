@@ -166,11 +166,10 @@ export async function updatePeerCounts(entries, cacheOnly = false) {
     return entries
   }
 
-  const id = Math.trunc(Math.random() * Number.MAX_SAFE_INTEGER).toString()
   debug(`Updating peer counts for ${toScrape.length} entries (${entries.length - toScrape.length} served from cache)`)
 
   const updated = await Promise.race([
-    TORRENT.scrape(id, entries.map(entry => entry.hash)),
+    TORRENT.scrape(entries.map(entry => entry.hash)),
     sleep(15_000).then(() => { throw new Error('Scrape timed out') })
   ]).catch(error => {
     debug('Scrape failed:', error.message)

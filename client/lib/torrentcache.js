@@ -7,7 +7,7 @@ export default class Cache {
 
   /**
    * Creates a new TorrentStore instance with a cache folder inside the given torrent path.
-   * @param {string} torrentPath - Base path where the cache folder will be created, this SHOULD be where WebTorrent is storing its files!
+   * @param {string} torrentPath Base path where the cache folder will be created, this SHOULD be where WebTorrent is storing its files!
    */
   constructor(torrentPath) {
     const targetPath = join(torrentPath, 'shiru-cache')
@@ -16,7 +16,7 @@ export default class Cache {
 
   /**
    * Reads and decodes a stored torrent entry by key.
-   * @param {string} key - The key (filename) to read.
+   * @param {string} key The key (filename) to read.
    * @returns {Promise<Object|null>} Decoded stored object or null if not found/error.
    */
   async get(key) {
@@ -38,9 +38,9 @@ export default class Cache {
 
   /**
    * Encodes and writes a value to storage by key.
-   * @param {string} key - The key (filename) to write.
-   * @param {Object} value - The value to encode and store.
-   * @param {boolean} bencoded - Whether the data should be bencoded or not, bencode is used by default.
+   * @param {string} key The key (filename) to write.
+   * @param {Object} value The value to encode and store.
+   * @param {boolean} bencoded Whether the data should be bencoded or not, bencode is used by default.
    * @returns {Promise<void>}
    */
   async set(key, value, bencoded = true) {
@@ -62,8 +62,8 @@ export default class Cache {
 
   /**
    * Deletes a stored entry by key.
-   * @param {string} key - The key (filename) to delete.
-   * @param {string|Promise<string>} [path] - Optional path to override the default cache folder, typically for the WebTorrent folder.
+   * @param {string} key The key (filename) to delete.
+   * @param {string|Promise<string>} [path] Optional path to override the default cache folder, typically for the WebTorrent folder.
    * @returns {Promise<void|null>}
    */
   async delete(key, path = null) {
@@ -76,8 +76,8 @@ export default class Cache {
 
   /**
    * Checks if a stored entry exists by key.
-   * @param {string} key - The key (filename) to check.
-   * @param {string|Promise<string>} [path] - Optional path to override the default cache folder, typically for the WebTorrent folder.
+   * @param {string} key The key (filename) to check.
+   * @param {string|Promise<string>} [path] Optional path to override the default cache folder, typically for the WebTorrent folder.
    * @returns {Promise<boolean>} True if exists, false otherwise.
    */
   async exists(key, path = null) {

@@ -89,7 +89,7 @@ export default class App {
     ipcMain.on('electron:showAndFocus', () => this.showAndFocus())
     ipcMain.on('minimize', () => this.mainWindow?.minimize())
     ipcMain.on('maximize', () => this.mainWindow?.isMaximized() ? this.mainWindow.unmaximize() : this.mainWindow.maximize())
-    ipcMain.on('webtorrent-restart', () => this.setWebTorrentWindow(true))
+    ipcMain.on('torrent:restart', () => this.setWebTorrentWindow(true))
     this.mainWindow.on('maximize', () => {
       saveWindowState(this.mainWindow)
       this.mainWindow.webContents.send('isMaximized', true)
@@ -215,22 +215,40 @@ export default class App {
       }
     })
 
-    ipcMain.handle('torrent:portRequest', async (event, settings) => {
-      const { port1, port2 } = new MessageChannelMain()
+    ipcMain.handle('torrent:portRequest', async (event, { settings, requestId }) => {
       this.torrentAlive = false
       await this.torrentLoad
-      return new Promise(resolve => {
-        ipcMain.once('webtorrent-heartbeat', () => {
-          if (this.destroyed || this.webtorrentWindow?.isDestroyed()) return resolve()
-          this.webtorrentWindow.webContents.postMessage('main-heartbeat', settings)
-          ipcMain.once('torrentRequest', () => {
-            if (this.destroyed || this.webtorrentWindow?.isDestroyed() || event.sender.isDestroyed()) return resolve()
-            this.webtorrentWindow.webContents.postMessage('torrent:port', null, [port1])
-            event.sender.postMessage('electron:torrentPort', null, [port2])
+      const worker = this.webtorrentWindow?.webContents
+      if (this.destroyed || !worker || worker.isDestroyed()) throw new Error('Torrent worker is unavailable')
+      const { port1, port2 } = new MessageChannelMain()
+      return new Promise((resolve, reject) => {
+        const finish = error => {
+          clearTimeout(timer)
+          ipcMain.removeListener('torrent:ready', onReady)
+          ipcMain.removeListener('torrent:init-error', onError)
+          if (error) {
+            port1.close()
+            port2.close()
+            reject(error)
+          } else resolve()
+        }
+        const onReady = (reply, id) => {
+          if (reply.sender !== worker || id !== requestId) return
+          try {
+            if (this.destroyed || worker.isDestroyed() || event.sender.isDestroyed()) throw new Error('Torrent connection closed')
+            worker.postMessage('torrent:port', null, [port1])
+            event.sender.postMessage('torrent:port', { requestId }, [port2])
             this.torrentAlive = true
-            resolve()
-          })
-        })
+            finish()
+          } catch (error) { finish(error) }
+        }
+        const onError = (reply, id, message) => {
+          if (reply.sender === worker && id === requestId) finish(new Error(message))
+        }
+        const timer = setTimeout(() => finish(new Error('Torrent initialization timed out')), 15_000)
+        ipcMain.on('torrent:ready', onReady)
+        ipcMain.on('torrent:init-error', onError)
+        try { worker.postMessage('torrent:init', { settings, requestId }) } catch (error) { finish(error) }
       })
     })
     ipcMain.on('torrent:reload', () => {
@@ -378,11 +396,11 @@ export default class App {
     try {
       if (this.webtorrentWindow && !this.webtorrentWindow.isDestroyed()) { // WebTorrent shouldn't ever be destroyed before main, but it's better to be safe.
         this.webtorrentWindow.webContents?.closeDevTools?.()
-        this.webtorrentWindow.webContents?.postMessage('destroy', null)
+        this.webtorrentWindow.webContents?.postMessage('torrent:destroy', null)
         if (this.torrentAlive) { // If the app hasn't fully started there may be no response from WebTorrent and no data to save, best to not wait.
           let resolveTimeout
           await new Promise(resolve => {
-            ipcMain.once('destroyed', resolve)
+            ipcMain.once('torrent:destroyed', resolve)
             resolveTimeout = setTimeout(resolve, 5_000)
             resolveTimeout.unref?.()
           })

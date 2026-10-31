@@ -10,27 +10,27 @@
   "homepage": "https://shiru.app/",
   "desktopName": "com.github.rockinchaos.shiru.desktop",
   "scripts": {
-    "start": "cross-env NODE_ENV=development webpack build && concurrently --kill-others \"npm run web:watch\" \"npm run electron:start\"",
+    "start": "cross-env NODE_ENV=development DEV_APP=electron webpack serve",
     "web:watch": "webpack serve",
     "web:build": "cross-env NODE_ENV=production webpack build",
     "electron:start": "electron ./build/main.js",
-    "build": "npm run web:build && electron-builder",
+    "build": "pnpm run web:build && electron-builder",
     "electron:build": "electron-builder",
-    "publish": "npm run web:build && electron-builder -p always"
+    "publish": "pnpm run web:build && electron-builder -p always"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.2",
     "client": "workspace:*",
     "common": "workspace:*",
-    "electron": "42.11.0",
-    "electron-builder": "^26.17.0",
+    "electron": "45.1.0",
+    "electron-builder": "^26.18.1",
     "electron-log": "^5.4.4",
-    "electron-updater": "^6.8.10",
+    "electron-updater": "^6.8.12",
     "concurrently": "^10.0.6"
   },
   "dependencies": {
     "@paymoapp/electron-shutdown-handler": "^1.2.0",
-    "@xhayper/discord-rpc": "^1.3.4",
+    "@xhayper/discord-rpc": "1.3.4",
     "utp-native": "^2.5.3"
   },
   "standard": {

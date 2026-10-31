@@ -39,6 +39,7 @@
 </script>
 
 <script>
+  import { getAniMappings, getMappedEpisodeCount, hasZeroEpisode, durationMap } from '@/modules/anime/anime.js'
   import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
   import { since, monthDay, matchPhrase, capitalize } from '@/modules/util.js'
   import { click } from '@/modules/lib/click.js'
@@ -47,7 +48,6 @@
   import { liveAnimeProgress } from '@/modules/anime/animeprogress.js'
   import { getHash } from '@/modules/anime/animehash.js'
   import { episodesList } from '@/modules/episodes.js'
-  import { getAniMappings, hasZeroEpisode, durationMap } from '@/modules/anime/anime.js'
   import EpisodeListSk from '@/components/skeletons/EpisodeListSk.svelte'
   import TorrentButton from '@/components/TorrentButton.svelte'
   import AudioLabel from '@/components/AudioLabel.svelte'
@@ -110,6 +110,8 @@
     const mappings = await getAniMappings({ id, idMal }) || {}
     if (cancelled()) return null
     const { episodes, specialCount, episodeCount: newEpisodeCount } = mappings
+    const mappedEpisodeCount = getMappedEpisodeCount(media, mappings)
+    const listEpisodeCount = Math.max(episodeCount || 0, mappedEpisodeCount || 0)
     const getEpisode = (episode) => {
       const keys = Object.keys(episodes || {})
       const episodeData = episodes?.[episode] || episodes?.[`O${episode}`]
@@ -121,7 +123,7 @@
     }
 
     /** @type {{ zeroEpisode: object; airingAt: number; episode: number; filler?: boolean; dubAiring?: object; }[]} */
-    let result = Array.from({ length: (newEpisodeCount > episodeCount ? newEpisodeCount : episodeCount) }, (_, i) => ({
+    let result = Array.from({ length: listEpisodeCount }, (_, i) => ({
       episode: i + 1, image: null, summary: null, rating: null, title: null, length: null, airdate: null, airingAt: null, filler: lazyPromise(() => episodesList.getSingleEpisode(idMal, i + 1)), dubAiring: lazyPromise(() => dubbedEpisode(i, media))
     }))
     let alEpisodes = result
@@ -160,6 +162,9 @@
         }))
       }
     }
+
+    // Airing and MAL fallbacks must respect a rejected mapping count too.
+    if (mappedEpisodeCount < newEpisodeCount) alEpisodes = alEpisodes.filter(({ episode }) => episode <= listEpisodeCount)
 
     let lastValidAirDate = null
     let lastDuration = durationMap[media?.format]

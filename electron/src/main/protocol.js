@@ -46,7 +46,7 @@ export default class Protocol {
     app.on('open-file', (event, path) => {
       event.preventDefault()
       if (this.window) this.handleTorrentFile(path)
-      else ipcMain.once('webtorrent-heartbeat', () => this.handleTorrentFile(path))
+      else ipcMain.once('torrent:rendererReady', () => this.handleTorrentFile(path))
     })
 
     // Handle locally loaded extensions (test extensions)
@@ -60,7 +60,7 @@ export default class Protocol {
     })
 
     if (process.argv.length >= 2 && !process.defaultApp) {
-      ipcMain.on('webtorrent-heartbeat', () => {
+      ipcMain.once('torrent:rendererReady', () => {
         for (const line of process.argv) {
           this.handleProtocol(line)
         }
@@ -78,8 +78,8 @@ export default class Protocol {
       }
     })
 
-    // A decent hack to allow time for the webtorrent to startup before processing any potential arguments.
-    ipcMain.once('webtorrent-heartbeat', () => {
+    // Wait for the renderer request handler before processing startup torrent files.
+    ipcMain.once('torrent:rendererReady', () => {
       if (!this.window) return
       for (const arg of process.argv) {
         if (arg.toLowerCase().endsWith('.torrent')) this.handleTorrentFile(arg)

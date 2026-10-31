@@ -8,12 +8,12 @@ const isDev = mode === 'development'
 
 /** @type {(parentDir: string, alias?: Record<string, string | false>, aliasFields?: string, filename?: string) => import('webpack').Configuration} */
 module.exports = (parentDir, alias = {}, aliasFields = 'browser', filename = 'app') => ({
+  name: 'renderer',
   devtool: 'source-map',
   experiments: {
     css: true
   },
   entry: [join(__dirname, 'main.js')],
-  stats: { warnings: false },
   output: {
     path: join(parentDir, 'build'),
     filename: 'renderer.js'
