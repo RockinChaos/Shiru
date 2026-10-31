@@ -733,6 +733,7 @@ export const defaults = {
   playerAutocomplete: true,
   playerAutocompleteThreshold: 85,
   playerDeband: false,
+  playerTorrentStats: false,
   preferDubs: false,
   adult: 'none',
   hentaiBanner: false,
