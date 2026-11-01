@@ -22,6 +22,7 @@ const FALLBACK_SOURCES = [{ provider: atob('Z2VuZXJpYw=='), url: atob('Y2RuLnNoa
  * Supports both stable and nightly release channels.
  */
 export default class Updater {
+  destroyed = false
   hasUpdate = false
   downloading = false
   skipFallback = false
@@ -38,7 +39,6 @@ export default class Updater {
 
   /**
    * Creates an updater instance and sets up listeners.
-   *
    * @param {import('electron').BrowserWindow} window Main application window
    * @param {() => import('electron').BrowserWindow} torrentWindow Function returning torrent window
    */
@@ -50,15 +50,18 @@ export default class Updater {
     autoUpdater.autoInstallOnAppQuit = false
     if (this.isManualInstall && !development) autoUpdater.isUpdaterActive = () => true
     ipcMain.on('common:checkForUpdates', (event, channel) => {
+      if (this.destroyed || this.window.isDestroyed()) return
       if (channel) this.updateChannel = channel
       autoUpdater.allowPrerelease = this.updateChannel === 'nightly'
       autoUpdater.checkForUpdates()
     })
     ipcMain.on('common:setUpdateChannel', (event, channel) => this.setUpdateChannel(channel))
     autoUpdater.on('error', async (error) => {
+      if (this.destroyed || this.window.isDestroyed()) return
       const message = error?.message ?? ''
       if (!this.skipFallback && (message.includes('404') || message.includes('451'))) {
         const fallback = await this.#resolveUpdateFallback()
+        if (this.destroyed || this.window.isDestroyed()) return
         if (fallback) {
           this.currentFeedUrl = fallback.id
           autoUpdater.setFeedURL({ ...fallback.config })
@@ -69,7 +72,7 @@ export default class Updater {
       this.window.webContents.send('common:onUpdateAborted')
     })
     autoUpdater.on('update-available', (info) => {
-      if (this.skipUpdate(info.version)) return
+      if (this.destroyed || this.window.isDestroyed() || this.skipUpdate(info.version)) return
       else if (this.latestVersion !== info.version) {
         this.hasUpdate = false
         this.downloading = false
@@ -81,6 +84,7 @@ export default class Updater {
         if (!this.isManualInstall) autoUpdater.downloadUpdate()
         else this.hasUpdate = true
         this.availableInterval = setInterval(() => {
+          if (this.destroyed || this.window.isDestroyed()) return
           if (!this.hasUpdate || this.isManualInstall) this.window.webContents.send('common:onUpdateAvailable', info.version)
         }, 1_000)
         this.availableInterval.unref?.()
@@ -88,11 +92,12 @@ export default class Updater {
       this.latestVersion = info.version
     })
     autoUpdater.on('update-downloaded', (info) => {
-      if (this.skipUpdate(info.version) || this.isManualInstall) return
+      if (this.destroyed || this.window.isDestroyed() || this.skipUpdate(info.version) || this.isManualInstall) return
       if (!this.hasUpdate) {
         this.hasUpdate = true
         clearInterval(this.availableInterval)
         this.downloadedInterval = setInterval(() => {
+          if (this.destroyed || this.window.isDestroyed()) return
           if (this.hasUpdate) this.window.webContents.send('common:onUpdateDownloaded', info.version)
         }, 1_000)
         this.downloadedInterval.unref?.()
@@ -102,7 +107,6 @@ export default class Updater {
 
   /**
    * Probes each fallback source and returns the first reachable one.
-   *
    * @returns {Promise<object|null>} Reachable fallback source config or null if none succeed
    */
   async #resolveUpdateFallback () {
@@ -139,10 +143,10 @@ export default class Updater {
 
   /**
    * Changes the update channel and triggers a new update check.
-   *
    * @param {string} [channel='stable'] Update channel ('stable' or 'nightly')
    */
   setUpdateChannel(channel = 'stable') {
+    if (this.destroyed || this.window.isDestroyed()) return
     this.updateChannel = channel
     this.hasUpdate = false
     this.downloading = false
@@ -158,7 +162,6 @@ export default class Updater {
 
   /**
    * Determines if an update should be skipped based on version and channel.
-   *
    * @param {string} version Version string to check
    * @returns {boolean} True if update should be skipped
    */
@@ -180,7 +183,6 @@ export default class Updater {
 
   /**
    * Installs the downloaded update and restarts the application.
-   *
    * @param {boolean} forceRunAfter Whether to force installation
    * @returns {boolean} True if installation started, false otherwise
    */
@@ -204,5 +206,12 @@ export default class Updater {
       return !this.isManualInstall
     }
     return false
+  }
+
+  /** Stops update notifications and ignores subsequent update events. */
+  destroy() {
+    this.destroyed = true
+    clearInterval(this.availableInterval)
+    clearInterval(this.downloadedInterval)
   }
 }

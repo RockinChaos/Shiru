@@ -18,7 +18,7 @@ include ':capacitor-keyboard'
 project(':capacitor-keyboard').projectDir = new File('../../node_modules/.pnpm/@capacitor+keyboard@8.0.6_@capacitor+core@8.6.0/node_modules/@capacitor/keyboard/android')
 
 include ':capacitor-local-notifications'
-project(':capacitor-local-notifications').projectDir = new File('../../node_modules/.pnpm/@capacitor+local-notificati_4b1b0c769f040ba33e8688fb82b65117/node_modules/@capacitor/local-notifications/android')
+project(':capacitor-local-notifications').projectDir = new File('../../node_modules/.pnpm/@capacitor+local-notificati_c4d347795dc7e308f02e1186c911f4f7/node_modules/@capacitor/local-notifications/android')
 
 include ':capacitor-splash-screen'
 project(':capacitor-splash-screen').projectDir = new File('../../node_modules/.pnpm/@capacitor+splash-screen@8.0.2_@capacitor+core@8.6.0/node_modules/@capacitor/splash-screen/android')

@@ -369,7 +369,7 @@ export default class App {
   async destroy(forceRunAfter = false) {
     if (this.destroyed) return
     this.destroyed = true
-    this.updater.destroyed = true
+    this.updater.destroy()
     this.exit = true
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       clearTimeout(this.stateTimeout)
