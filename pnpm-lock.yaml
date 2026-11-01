@@ -21,6 +21,9 @@ patchedDependencies:
   cordova-plugin-apkupdater:
     hash: 6efbafdbdca79d50b2e3016fca9da323ba046d9a6d8834571050e1827f587c37
     path: patches/cordova-plugin-apkupdater.patch
+  fuse.js@7.5.0:
+    hash: 9b17f099498305416523622ee3c6ea0abb5210cd82b540a47bdf075531683de9
+    path: patches/fuse.js@7.5.0.patch
   lucide-svelte@0.455.0:
     hash: 0609c957d625c84712d92a612c0fe92d6b06ae161e98c32f1b6b5694e5ff66ed
     path: patches/lucide-svelte@0.455.0.patch
@@ -224,8 +227,8 @@ importers:
         specifier: ^3.1.3
         version: 3.1.3
       fuse.js:
-        specifier: 7.3.0
-        version: 7.3.0
+        specifier: ^7.5.0
+        version: 7.5.0(patch_hash=9b17f099498305416523622ee3c6ea0abb5210cd82b540a47bdf075531683de9)
       jassub:
         specifier: 1.8.8
         version: 1.8.8
@@ -2597,8 +2600,8 @@ packages:
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
 
-  fuse.js@7.3.0:
-    resolution: {integrity: sha512-plz8RVjfcDedTGfVngWH1jmJvBvAwi1v2jecfDerbEnMcmOYUEEwKFTHbNoCiYyzaK2Ws8lABkTCcRSqCY1q4w==}
+  fuse.js@7.5.0:
+    resolution: {integrity: sha512-sQtrEfA+ez/3G0cCZecF70oqpCRttCexYUG4mUrtWL49ULUzUyxokt5kyqwtKzj1270RaKih+hcP3qLcumccow==}
     engines: {node: '>=10'}
 
   get-caller-file@2.0.5:
@@ -7843,7 +7846,7 @@ snapshots:
 
   function-bind@1.1.2: {}
 
-  fuse.js@7.3.0: {}
+  fuse.js@7.5.0(patch_hash=9b17f099498305416523622ee3c6ea0abb5210cd82b540a47bdf075531683de9): {}
 
   get-caller-file@2.0.5: {}
 

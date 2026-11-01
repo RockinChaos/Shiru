@@ -1,0 +1,42 @@
+diff --git a/dist/fuse.cjs b/dist/fuse.cjs
+index f769f8ffa3a62e87b245c5adca0fec2eb670ec52..077e9733b81e28704fb4e9226f8c3f50d5931171 100644
+--- a/dist/fuse.cjs
++++ b/dist/fuse.cjs
+@@ -1088,7 +1088,6 @@ function format(results, docs, { includeMatches = Config.includeMatches, include
+ 
+ //#endregion
+ //#region src/search/token/analyzer.ts
+-const DEFAULT_TOKEN = /[\p{L}\p{M}\p{N}_]+/gu;
+ const warned = /* @__PURE__ */ new WeakSet();
+ function warnNonGlobal(regex) {
+ 	if (!warned.has(regex)) {
+@@ -1112,6 +1111,8 @@ function resolveTokenize(tokenize) {
+ 		if (!tokenize.global) warnNonGlobal(tokenize);
+ 		return (text) => text.match(tokenize) || [];
+ 	}
++	// Defer Unicode property parsing until token search is explicitly requested.
++	const DEFAULT_TOKEN = new RegExp("[\\p{L}\\p{M}\\p{N}_]+", "gu");
+ 	return (text) => text.match(DEFAULT_TOKEN) || [];
+ }
+ function createAnalyzer({ isCaseSensitive = false, ignoreDiacritics = false, tokenize } = {}) {
+diff --git a/dist/fuse.mjs b/dist/fuse.mjs
+index a02d1b0c6fd2441fea8375514fa54385c4bbf5a6..de297942b50a1d2b030889f42732b2bd0efbc623 100644
+--- a/dist/fuse.mjs
++++ b/dist/fuse.mjs
+@@ -1087,7 +1087,6 @@ function format(results, docs, { includeMatches = Config.includeMatches, include
+ 
+ //#endregion
+ //#region src/search/token/analyzer.ts
+-const DEFAULT_TOKEN = /[\p{L}\p{M}\p{N}_]+/gu;
+ const warned = /* @__PURE__ */ new WeakSet();
+ function warnNonGlobal(regex) {
+ 	if (!warned.has(regex)) {
+@@ -1111,6 +1110,8 @@ function resolveTokenize(tokenize) {
+ 		if (!tokenize.global) warnNonGlobal(tokenize);
+ 		return (text) => text.match(tokenize) || [];
+ 	}
++	// Defer Unicode property parsing until token search is explicitly requested.
++	const DEFAULT_TOKEN = new RegExp("[\\p{L}\\p{M}\\p{N}_]+", "gu");
+ 	return (text) => text.match(DEFAULT_TOKEN) || [];
+ }
+ function createAnalyzer({ isCaseSensitive = false, ignoreDiacritics = false, tokenize } = {}) {
