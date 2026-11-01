@@ -40,7 +40,7 @@
 
   onDestroy(() => clearTimeout(hideTimeout))
 </script>
-<div class='popover h-50 w-50 d-inline-block not-reactive rounded-circle {$$restProps.class}' style={style} use:hover={handleHover} use:focus={(state) => activePopover.set(state ? user.id : null)}>
+<div class='popover h-50 w-50 d-inline-block not-reactive rounded-circle {$$restProps.class}' style={style} class:active={$activePopover === user.id} use:hover={handleHover} use:focus={(state) => activePopover.set(state ? user.id : null)}>
   <button type='button' class='avatar h-50 w-50 align-items-center justify-content-center p-0 rounded-circle bg-dark-light overflow-hidden pointer not-reactive flex-shrink-0' tabindex='-1' style='border: .3rem solid hsla(var(--dark-color-hsl), 0.9);'>
     {#if avatar}
       <SmartImage class='w-full h-full cover-img' images={[avatar, `./${getAvatar(user.id)}`]}/>
@@ -111,7 +111,7 @@
             {/if}
           </div>
         </div>
-<!--        < html={user.about ?? ''} class='text-white text-wrap pl-20 pr-10 pt-20 font-size-16 overflow-y-auto hm-250' />-->
+        <!--        < html={user.about ?? ''} class='text-white text-wrap pl-20 pr-10 pt-20 font-size-16 overflow-y-auto hm-250' />-->
         <div class='stats d-flex flex-wrap font-scale-14 text-white w-full justify-content-between'>
           <div class='text-nowrap'>{user.statistics?.anime?.count ?? 0} Anime</div>
           <div class='text-nowrap'>{user.statistics?.anime?.episodesWatched ?? 0} Episodes</div>
@@ -127,7 +127,7 @@
   .avatar {
     transition: transform 0.2s ease;
   }
-  .avatar:hover {
+  .popover.active > .avatar {
     transform: translateY(-0.3rem);
   }
   .popover-container {

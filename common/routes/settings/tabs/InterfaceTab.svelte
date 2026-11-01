@@ -61,8 +61,8 @@
     <option value='full'>Full</option>
   </select>
 </SettingCard>
-{#if SUPPORTS.isAndroid && settings.cards === 'small'}
-  <SettingCard title='Card Preview' description='If a detailed preview card should be shown when tapping or hovering over the small card.'>
+{#if SUPPORTS.isAndroid}
+  <SettingCard title='Card Preview' description='If a detailed preview card should be shown when tapping or hovering over small cards or episode cards.'>
     <div class='custom-switch fit-content'>
       <input type='checkbox' id='card-preview' bind:checked={settings.cardPreview} />
       <label for='card-preview'>{settings.cardPreview ? 'On' : 'Off'}</label>

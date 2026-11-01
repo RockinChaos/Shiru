@@ -22,6 +22,7 @@
   let media
   $: media = fromCache($mediaCache, media ?? mediaCache.value[data?.id])
   function viewMedia() {
+    clearTimeouts()
     if (_variables?.fileEdit) _variables.fileEdit(media)
     else modal.open(modal.ANIME_DETAILS, media)
   }
@@ -32,11 +33,11 @@
 
   let preview = false
   let ignoreFocus = false
-  function setHoverState(state) {
+  function setHoverState(state, tapped = false) {
     const focused = document.activeElement
     if (container && focused?.offsetParent != null && (container.contains(focused)) && (!previewCard || !previewCard.contains(focused))) ignoreFocus = true
     if (settings.value.cardPreview) preview = state
-    else if (state) viewMedia()
+    else if (state && tapped) viewMedia()
   }
 
   let container
@@ -111,7 +112,7 @@
   })
 </script>
 
-<div bind:this={container} class='d-flex px-md-20 px-sm-10 px-5 py-20 position-relative small-card-ct' class:not-reactive={!$reactive} use:hoverClick={[viewMedia, setHoverState, viewMedia]} on:focus={handleFocus}>
+<div bind:this={container} class='d-flex px-md-20 px-sm-10 px-5 py-20 position-relative small-card-ct' class:not-reactive={!$reactive} use:hoverClick={[viewMedia, setHoverState, viewMedia, true]} on:focus={handleFocus}>
   {#if preview}
     <PreviewCard {media} {type} {_variables} bind:element={previewCard}/>
   {/if}

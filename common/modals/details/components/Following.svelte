@@ -34,7 +34,7 @@
   .avatar:has(*:focus) {
     z-index: 10 !important;
   }
-  .avatar:hover {
+  .avatar:global(:has(.popover.active)) {
     z-index: 10 !important;
   }
 </style>
