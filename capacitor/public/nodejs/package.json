@@ -1,6 +1,6 @@
 {
   "name": "nodejs-capacitor-thread",
-  "packageManager": "pnpm@10.34.1",
+  "packageManager": "pnpm@12.17.0",
   "private": true,
   "scripts": {
     "rebuild:native": "node-gyp rebuild"

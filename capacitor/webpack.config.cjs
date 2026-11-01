@@ -51,7 +51,7 @@ const capacitorConfig = {
   target: 'node',
   devServer: {
     onListening(server) {
-      const platform = process.env.DEV_APP
+      const platform = process.env.DEV_ENV
       if (platform !== 'android' && platform !== 'ios') return
       let capacitor
       const startCapacitor = stats => {
@@ -96,6 +96,7 @@ const capacitorConfig = {
               '**/Dockerfile',
               '**/setup-deps.sh',
               '**/pnpm-lock.yaml',
+              '**/pnpm-workspace.yaml',
               '**/node_modules/.modules.yaml',
               '**/node_modules/.pnpm/**'
             ]

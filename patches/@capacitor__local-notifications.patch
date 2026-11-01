@@ -13,7 +13,7 @@ index 7646cc97..ee026765 100644
 @@ -52,14 +53,18 @@ class LocalNotification {
       */
      var cancelled: Boolean = false
-
+ 
 -    // Icons are stored as their bare resource base name.
 +    // Small icons are stored as their bare resource base name.
      var smallIcon: String? = null
@@ -29,10 +29,10 @@ index 7646cc97..ee026765 100644
 +                AssetUtil.getResourceBaseName(value)
 +            }
          }
-
+ 
      fun resolveSound(context: Context, defaultSound: Int): String? {
 @@ -85,12 +90,31 @@ class LocalNotification {
-
+ 
      fun resolveLargeIcon(context: Context): Bitmap? {
          largeIcon?.let {
 +            try {
@@ -48,7 +48,7 @@ index 7646cc97..ee026765 100644
          }
          return null
      }
-
+ 
 +    fun resolveBigImage(context: Context): Bitmap? {
 +        val source = attachments?.firstOrNull()?.url ?: return null
 +        return try {
@@ -72,13 +72,13 @@ index 72c31a70..103e66b7 100644
              .setPriority(if (foreground) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
              .setGroupSummary(localNotification.groupSummary)
 +            .setShowWhen(false)
-
+ 
          localNotification.badge?.let { mBuilder.setNumber(it) }
-
+ 
 @@ -170,6 +171,10 @@ class LocalNotificationManager(
              )
          }
-
+ 
 +        localNotification.resolveBigImage(context)?.let { image ->
 +            mBuilder.setStyle(NotificationCompat.BigPictureStyle().bigPicture(image))
 +        }

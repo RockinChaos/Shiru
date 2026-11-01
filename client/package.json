@@ -1,6 +1,6 @@
 {
   "name": "client",
-  "packageManager": "pnpm@10.34.1",
+  "packageManager": "pnpm@12.17.0",
   "private": true,
   "dependencies": {
     "bencode": "^4.0.1",

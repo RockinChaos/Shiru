@@ -10,7 +10,7 @@ permissions:
 
 env:
   NODE_VERSION: '24.22.1'
-  PNPM_VERSION: '10.34.1'
+  PNPM_VERSION: '12.17.0'
 
 jobs:
   check:

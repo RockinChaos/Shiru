@@ -33,7 +33,7 @@ for ((i=0;i<${#toolchain_target_archs[@]};i++)); do
   echo "Rebuilding for $node_target_arch"
   for package_dir in node_modules/*; do
     [ -f "$package_dir/binding.gyp" ] || continue
-    pnpm run rebuild:native --directory="$package_dir" \
+    PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm run rebuild:native --directory="$package_dir" \
       --arch="$node_target_arch" --nodedir="$LIBNODE_PATH" -- -f make-android
 
     files=("$package_dir"/build/Release/*.node)

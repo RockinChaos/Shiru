@@ -41,7 +41,7 @@ module.exports = [
     target: 'electron45.0-renderer',
     devServer: {
       onListening(server) {
-        if (process.env.DEV_APP !== 'electron') return
+        if (process.env.DEV_ENV !== 'electron') return
         let electron
         const startElectron = stats => {
           if (electron || stats.hasErrors()) return

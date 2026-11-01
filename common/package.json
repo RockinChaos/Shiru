@@ -1,6 +1,6 @@
 {
   "name": "common",
-  "packageManager": "pnpm@10.34.1",
+  "packageManager": "pnpm@12.17.0",
   "private": true,
   "dependencies": {
     "@fontsource-variable/nunito": "^5.3.0",

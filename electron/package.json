@@ -2,7 +2,7 @@
   "name": "shiru",
   "version": "6.10.0-beta.1",
   "license": "GPL-3.0-or-later",
-  "packageManager": "pnpm@10.34.1",
+  "packageManager": "pnpm@12.17.0",
   "private": true,
   "author": "RockinChaos <maintainer@shiru.app>",
   "description": "A personal anime library manager for watching and tracking your collection in real time. Lightweight, powerful, and paws-itively fast. No waiting required!",
@@ -10,7 +10,7 @@
   "homepage": "https://shiru.app/",
   "desktopName": "com.github.rockinchaos.shiru.desktop",
   "scripts": {
-    "start": "cross-env NODE_ENV=development DEV_APP=electron webpack serve",
+    "start": "cross-env NODE_ENV=development DEV_ENV=electron webpack serve",
     "web:watch": "webpack serve",
     "web:build": "cross-env NODE_ENV=production webpack build",
     "electron:start": "electron ./build/main.js",
