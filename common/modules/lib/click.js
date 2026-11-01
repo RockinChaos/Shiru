@@ -7,6 +7,7 @@ let lastTapCurrent = null
 let lastHoverElement = null
 let lastInteractionMethod = 'mouse'
 let lastPointerType = 'mouse'
+let lastTouchPosition = null
 let contextSelectionRegion = null
 
 const noop = _ => {}
@@ -25,6 +26,7 @@ document.addEventListener('touchstart', () => (lastInteractionMethod = 'touch'),
 document.addEventListener('pointermove', (e) => (lastPointerType = e.pointerType), true)
 document.addEventListener('pointerdown', (e) => {
   lastPointerType = e.pointerType
+  if (e.pointerType === 'touch') lastTouchPosition = { x: e.clientX, y: e.clientY }
   if (e.pointerType !== 'touch' || !lastTapCurrent || !e.target || lastTapCurrent.contains(e.target)) return
   const tappedElement = lastTapElement
   tappedElement?.(false)
@@ -64,6 +66,22 @@ document.addEventListener('pointercancel', (e) => {
     lastTapTarget = null
   }
 }, true)
+
+// Dismiss hover previews when scrolling carousels
+document.addEventListener('scroll', (e) => {
+  if (lastPointerType !== 'touch' || !lastTouchPosition || !lastTapCurrent || !e.target?.contains(lastTapCurrent)) return
+  const rect = lastTapCurrent.getBoundingClientRect()
+  const bounds = e.target === document ? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight } : e.target.getBoundingClientRect()
+  const visible = rect.right > Math.max(0, bounds.left) && rect.left < Math.min(window.innerWidth, bounds.right) && rect.bottom > Math.max(0, bounds.top) && rect.top < Math.min(window.innerHeight, bounds.bottom)
+  if (visible && lastTapCurrent.contains(document.elementFromPoint(lastTouchPosition.x, lastTouchPosition.y))) return
+  const tappedElement = lastTapElement
+  tappedElement?.(false)
+  if (lastHoverElement !== tappedElement) lastHoverElement?.(false)
+  lastTapElement = null
+  lastHoverElement = null
+  lastTapCurrent = null
+  lastTapTarget = null
+}, { capture: true, passive: true })
 
 // handles text selection/deselection
 if (!SUPPORTS.isAndroid) {
