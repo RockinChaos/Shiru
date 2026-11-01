@@ -297,14 +297,8 @@ window.common = {
 }
 
 window.android = {
-  /**
-   * Sends the app to the background.
-   *
-   * Any type of force exit of the app causes WebView to crash (e.g. #exitApp), this is a WebView bug!
-   * The next time the user tries to open the app, it will forcibly close requiring them to open it again...
-   * We prefer to use #minimizeApp instead as it is a safe paused state.
-   */
-  minimize: () => Capacitor.minimizeApp(),
+  /** Closes the app. */
+  exit: () => Capacitor.exitApp(),
   /** Shows the native Android splash screen. */
   showSplash: () => SplashScreen.show({ autoHide : false }),
   /**

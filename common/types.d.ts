@@ -141,7 +141,7 @@ declare global {
       onRequestPlay: (callback: (opts: any) => void) => void
     }
     android?: {
-      minimize: () => void
+      exit: () => void
       showSplash: () => void
       toast: (text: string, duration?: 'short' | 'long') => Promise<void>
       onBackButton: (callback: (event: any) => void) => void

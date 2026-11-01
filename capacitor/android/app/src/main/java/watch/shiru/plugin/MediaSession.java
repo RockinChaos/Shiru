@@ -118,35 +118,43 @@ public class MediaSession extends Plugin {
 
   @PluginMethod
   public void setPlaybackState(PluginCall call) {
-    boolean nextActive = call.getBoolean("active", false);
-    if (!nextActive) {
-      deactivate();
+    // Serialize playback updates with activity teardown and artwork callbacks.
+    getBridge().executeOnMainThread(() -> {
+      if (mediaSession == null) {
+        call.resolve();
+        return;
+      }
+
+      boolean nextActive = call.getBoolean("active", false);
+      if (!nextActive) {
+        deactivate();
+        call.resolve();
+        return;
+      }
+
+      active = true;
+      playing = call.getBoolean("playing", false);
+      hasLast = call.getBoolean("hasLast", false);
+      hasNext = call.getBoolean("hasNext", false);
+      title = call.getString("title", "");
+      subtitle = call.getString("subtitle", "");
+      position = secondsToMilliseconds(call.getDouble("position", -1d));
+      duration = secondsToMilliseconds(call.getDouble("duration", 0d));
+      playbackSpeed = call.getDouble("playbackRate", 1d).floatValue();
+
+      String nextArtworkUrl = call.getString("artwork", "");
+      if (!nextArtworkUrl.equals(artworkUrl)) {
+        artworkUrl = nextArtworkUrl;
+        artwork = null;
+        loadArtwork(nextArtworkUrl, ++artworkRequest);
+      }
+
+      updateMetadata();
+      updatePlaybackState();
+      mediaSession.setActive(true);
+      updateNotification();
       call.resolve();
-      return;
-    }
-
-    active = true;
-    playing = call.getBoolean("playing", false);
-    hasLast = call.getBoolean("hasLast", false);
-    hasNext = call.getBoolean("hasNext", false);
-    title = call.getString("title", "");
-    subtitle = call.getString("subtitle", "");
-    position = secondsToMilliseconds(call.getDouble("position", -1d));
-    duration = secondsToMilliseconds(call.getDouble("duration", 0d));
-    playbackSpeed = call.getDouble("playbackRate", 1d).floatValue();
-
-    String nextArtworkUrl = call.getString("artwork", "");
-    if (!nextArtworkUrl.equals(artworkUrl)) {
-      artworkUrl = nextArtworkUrl;
-      artwork = null;
-      loadArtwork(nextArtworkUrl, ++artworkRequest);
-    }
-
-    updateMetadata();
-    updatePlaybackState();
-    mediaSession.setActive(true);
-    updateNotification();
-    call.resolve();
+    });
   }
 
   @PluginMethod

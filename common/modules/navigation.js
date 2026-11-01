@@ -283,9 +283,9 @@ class HistoryManager {
   canGoForward = writable(false)
 
   constructor() {
-    let minimizeApp = null
+    let exitApp = null
     ANDROID.onBackButton(() => {
-      debug('Android back button pressed', JSON.stringify({ canGoBack: canGoBack.value, minimizeApp: minimizeApp, currentIndex: this.currentIndex, historyLength: this.history.length }))
+      debug('Android back button pressed', JSON.stringify({ canGoBack: canGoBack.value, exitApp: exitApp, currentIndex: this.currentIndex, historyLength: this.history.length }))
       if (document.fullscreenElement) {
         debug('Back was pressed while in fullscreen, skipping navigation and exiting fullscreen...')
         document.exitFullscreen()
@@ -296,19 +296,19 @@ class HistoryManager {
       }
 
       if (canGoBack.value) this.goBack()
-      else if (minimizeApp) {
+      else if (exitApp) {
         debug('Second back press detected, minimizing app')
-        clearTimeout(minimizeApp)
-        minimizeApp = null
-        ANDROID.minimize()
+        clearTimeout(exitApp)
+        exitApp = null
+        ANDROID.exit()
       } else {
         debug('First back press, setting minimize timeout')
         ANDROID.toast('Press back again to exit')
-        minimizeApp = setTimeout(() => {
+        exitApp = setTimeout(() => {
           debug('Resetting minimize timeout it has been 1000ms')
-          minimizeApp = null
+          exitApp = null
         }, 2_000)
-        minimizeApp?.unref?.()
+        exitApp?.unref?.()
       }
     })
     window.addEventListener('mouseup', (event) => {

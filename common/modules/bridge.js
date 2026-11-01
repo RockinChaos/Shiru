@@ -72,7 +72,7 @@ const commonDefaults = {
   onRequestPlay: noopVoid
 }
 const androidDefaults = {
-  minimize: noopVoid,
+  exit: noopVoid,
   showSplash: noopVoid,
   toast: noopAsyncVoid,
   onBackButton: noopVoid,
