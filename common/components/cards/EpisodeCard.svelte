@@ -158,7 +158,7 @@
           {:else if episodeRange && isValidNumber(episodeRange.first) && isValidNumber(episodeRange.last)}
             {media.duration * ((episodeRange.first - episodeRange.last) + 1)}m
           {:else}
-            {data.episodeData?.length ?? media.duration}m
+            {data.episodeData?.length || media.duration}m
           {/if}
         {/if}
       </div>
