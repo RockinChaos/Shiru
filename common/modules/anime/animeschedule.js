@@ -157,7 +157,7 @@ class AnimeSchedule {
             debug(`Checking for new ${type} Schedule notifications`)
             const newNotifications = (await this[airingListKey].value)?.filter(entry => (entry?.unaired && ((type !== 'Hentai' && !(entry?.media?.media?.genres || entry?.genres)?.includes('Hentai')) || (type === 'Hentai' && (entry?.media?.media?.genres || entry?.genres)?.includes('Hentai'))) && !cache.getEntry(caches.NOTIFICATIONS, notifyKey).includes(entry?.media?.media?.id || entry?.id))).map(entry => entry?.media?.media || entry)
             debug(`Found ${newNotifications?.length} new ${type} notifications`)
-            if (!newNotifications?.length) return
+            if (!newNotifications?.length) continue
             await anilistClient.searchAllIDS({ id: newNotifications.map(media => media.id).filter(Boolean) })
             for (const media of newNotifications) {
                 const cachedMedia = await cache.requestMedia(media?.id)
