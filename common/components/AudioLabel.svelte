@@ -41,7 +41,7 @@
     async function setLabel(dubLists, _) {
         const _dubLists = await dubLists
         if (media?.idMal && _dubLists?.dubbed) {
-            const episodeOrMedia = !episode || await malDubs.isDubMedia(data?.parseObject)
+            const episodeOrMedia = !episode || await malDubs.isDubMedia(data?.parseObject, media)
             isDubbed.set(episodeOrMedia && _dubLists.dubbed.includes(media.idMal))
             isPartial.set(episodeOrMedia && _dubLists.incomplete.includes(media.idMal))
             getDubEpisodes(await dubAiredLists.value)

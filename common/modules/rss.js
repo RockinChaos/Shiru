@@ -138,7 +138,7 @@ class RSSMediaManager {
     const newReleases = res.filter(({ date }) => date?.getTime() > oldDate)
     debug(`Found ${newReleases?.length} new releases, notifying...`)
     for (const { media, parseObject, episode, link, hash, date } of newReleases) {
-      const dubbed = await malDubs.isDubMedia(parseObject)
+      const dubbed = await malDubs.isDubMedia(parseObject, media)
       const notify = !settings.value.rssNotifyDisabled?.[media?.mediaListEntry?.status || 'NOTONLIST']?.includes(dubbed ? 'Dub' : 'Sub') && ((!media?.mediaListEntry && settings.value.rssNotify?.includes('NOTONLIST')) || (media?.mediaListEntry && settings.value.rssNotify?.includes(media?.mediaListEntry?.status)))
       if (notify && (!settings.value.preferDubs || (media?.status === 'FINISHED' && !['CURRENT', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || dubbed || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(media))) {
         const highestEp = isValidNumber(episode) ? Number(episode) : Number(episodesList.handleArray(episode, episode)?.last)
