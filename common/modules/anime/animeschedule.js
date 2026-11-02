@@ -113,7 +113,7 @@ class AnimeSchedule {
         for (const entry of delayedEpisodes) {
             const media = entry?.media?.media
             const cachedMedia = await cache.requestMedia(media?.id)
-            const notify = (cache.getEntry(caches.NOTIFICATIONS, `lastDub`) > 0) && ((!cachedMedia?.mediaListEntry && settings.value.releasesNotify?.includes('NOTONLIST')) || (cachedMedia?.mediaListEntry && settings.value.releasesNotify?.includes(cachedMedia?.mediaListEntry?.status)))
+            const notify = (cache.getEntry(caches.NOTIFICATIONS, `lastDub`) > 0) && !settings.value.releasesNotifyDisabled?.[cachedMedia?.mediaListEntry?.status || 'NOTONLIST']?.includes('Dub') && ((!cachedMedia?.mediaListEntry && settings.value.releasesNotify?.includes('NOTONLIST')) || (cachedMedia?.mediaListEntry && settings.value.releasesNotify?.includes(cachedMedia?.mediaListEntry?.status)))
             if (notify && media.format !== 'MUSIC') {
                 queueNotification({
                     id: media?.id,
@@ -388,7 +388,7 @@ class AnimeSchedule {
             if (newReleases && settings.value.releasesNotify?.length > 0 && lastNotified > 0) {
                 for (const media of newReleases) {
                     const addedAt = Math.floor(new Date(media.episode.addedAt).getTime() / 1000)
-                    const notify = (!media?.mediaListEntry && settings.value.releasesNotify?.includes('NOTONLIST')) || (media?.mediaListEntry && settings.value.releasesNotify?.includes(media?.mediaListEntry?.status))
+                    const notify = !settings.value.releasesNotifyDisabled?.[media?.mediaListEntry?.status || 'NOTONLIST']?.includes(type) && ((!media?.mediaListEntry && settings.value.releasesNotify?.includes('NOTONLIST')) || (media?.mediaListEntry && settings.value.releasesNotify?.includes(media?.mediaListEntry?.status)))
                     debug(`Attempting to notify for ${media?.id}:${media?.title?.userPreferred}...`)
                     if (notify && (type === 'Dub' || !settings.value.preferDubs || (media?.status === 'FINISHED' && !['CURRENT', 'REPEATING']?.includes(media?.mediaListEntry?.status)) || !(await malDubs.isDubMedia(media)) || await isSubbedProgress(media)) && media.format !== 'MUSIC') {
                         queueNotification({

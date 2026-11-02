@@ -11,6 +11,23 @@
   import Helper from '@/modules/providers/helper.js'
   export let settings
   const listStatus = [['Watching', 'CURRENT'], ['Planning', 'PLANNING'], ['Paused', 'PAUSED'], ['Completed', 'COMPLETED'], ['Dropped', 'DROPPED'], ['Rewatching', 'REPEATING'], ['Not on List', 'NOTONLIST']]
+
+  function updateNotifyStatus(source, index, status = undefined) {
+    const notifyKey = `${source}Notify`
+    const disabledKey = `${notifyKey}Disabled`
+    const disabled = { ...settings[disabledKey] }
+    const previousStatus = settings[notifyKey][index]
+    const feeds = disabled[previousStatus]
+    delete disabled[previousStatus]
+    if (status === undefined) settings[notifyKey].splice(index, 1)
+    else {
+      settings[notifyKey][index] = status
+      if (feeds?.length) disabled[status] = feeds
+      else delete disabled[status]
+    }
+    settings[notifyKey] = settings[notifyKey]
+    settings[disabledKey] = disabled
+  }
 </script>
 
 <h4 class='mb-10 font-weight-bold'>Interface Settings</h4>
@@ -189,42 +206,64 @@
     </SettingCard>
   {/if}
 {/each}
-<SettingCard title='Releases Notifications' description='When a new episode is added to any of the Releases feeds, a notification will be sent depending on your list status.'>
-  <div>
-    {#each settings.releasesNotify as status, i (status)}
-      <div class='input-group mb-10 w-210 mw-full'>
-        <select id='dubs-notify-{i}' class='w-100 form-control mw-full bg-dark text-truncate' bind:value={settings.releasesNotify[i]} >
-          <option disabled value=''>Select a status</option>
-          {#each listStatus.filter(option => !settings.releasesNotify.includes(option[1]) || status === option[1]) as option (option[1])}
-            <option value='{option[1]}'>{option[0]}</option>
-          {/each}
-        </select>
-        <div class='input-group-append'>
-          <button type='button' use:click={() => { settings.releasesNotify.splice(i, 1); settings.releasesNotify = settings.releasesNotify }} class='btn btn-danger btn-square input-group-append px-5 d-flex align-items-center'><Trash2 size='1.8rem' /></button>
+{#each [
+  { source: 'releases', name: 'release', title: 'Releases Notifications', description: 'Choose which Releases feeds can notify you for each list status. All feeds are enabled by default.' },
+  { source: 'rss', name: 'RSS', title: 'RSS Feed', description: 'When each RSS feed updates with new entries, notifications will be sent depending on your list status. These notifications will combine with Anilist and Releases notifications for the in-app notification tray.\n\nIf your RSS feed(s) mix audio types, you can toggle notifications for each audio type.' }
+] as { source, name, title, description } (source)}
+  {@const notifyKey = `${source}Notify`}
+  {@const disabledKey = `${notifyKey}Disabled`}
+  {@const types = ['Sub', 'Dub', ...(source === 'releases' && settings.adult === 'hentai' ? ['Hentai'] : [])]}
+  <SettingCard class='{source === "releases" ? "release" : source}-notifications d-md-block pl-10 pr-10 pl-sm-20 pr-sm-20' {title} {description}>
+    <div class='release-notify-rules fit-content mt-10 mw-full ml-md-auto'>
+      {#if settings[notifyKey].length}
+        <div class='release-notify-header d-grid align-items-center justify-content-start text-muted font-size-12 mb-5' aria-hidden='true'>
+          <div class='order-0 order-md-1'></div>
+          <div class='release-notify-feeds d-flex align-items-center text-center mx-5 mx-sm-10 ml-md-0 mr-md-10 order-1 order-md-0'>
+            {#each types as type (type)}
+              <span class='w-50 flex-shrink-0'>{type}</span>
+            {/each}
+          </div>
         </div>
-      </div>
-    {/each}
-    <button type='button' disabled={listStatus.every(option => settings.releasesNotify.includes(option[1]))} use:click={() => { settings.releasesNotify = [...settings.releasesNotify, ''] }} class='btn btn-primary mb-10 mr-10 d-flex align-items-center justify-content-center'><span>Add Status</span></button>
-  </div>
-</SettingCard>
-<SettingCard title='RSS Feed' description='When each RSS feed updates with new entries, notifications will be sent depending on your list status. These notifications will combine with Anilist and Releases notifications for the in-app notification tray.'>
-  <div>
-    {#each settings.rssNotify as status, i (status)}
-      <div class='input-group mb-10 w-210 mw-full'>
-        <select id='rss-notify-{i}' class='w-100 form-control mw-full bg-dark text-truncate' bind:value={settings.rssNotify[i]} >
-          <option disabled value=''>Select a status</option>
-          {#each listStatus.filter(option => !settings.rssNotify.includes(option[1]) || status === option[1]) as option (option[1])}
-            <option value='{option[1]}'>{option[0]}</option>
-          {/each}
-        </select>
-        <div class='input-group-append'>
-          <button type='button' use:click={() => { settings.rssNotify.splice(i, 1); settings.rssNotify = settings.rssNotify }} class='btn btn-danger btn-square input-group-append px-5 d-flex align-items-center'><Trash2 size='1.8rem' /></button>
+      {/if}
+      {#each settings[notifyKey] as status, i (i)}
+        <div class='release-notify-rule d-grid align-items-center justify-content-start mb-10'>
+          <div class='release-notify-feeds d-flex align-items-center text-center mx-5 mx-sm-10 ml-md-0 mr-md-10 order-1 order-md-0'>
+            {#each types as type (type)}
+              <div class='release-notify-feed d-flex align-items-center justify-content-center w-50 flex-shrink-0'>
+                <div class='custom-switch'>
+                  <input type='checkbox' role='switch' id='{source}-notify-{type}-{i}' checked={!settings[disabledKey]?.[status]?.includes(type)} aria-label={`${type} ${name} notifications for ${listStatus.find(option => option[1] === status)?.[0] || 'new status'}`} on:change={(event) => {
+                    const disabled = settings[disabledKey]?.[status] || []
+                    settings[disabledKey] = { ...settings[disabledKey], [status]: event.currentTarget.checked ? disabled.filter(feed => feed !== type) : [...disabled, type] }
+                  }} />
+                  <label class='blank' for='{source}-notify-{type}-{i}'></label>
+                </div>
+              </div>
+            {/each}
+          </div>
+          <div class='release-notify-status input-group d-contents d-md-flex'>
+            <select id='{source}-notify-{i}' class='form-control bg-dark text-truncate' aria-label={`${name} notification list status`} on:change={(event) => updateNotifyStatus(source, i, event.currentTarget.value)}>
+              <option disabled value='' selected={status === ''}>Select a status</option>
+              {#each listStatus.filter(option => !settings[notifyKey].includes(option[1]) || status === option[1]) as option (option[1])}
+                <option value='{option[1]}' selected={status === option[1]}>{option[0]}</option>
+              {/each}
+            </select>
+            <div class='input-group-append order-2 order-md-0'>
+              <button type='button' aria-label={`Remove ${name} notification status`} use:click={() => updateNotifyStatus(source, i)} class='btn btn-danger btn-square px-5 d-flex align-items-center justify-content-center'><Trash2 size='1.8rem' /></button>
+            </div>
+          </div>
         </div>
+      {/each}
+      <div class='release-notify-actions d-grid align-items-center justify-content-start'>
+        <div class='release-notify-feeds d-flex align-items-center text-center mx-5 mx-sm-10 ml-md-0 mr-md-10 order-1 order-md-0 invisible' aria-hidden='true'>
+          {#each types as type (type)}
+            <span class='w-50 flex-shrink-0'>{type}</span>
+          {/each}
+        </div>
+        <button type='button' disabled={settings[notifyKey].includes('') || listStatus.every(option => settings[notifyKey].includes(option[1]))} use:click={() => { settings[notifyKey] = [...settings[notifyKey], ''] }} class='btn btn-primary fit-content mb-10 mr-10 d-flex align-items-center justify-content-center'><span>Add Status</span></button>
       </div>
-    {/each}
-    <button type='button' disabled={listStatus.every(option => settings.rssNotify.includes(option[1]))} use:click={() => { settings.rssNotify = [...settings.rssNotify, ''] }} class='btn btn-primary mb-10 d-flex align-items-center justify-content-center'><span>Add Status</span></button>
-  </div>
-</SettingCard>
+    </div>
+  </SettingCard>
+{/each}
 
 <h4 class='mb-10 font-weight-bold'>Home Screen Settings</h4>
 {#if Helper.isAuthorized()}
@@ -263,11 +302,11 @@
       <div class='d-flex mb-10 w-480 mw-full'>
         <div class='position-relative flex-shrink-1 w-150'>
           <input
-            type='text'
-            class='form-control bg-dark fix-border-right text-capitalize text-truncate'
-            placeholder='Name'
-            autocomplete='off'
-            bind:value={settings.customSections[i][0]}
+              type='text'
+              class='form-control bg-dark fix-border-right text-capitalize text-truncate'
+              placeholder='Name'
+              autocomplete='off'
+              bind:value={settings.customSections[i][0]}
           />
         </div>
         <div class='position-relative flex-shrink-1 w-150'>
@@ -291,6 +330,25 @@
 </SettingCard>
 
 <style>
+  .release-notify-rule, .release-notify-header, .release-notify-actions {
+    grid-template-columns: minmax(0, 17.5rem) auto var(--button-height);
+  }
+  .release-notify-feed, .release-notify-feeds > span {
+    width: var(--switch-width);
+  }
+  .release-notify-feed label {
+    height: var(--switch-height);
+  }
+  @media (min-width: 769px) {
+    .release-notify-rule, .release-notify-header, .release-notify-actions {
+      grid-template-columns: auto minmax(0, calc(17.5rem + var(--button-height)));
+    }
+  }
+  @media (max-width: 768px) {
+    .release-notify-status > .form-control, .release-notify-status > .input-group-append > .btn {
+      border-radius: var(--base-border-radius) !important;
+    }
+  }
   .w-210 {
     width: 21rem;
   }
