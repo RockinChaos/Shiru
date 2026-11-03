@@ -12,6 +12,17 @@
   export let settings
   const listStatus = [['Watching', 'CURRENT'], ['Planning', 'PLANNING'], ['Paused', 'PAUSED'], ['Completed', 'COMPLETED'], ['Dropped', 'DROPPED'], ['Rewatching', 'REPEATING'], ['Not on List', 'NOTONLIST']]
 
+  function addSpoilerStatus() {
+    const status = listStatus.find(option => option[1] !== 'COMPLETED' && !settings.spoilerStatus.includes(option[1]))?.[1]
+    if (status) settings.spoilerStatus = [...settings.spoilerStatus, status]
+  }
+
+  function addNotifyStatus(source) {
+    const notifyKey = `${source}Notify`
+    const status = listStatus.find(option => !settings[notifyKey].includes(option[1]))?.[1]
+    if (status) updateNotifyStatus(source, settings[notifyKey].length, status)
+  }
+
   function ensureNotifyFeeds(adult = settings.adult) {
     for (const source of ['releases', 'rss']) {
       const notifyKey = `${source}Notify`
@@ -122,9 +133,9 @@
   </select>
 </SettingCard>
 {#if settings.spoilers !== 'off'}
-  <SettingCard title='Spoiler Status' description='Define which list status types should have spoiler control active. Spoilers will only be hidden for anime matching a selected status. For example, adding "Watching" means only currently watching series will have spoilers hidden, while everything else will show normally.'>
-    <div>
-      {#each settings.spoilerStatus as status, i (status)}
+  <SettingCard class='d-md-block' title='Spoiler Status' description='Define which list status types should have spoiler control active. Spoilers will only be hidden for anime matching a selected status. For example, adding "Watching" means only currently watching series will have spoilers hidden, while everything else will show normally.'>
+    <div class='fit-content mt-10 mw-full ml-md-auto'>
+      {#each settings.spoilerStatus as status, i (i)}
         <div class='input-group mb-10 w-210 mw-full'>
           <select id='spoiler-status-{i}' class='w-100 form-control mw-full bg-dark text-truncate' bind:value={settings.spoilerStatus[i]}>
             <option disabled value=''>Select a status</option>
@@ -137,7 +148,7 @@
           </div>
         </div>
       {/each}
-      <button type='button' disabled={listStatus.filter(option => option[1] !== 'COMPLETED').every(option => settings.spoilerStatus.includes(option[1]))} use:click={() => { settings.spoilerStatus = [...settings.spoilerStatus, ''] }} class='btn btn-primary mb-10 d-flex align-items-center justify-content-center'><span>Add Status</span></button>
+      <button type='button' disabled={listStatus.filter(option => option[1] !== 'COMPLETED').every(option => settings.spoilerStatus.includes(option[1]))} use:click={addSpoilerStatus} class='btn btn-primary mb-10 d-flex align-items-center justify-content-center'><span>Add Status</span></button>
     </div>
   </SettingCard>
 {/if}
@@ -277,7 +288,7 @@
             <span class='w-50 flex-shrink-0'>{type}</span>
           {/each}
         </div>
-        <button type='button' disabled={settings[notifyKey].includes('') || listStatus.every(option => settings[notifyKey].includes(option[1]))} use:click={() => { settings[notifyKey] = [...settings[notifyKey], ''] }} class='btn btn-primary fit-content mb-10 mr-10 d-flex align-items-center justify-content-center'><span>Add Status</span></button>
+        <button type='button' disabled={listStatus.every(option => settings[notifyKey].includes(option[1]))} use:click={() => addNotifyStatus(source)} class='btn btn-primary fit-content mb-10 mr-10 d-flex align-items-center justify-content-center'><span>Add Status</span></button>
       </div>
     </div>
   </SettingCard>
