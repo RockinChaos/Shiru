@@ -12,6 +12,20 @@
   export let settings
   const listStatus = [['Watching', 'CURRENT'], ['Planning', 'PLANNING'], ['Paused', 'PAUSED'], ['Completed', 'COMPLETED'], ['Dropped', 'DROPPED'], ['Rewatching', 'REPEATING'], ['Not on List', 'NOTONLIST']]
 
+  function ensureNotifyFeeds(adult = settings.adult) {
+    for (const source of ['releases', 'rss']) {
+      const notifyKey = `${source}Notify`
+      const disabledKey = `${notifyKey}Disabled`
+      const types = ['Sub', 'Dub', ...(source === 'releases' && adult === 'hentai' ? ['Hentai'] : [])]
+      for (const status of settings[notifyKey] || []) {
+        const disabled = settings[disabledKey]?.[status] || []
+        if (types.every(type => disabled.includes(type))) {
+          settings[disabledKey] = { ...settings[disabledKey], [status]: disabled.filter(type => type !== 'Sub') }
+        }
+      }
+    }
+  }
+
   function updateNotifyStatus(source, index, status = undefined) {
     const notifyKey = `${source}Notify`
     const disabledKey = `${notifyKey}Disabled`
@@ -128,7 +142,7 @@
   </SettingCard>
 {/if}
 <SettingCard title='Adult Content' description='Adult enables searching for adult (18+) rated anime, typically series with nudity. Hentai enables searching straight up Hentai. This includes adding the Hentai home feed, Hentai genre, and Hentai related tags for search queries.'>
-  <select class='form-control bg-dark w-100 mw-full text-truncate' bind:value={settings.adult}>
+  <select class='form-control bg-dark w-100 mw-full text-truncate' bind:value={settings.adult} on:change={(event) => ensureNotifyFeeds(event.currentTarget.value)}>
     <option value='none' selected>None</option>
     <option value='adult'>Adult</option>
     <option value='hentai'>Hentai</option>
@@ -207,8 +221,8 @@
   {/if}
 {/each}
 {#each [
-  { source: 'releases', name: 'release', title: 'Releases Notifications', description: 'Choose which Releases feeds can notify you for each list status. All feeds are enabled by default.' },
-  { source: 'rss', name: 'RSS', title: 'RSS Feed', description: 'When each RSS feed updates with new entries, notifications will be sent depending on your list status. These notifications will combine with Anilist and Releases notifications for the in-app notification tray.\n\nIf your RSS feed(s) mix audio types, you can toggle notifications for each audio type.' }
+  { source: 'releases', name: 'release', title: 'Releases Notifications', description: 'Choose which Releases feeds can notify you for each list status. All feeds are enabled by default. At least one feed must stay enabled per status. Enable another feed before turning off the last one, or remove the status to stop notifications.' },
+  { source: 'rss', name: 'RSS', title: 'RSS Feed', description: 'When each RSS feed updates with new entries, notifications will be sent depending on your list status. These notifications will combine with Anilist and Releases notifications for the in-app notification tray.\n\nAt least one feed must stay enabled per status. Enable another feed before turning off the last one, or remove the status to stop notifications. If your RSS feed(s) mix audio types, you can toggle notifications for each audio type.' }
 ] as { source, name, title, description } (source)}
   {@const notifyKey = `${source}Notify`}
   {@const disabledKey = `${notifyKey}Disabled`}
@@ -226,12 +240,13 @@
         </div>
       {/if}
       {#each settings[notifyKey] as status, i (i)}
+        {@const enabledTypes = types.filter(type => !settings[disabledKey]?.[status]?.includes(type))}
         <div class='release-notify-rule d-grid align-items-center justify-content-start mb-10'>
           <div class='release-notify-feeds d-flex align-items-center text-center mx-5 mx-sm-10 ml-md-0 mr-md-10 order-1 order-md-0'>
             {#each types as type (type)}
               <div class='release-notify-feed d-flex align-items-center justify-content-center w-50 flex-shrink-0'>
                 <div class='custom-switch'>
-                  <input type='checkbox' role='switch' id='{source}-notify-{type}-{i}' checked={!settings[disabledKey]?.[status]?.includes(type)} aria-label={`${type} ${name} notifications for ${listStatus.find(option => option[1] === status)?.[0] || 'new status'}`} on:change={(event) => {
+                  <input type='checkbox' role='switch' id='{source}-notify-{type}-{i}' checked={!settings[disabledKey]?.[status]?.includes(type)} disabled={enabledTypes.length === 1 && enabledTypes.includes(type)} aria-describedby='{source}-notify-help' aria-label={`${type} ${name} notifications for ${listStatus.find(option => option[1] === status)?.[0] || 'new status'}`} on:change={(event) => {
                     const disabled = settings[disabledKey]?.[status] || []
                     settings[disabledKey] = { ...settings[disabledKey], [status]: event.currentTarget.checked ? disabled.filter(feed => feed !== type) : [...disabled, type] }
                   }} />
