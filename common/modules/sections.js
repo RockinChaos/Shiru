@@ -117,7 +117,7 @@ function createSections () {
   const createSection = (section, variables = {}, staticSort) => ({ ...section, ...(section.sort && staticSort ? { sort: 'N/A' } : {}), variables: { ...variables, sort: settings.value.homeSections.find(([t]) => !staticSort && t === section.title)?.[1] ?? section.sort, ...(Array.isArray(sectionFormat(section.title)) && sectionFormat(section.title).length > 0 ? { format : sectionFormat(section.title) } : {}) } })
   return [
     // RSS feeds
-    ...settings.value.rssFeedsNew.filter(([url]) => url).map(([title, url]) => {
+    ...settings.value.rssFeedsNew.filter(([title, url]) => title && url?.trim()).map(([title, url]) => {
       const section = {
         title,
         sort: 'N/A',
@@ -400,7 +400,7 @@ export async function updateRSS() {
   for (const section of manager.sections) {
     if (section.isRSS && !section.isSchedule) {
       const url = settings.value.rssFeedsNew.find(([feedTitle]) => feedTitle === section.title)?.[1]
-      if (url) {
+      if (url?.trim()) {
         const loaded = RSSManager.getMediaForRSS(1, 12, url, false, true, true)
         if (!section.preview.value || !equal(await resolveData(loaded), await resolveData(section.preview.value))) section.preview.value = loaded
       }

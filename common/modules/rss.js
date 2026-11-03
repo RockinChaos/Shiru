@@ -47,7 +47,7 @@ export function parseRSSNodes (nodes) {
 }
 
 export async function getRSSContent (url) {
-  if (!url) return null
+  if (!url?.trim()) return null
   let res = {}
   try {
     res = await fetch(url)
@@ -112,7 +112,7 @@ class RSSMediaManager {
   async _getMediaForRSS (page, perPage, url, ignoreChanged = false, background = false) {
     debug(`Getting media for RSS feed ${url} page ${page} perPage ${perPage}`)
     const changed = await this.getContentChanged(page, perPage, url, ignoreChanged)
-    if (!changed) return this.resultMap[url].result
+    if (!changed) return this.resultMap[url]?.result || []
     debug(`Feed ${url} has changed, updating`)
 
     const index = (page - 1) * perPage
