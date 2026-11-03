@@ -209,17 +209,20 @@
     </select>
   </SettingCard>
 {/if}
-{#each ['Sub', 'Dub', 'Hentai'] as type (type)}
-  {#if type !== 'Hentai' || settings.adult === 'hentai'}
-    <SettingCard title='{type} Announcements' description={`Get ${type} announcement notifications when an airing date is confirmed. Choose to get all announcements, updates on sequels for related anime you're following, or turn off notifications entirely.`}>
-      <select class='form-control bg-dark w-120 mw-120 text-truncate' bind:value={settings[`${type.toLowerCase()}Announce`]}>
-        <option value='all' selected>All</option>
-        <option value='following' selected>Following</option>
-        <option value='none'>None</option>
-      </select>
-    </SettingCard>
-  {/if}
-{/each}
+<SettingCard class='announcement-notifications d-md-block' title='Releases Announcements' description='Get notified when an airing date is confirmed. Choose all announcements, sequels related to anime you follow, or none.'>
+  <div class='d-flex flex-column gap-10 mt-10 fit-content flex-shrink-0 mw-full ml-md-auto text-md-right'>
+    {#each ['Sub', 'Dub', ...(settings.adult === 'hentai' ? ['Hentai'] : [])] as type (type)}
+      <div class='d-flex flex-row-reverse flex-md-row align-items-center gap-20'>
+        <label for='announce-{type.toLowerCase()}' class='w-50 mb-0 flex-shrink-0'>{type}</label>
+        <select id='announce-{type.toLowerCase()}' class='form-control bg-dark w-150 flex-shrink-0 text-truncate' bind:value={settings[`${type.toLowerCase()}Announce`]}>
+          <option value='all'>All</option>
+          <option value='following'>Following</option>
+          <option value='none'>None</option>
+        </select>
+      </div>
+    {/each}
+  </div>
+</SettingCard>
 {#each [
   { source: 'releases', name: 'release', title: 'Releases Notifications', description: 'Choose which Releases feeds can notify you for each list status. All feeds are enabled by default. At least one feed must stay enabled per status. Enable another feed before turning off the last one, or remove the status to stop notifications.' },
   { source: 'rss', name: 'RSS', title: 'RSS Feed', description: 'When each RSS feed updates with new entries, notifications will be sent depending on your list status. These notifications will combine with Anilist and Releases notifications for the in-app notification tray.\n\nAt least one feed must stay enabled per status. Enable another feed before turning off the last one, or remove the status to stop notifications. If your RSS feed(s) mix audio types, you can toggle notifications for each audio type.' }
