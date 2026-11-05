@@ -37,8 +37,10 @@ function setDefaults() {
   }
 }
 
-/** @type {import('simple-store-svelte').Writable<number[]>} */
-export const sync = writable(cache.getEntry(caches.GENERAL, 'sync') || [])
+const storedProfiles = JSON.parse(localStorage.getItem('profiles')) || []
+
+/** @type {import('simple-store-svelte').Writable<string[]>} */
+export const sync = writable((cache.getEntry(caches.GENERAL, 'sync') || []).flatMap(id => typeof id === 'number' ? storedProfiles.filter(profile => profile?.viewer?.data?.Viewer?.id === id).map(getProfileKey) : [id]))
 
 sync.subscribe(value => {
   cache.setEntry(caches.GENERAL, 'sync', value)
@@ -58,7 +60,7 @@ function resetSettings () {
 }
 
 /** @type {import('simple-store-svelte').Writable<typeof defaults>} */
-export const profiles = writable(JSON.parse(localStorage.getItem('profiles')) || [])
+export const profiles = writable(storedProfiles)
 
 profiles.subscribe(value => {
   localStorage.setItem('profiles', JSON.stringify(value))
@@ -246,8 +248,13 @@ export async function refreshMalToken (token) {
   return oauth
 }
 
+export function getProfileKey(profile) {
+  return `${profile?.viewer?.data?.Viewer?.avatar ? 'anilist' : 'myanimelist'}:${profile?.viewer?.data?.Viewer?.id}`
+}
+
 export async function swapProfiles(profile, newProfile) {
   const currentProfile = isAuthorized()
+  const isSameProfile = candidate => getProfileKey(candidate) === getProfileKey(profile)
   if (!isAuthorized() && profile != null) await cache.abandon(profile.viewer.data.Viewer.id)
 
   if (profile == null && profiles.value.length > 0) {
@@ -258,14 +265,14 @@ export async function swapProfiles(profile, newProfile) {
         return profiles.slice(1)
     })
   } else if (profile != null) {
-    if (profile?.viewer?.data?.Viewer?.id === currentProfile?.viewer?.data?.Viewer?.id && newProfile) {
+    if (newProfile && isSameProfile(currentProfile)) {
       localStorage.setItem(alToken ? 'ALviewer' : 'MALviewer', JSON.stringify(profile))
-    } else if (profiles.value.some(p => p.viewer?.data?.Viewer?.id === profile?.viewer?.data?.Viewer?.id && newProfile)) {
-      profiles.update(profiles => profiles.map(p => p.viewer?.data?.Viewer?.id === profile?.viewer?.data?.Viewer?.id ? profile : p))
+    } else if (newProfile && profiles.value.some(isSameProfile)) {
+      profiles.update(profiles => profiles.map(p => isSameProfile(p) ? profile : p))
     } else {
       if (currentProfile) profiles.update(currentProfiles => [currentProfile, ...currentProfiles])
       setViewer(profile)
-      profiles.update(profiles => profiles.filter(p => p.viewer?.data?.Viewer?.id !== profile.viewer?.data?.Viewer?.id))
+      profiles.update(profiles => profiles.filter(p => !isSameProfile(p)))
     }
   } else {
     await cache.abandon('default')

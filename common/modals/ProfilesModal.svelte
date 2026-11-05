@@ -1,7 +1,7 @@
 <script context='module'>
   import { createListener, generateRandomString, getAvatar } from '@/modules/util.js'
   import { writable } from 'simple-store-svelte'
-  import { swapProfiles, alToken, malToken, profiles, sync } from '@/modules/settings.js'
+  import { swapProfiles, alToken, malToken, profiles, sync, getProfileKey } from '@/modules/settings.js'
   import { clientID } from '@/modules/providers/myanimelist/myanimelist.js'
   import { click } from '@/modules/lib/click.js'
   import { toast } from '@/modules/lib/toast.js'
@@ -30,7 +30,7 @@
 
   function dropProfile(profile) {
     profiles.update(profiles => {
-      return profiles.filter(p => p.viewer.data.Viewer.id !== profile.viewer?.data?.Viewer?.id)
+      return profiles.filter(p => getProfileKey(p) !== getProfileKey(profile))
     })
   }
 
@@ -39,7 +39,7 @@
   }
 
   function toggleSync(profile) {
-    const profileID = profile.viewer.data.Viewer.id
+    const profileID = getProfileKey(profile)
     if (sync.value.includes(profileID)) sync.value = sync.value.filter(id => id !== profileID)
     else sync.value = sync.value.concat(profileID)
   }
@@ -107,7 +107,7 @@
   {/if}
   <div class='d-flex flex-column align-items-start' style={`min-height: ${$profiles.length > 1 ? `10rem` : `0`}`}>
     <div class='d-flex flex-column align-items-center overflow-y-auto scrollbar-none px-10 my-3' style={`min-height: ${$profiles.length > 1 ? `10rem` : `0`}; margin-left: -1rem; margin-right: -1rem; width: calc(100% + 2rem)`}>
-      {#each $profiles as profile (profile.viewer.data.Viewer.id)}
+      {#each $profiles as profile (getProfileKey(profile))}
         <button type='button' class='profile-item {profile.reauth ? `authenticate` : ``} box text-left pointer border-0 d-flex align-items-center justify-content-between position-relative flex-wrap z-1' data-toggle='tooltip' data-placement='top' data-title='Switch to Profile: {profile.viewer.data.Viewer.name}' class:not-reactive={!$reactive} use:click={() => switchProfile(profile)}>
           <div class='d-flex align-items-center flex-wrap'>
             <SmartImage class='h-50 w-50 ml-10 mt-5 mb-5 mr-10 rounded-circle bg-transparent' images={[profile.viewer.data.Viewer.avatar?.large, profile.viewer.data.Viewer.avatar?.medium, profile.viewer.data.Viewer.picture, `./${getAvatar(profile.viewer.data.Viewer.id)}`]}/>
@@ -118,8 +118,8 @@
             <button type='button' tabindex='-1' class='position-absolute profile-safe-area top-0 right-0 h-full w-100 bg-transparent border-0 shadow-none not-reactive' use:click={() => {}}/>
             {#if !profile.reauth}
               <button type='button' class='custom-switch fit-content bg-transparent border-0 z-1' data-toggle='tooltip' data-placement='left' data-title='Sync List Entries' use:click|stopPropagation>
-                <input type='checkbox' id='sync-{profile.viewer.data.Viewer.id}' checked={$sync.includes(profile.viewer.data.Viewer.id)} use:click={() => toggleSync(profile)} />
-                <label for='sync-{profile.viewer.data.Viewer.id}'><br/></label>
+                <input type='checkbox' id='sync-{getProfileKey(profile)}' checked={$sync.includes(getProfileKey(profile))} use:click={() => toggleSync(profile)} />
+                <label for='sync-{getProfileKey(profile)}'><br/></label>
               </button>
             {:else}
               <button type='button' class='button {profile.reauth ? `pa-button` : `p-button`} pt-5 pb-5 pl-5 pr-5 mr-15 bg-transparent border-0 d-flex align-items-center justify-content-center z-1' data-toggle='tooltip' data-placement='left' data-title='Authenticate' use:click|stopPropagation={() => reauth(profile)}>

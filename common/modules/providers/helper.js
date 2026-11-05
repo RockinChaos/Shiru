@@ -1,4 +1,4 @@
-import { alToken, malToken, sync, isAuthorized, profiles } from '@/modules/settings.js'
+import { alToken, malToken, sync, isAuthorized, profiles, getProfileKey } from '@/modules/settings.js'
 import { anilistClient } from '@/modules/providers/anilist/anilist.js'
 import { malClient } from '@/modules/providers/myanimelist/myanimelist.js'
 import { malDubs } from '@/modules/anime/animedubs.js'
@@ -224,7 +224,7 @@ export default class Helper {
 
         if (sync.value.length > 0) { // handle profile entry syncing
           for (const profile of profiles.value) {
-            if (sync.value.includes(profile?.viewer?.data?.Viewer?.id)) {
+            if (sync.value.includes(getProfileKey(profile))) {
               let res
               if (profile.viewer?.data?.Viewer?.avatar) {
                 variables.score = (cachedMedia.mediaListEntry?.score ? (cachedMedia.mediaListEntry?.score * 10) : 0)

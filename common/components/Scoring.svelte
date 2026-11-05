@@ -1,6 +1,6 @@
 <script>
   import { anilistClient } from '@/modules/providers/anilist/anilist.js'
-  import { profiles, sync } from '@/modules/settings.js'
+  import { profiles, sync, getProfileKey } from '@/modules/settings.js'
   import { getMediaMaxEp } from '@/modules/anime/anime.js'
   import { codes, createListener } from '@/modules/util.js'
   import { SUPPORTS } from '@/modules/support.js'
@@ -67,7 +67,7 @@
       printToast(res, description, false, false)
       if (sync.value.length > 0) { // handle profile syncing
         for (const profile of profiles.value) {
-          if (sync.value.includes(profile?.viewer?.data?.Viewer?.id)) {
+          if (sync.value.includes(getProfileKey(profile))) {
             const anilist = profile.viewer?.data?.Viewer?.avatar
             const listId = (anilist ? { id: (await anilistClient.getUserLists({userID: profile.viewer.data.Viewer.id, token: profile.token}))?.data?.MediaListCollection?.lists?.flatMap(list => list.entries).find(({ media: listMedia }) => listMedia.id === media.id)?.media?.mediaListEntry?.id } : { idMal: media.idMal })
             if (listId?.id || listId?.idMal) {
@@ -99,7 +99,7 @@
         printToast(res, description, true, false)
         if (sync.value.length > 0) { // handle profile syncing
           for (const profile of profiles.value) {
-            if (sync.value.includes(profile?.viewer?.data?.Viewer?.id)) {
+            if (sync.value.includes(getProfileKey(profile))) {
               const anilist = profile.viewer?.data?.Viewer?.avatar
               const lists = anilist ? (await anilistClient.getUserLists({userID: profile.viewer.data.Viewer.id, token: profile.token}))?.data?.MediaListCollection?.lists?.flatMap(list => list.entries).find(({ media: listMedia }) => listMedia.id === media.id)?.media?.mediaListEntry?.customLists?.filter(list => list.enabled).map(list => list.name) : []
               const res = await Helper.entry(media, {
