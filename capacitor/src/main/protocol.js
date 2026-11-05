@@ -24,17 +24,20 @@ export default class Protocol {
   protocolRx = /shiru:\/\/([a-z0-9]+)\/(.*)/i
 
   constructor() {
+    const rendererReady = new Promise(resolve => ipcWire.once('torrent:rendererReady', resolve))
+    const openUrl = async ({ url }) => {
+      await loadingClient.promise
+      await rendererReady
+      if ((!url.startsWith('magnet:') && url.endsWith('.torrent')) || url.startsWith('content://') || url.startsWith('file://')) return this.handleTorrentFile(url)
+      this.handleProtocol(url)
+    }
     Capacitor.getLaunchUrl().then(res => {
       if (location.hash !== '#skipAlLogin') {
         location.hash = '#skipAlLogin'
-        if (res) this.handleProtocol(res.url)
+        if (res?.url) return openUrl(res)
       } else location.hash = ''
-    })
-    Capacitor.addListener('appUrlOpen', async ({ url }) => {
-      await loadingClient.promise
-      if ((!url.startsWith('magnet:') && url.endsWith('.torrent')) || url.startsWith('content://') || url.startsWith('file://')) this.handleTorrentFile(url)
-      else this.handleProtocol(url)
-    })
+    }).catch(console.error)
+    Capacitor.addListener('appUrlOpen', data => openUrl(data).catch(console.error))
     ipcWire.on('common:handleProtocol', (event, data) => this.handleProtocol(data))
   }
 

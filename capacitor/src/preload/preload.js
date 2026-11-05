@@ -85,7 +85,10 @@ window.torrent = {
    * @param {(request: any) => void} callback
    * @returns {any}
    */
-  onRequest: (callback) => ipcWire.on('torrent:onRequest', (event, opts) => callback(opts)),
+  onRequest: (callback) => {
+    ipcWire.on('torrent:onRequest', (event, opts) => callback(opts))
+    ipcWire.send('torrent:rendererReady')
+  },
   /**
    * Updates the worker debug filter.
    * @param {string} debug Enabled debug namespaces.
