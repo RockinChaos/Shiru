@@ -47,6 +47,9 @@ const extractUserFields = (media) => ({ ...(media.mediaListEntry && { mediaListE
  */
 const batchWriters = new Map()
 
+/** Internal marker for cache deletions queued alongside writes. */
+const DELETE_ENTRY = Symbol('deleteEntry')
+
 /**
  * A collection of cache configurations used in the application.
  * Each entry represents a cache with its unique key, if its shared globally, and optional eviction params.
@@ -171,11 +174,9 @@ async function set(dbName, cache, key, value) {
  */
 async function remove(dbName, cache, keys) {
   if (!keys || keys.length === 0) return
-  const database = await open(dbName)
-  const transaction = database.transaction(cache.key, 'readwrite')
-  const objectStore = transaction.objectStore(cache.key)
-  keys.forEach(key => objectStore.delete(key))
-  return waitForTransaction(transaction)
+  const batchWriter = getBatchWriter(dbName)
+  keys.forEach(key => batchWriter.enqueue(cache, key, DELETE_ENTRY))
+  return batchWriter.flushNow()
 }
 
 /**
@@ -317,7 +318,7 @@ function readAllFrom(source, storeKey) {
 }
 
 /**
- * Creates a batch writer for a given user that buffers cache writes and flushes them to IndexedDB after a delay.
+ * Creates a batch writer for a given user that buffers cache writes and deletions and flushes them to IndexedDB after a delay.
  *
  * This groups multiple writes into a single IndexedDB transaction and retries failed writes by re-enqueuing them.
  *
@@ -344,7 +345,7 @@ function createBatchWriter(dbName, firstFlushDelay = 10_000, subsequentFlushDela
   setInterval(resetRetries, resetDelay).unref?.()
 
   /**
-   * Flushes all queued writes to IndexedDB in a single transaction.
+   * Flushes all queued writes and deletions to IndexedDB in a single transaction.
    * If an error occurs, re-enqueues the writes for retry.
    */
   async function flush() {
@@ -362,12 +363,16 @@ function createBatchWriter(dbName, firstFlushDelay = 10_000, subsequentFlushDela
       try {
         const transaction = database.transaction(cacheKey, 'readwrite')
         const store = transaction.objectStore(cacheKey)
-        for (const [key, value] of kvMap.entries()) store.put({ key, value })
+        for (const [key, value] of kvMap.entries()) {
+          if (value === DELETE_ENTRY) store.delete(key)
+          else store.put({ key, value })
+        }
         await waitForTransaction(transaction)
         debug(`Flushed ${kvMap.size} entries to ${cacheKey}`)
       } catch (error) {
         debug(`Failed to flush ${cacheKey}, will retry`, error)
         for (const [key, value] of kvMap) {
+          if (pending.get(cacheKey)?.has(key)) continue // A newer write or deletion supersedes this failed operation.
           const mapKey = `${cacheKey}:${key}`
           const attempts = retryMap.get(mapKey) || 0
           if (attempts < 3) {
@@ -392,12 +397,12 @@ function createBatchWriter(dbName, firstFlushDelay = 10_000, subsequentFlushDela
 
   return {
     /**
-     * Enqueues a cache entry for a specific cache and key.
+     * Enqueues a cache write or deletion for a specific cache and key.
      * Starts the flush timer if this is the first entry in the batch.
      *
      * @param {keyof typeof caches} cache The name of the cache (object store).
      * @param {string|number} key The key to store in the cache.
-     * @param {*} value The value to store.
+     * @param {*} value The value to store, or DELETE_ENTRY to delete the key.
      */
     enqueue(cache, key, value) {
       const cacheKey = cache.key
