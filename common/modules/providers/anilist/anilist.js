@@ -170,6 +170,9 @@ class AnilistClient {
 
   #listPromise = Promise.resolve()
 
+  #isFlushingMutations = false
+  #fetchingLists = 0
+
   /** @type {import('simple-store-svelte').Writable<ReturnType<AnilistClient['getUserLists']>>} */
   userLists = writable()
 
@@ -230,7 +233,7 @@ class AnilistClient {
       setTimeout(() => {
         this.getUserLists({ sort: 'UPDATED_TIME_DESC' }).then(updatedLists => {
           this.userLists.value = Promise.resolve(updatedLists) // no need to have userLists await the entire query process while we already have previous values, (it's awful to wait 15+ seconds for the query to succeed with large lists)
-          this.#flushMutationQueue()
+          return this.#flushMutationQueue()
         }).catch(error => debug('Failed to update user lists on init, this is likely a temporary connection issue:', error))
       }).unref?.()
       this.findNewNotifications().catch((error) => debug('Failed to get new anilist notifications at the scheduled interval, this is likely a temporary connection issue:', JSON.stringify(error)))
@@ -238,7 +241,7 @@ class AnilistClient {
       setInterval(() => {
         this.getUserLists({ sort: 'UPDATED_TIME_DESC' }).then(updatedLists => {
           this.userLists.value = Promise.resolve(updatedLists) // no need to have userLists await the entire query process while we already have previous values, (it's awful to wait 15+ seconds for the query to succeed with large lists)
-          this.#flushMutationQueue()
+          return this.#flushMutationQueue()
         }).catch(error => debug('Failed to update user lists at the scheduled interval, this is likely a temporary connection issue:', error))
       }, 1_000 * 60 * 15)
       // check notifications every 5 mins
@@ -249,7 +252,7 @@ class AnilistClient {
         debug(`Back online${this.mutationQueue.hasPending ? ' with pending mutations' : ''}, refreshing user lists`)
         this.getUserLists({ sort: 'UPDATED_TIME_DESC' }, false, true).then(updatedLists => {
           this.userLists.value = Promise.resolve(updatedLists)
-          if (this.mutationQueue.hasPending) this.#flushMutationQueue()
+          if (this.mutationQueue.hasPending) return this.#flushMutationQueue()
         }).catch(error => debug('Failed to refresh user lists after coming online:', error))
       })
     } else {
@@ -468,7 +471,6 @@ class AnilistClient {
     const cachedEntry = !ignoreCache && this.sortListEntries(userSort, await cache.cachedEntry(caches.USER_LISTS, JSON.stringify(variables), ignoreExpiry || status.value.match(/offline/i)))
     if (cachedEntry) return cachedEntry
 
-    this.mutationQueue.isFetchingList = true
     const query = /* js */`
       query($id: Int, $sort: [MediaListSort]) {
         MediaListCollection(userId: $id, type: ANIME, sort: $sort, forceSingleCompletedList: true) {
@@ -482,21 +484,27 @@ class AnilistClient {
           }
         }
       }`
-    let res
-    for (let attempt = 1; attempt <= 3; attempt++) { // VERY large user lists can sometimes result in a timeout, typically trying again succeeds.
-      res = await this.alRequest(query, variables)
-      if (res?.data?.MediaListCollection) break
-      if (attempt < 3) { // stupid fix... probably could be improved...
-        debug(`Error fetching user lists, attempt ${attempt} failed. Retrying in 5 seconds...`)
-        await new Promise(resolve => setTimeout(resolve, 5_000).unref?.())
-      } else {
-        debug('Failed fetching user lists. Maximum of 3 attempts reached, giving up.')
+    this.#fetchingLists++
+    this.mutationQueue.isFetchingList = true
+    try {
+      let res
+      for (let attempt = 1; attempt <= 3; attempt++) { // VERY large user lists can sometimes result in a timeout, typically trying again succeeds.
+        res = await this.alRequest(query, variables)
+        if (res?.data?.MediaListCollection) break
+        if (attempt < 3) { // stupid fix... probably could be improved...
+          debug(`Error fetching user lists, attempt ${attempt} failed. Retrying in 5 seconds...`)
+          await new Promise(resolve => setTimeout(resolve, 5_000).unref?.())
+        } else {
+          debug('Failed fetching user lists. Maximum of 3 attempts reached, giving up.')
+        }
       }
-    }
 
-    const result = await cache.cacheEntry(caches.USER_LISTS, JSON.stringify(variables), variables, res, Date.now() + 14 * 60 * 1_000) // expire after 14 minutes as this will be re-cached by our 15-minute interval.
-    this.mutationQueue.isFetchingList = false
-    return this.sortListEntries(userSort, result)
+      const result = await cache.cacheEntry(caches.USER_LISTS, JSON.stringify(variables), variables, res, Date.now() + 14 * 60 * 1_000) // expire after 14 minutes as this will be re-cached by our 15-minute interval.
+      return this.sortListEntries(userSort, result)
+    } finally {
+      this.#fetchingLists--
+      this.mutationQueue.isFetchingList = this.#fetchingLists > 0
+    }
   }
 
   /**
@@ -549,7 +557,7 @@ class AnilistClient {
   async entry(variables) {
     debug(`Updating entry for ${variables.id}`)
 
-    const progressBefore = this.mutationQueue.getProgressBefore(variables.id) ?? cache.getMedia(variables.id)?.mediaListEntry?.progress ?? null
+    const progressBefore = this.mutationQueue.getProgressBefore(variables.id, variables) ?? (!variables.token ? cache.getMedia(variables.id)?.mediaListEntry?.progress : null) ?? null
     if (status.value.match(/offline/i) && settings.value.offlineSync) {
       debug(`We are offline and offline syncing is enabled, queuing entry update for media ${variables.id}`)
       this.mutationQueue.enqueue('entry', variables.id, variables, null, progressBefore, false)
@@ -577,10 +585,12 @@ class AnilistClient {
           }
         }
       }`
+    const pendingBefore = this.mutationQueue.getPending(variables.id, variables)
     const res = await this.alRequest(query, variables)
     const listEntry = res?.data?.SaveMediaListEntry
+    if (res?.errors?.length || !listEntry) return
     if (!variables.token) {
-      this.mutationQueue.enqueue('entry', variables.id, variables, listEntry, progressBefore)
+      this.mutationQueue.enqueue('entry', variables.id, variables, listEntry, progressBefore, true, pendingBefore)
       await this.updateListEntry(variables.id, listEntry)
     }
     //TODO: need to implement "else" for anilist syncing functionality. #updateListEntry
@@ -603,9 +613,11 @@ class AnilistClient {
           deleted
         }
       }`
+    const pendingBefore = this.mutationQueue.getPending(variables.idAni, variables)
     const res = await this.alRequest(query, variables)
+    if (res?.errors?.length || res?.data?.DeleteMediaListEntry?.deleted !== true) return
     if (!variables.token) {
-      this.mutationQueue.enqueue('delete', variables.idAni, variables, null)
+      this.mutationQueue.enqueue('delete', variables.idAni, variables, null, null, true, pendingBefore)
       await this.deleteListEntry(variables.idAni)
     }
     //TODO: need to implement "else" for anilist syncing functionality. #deleteListEntry
@@ -940,10 +952,6 @@ class AnilistClient {
 
   favourite(variables) {
     debug(`Toggling favourite for ${variables.id}`)
-    const query = /* js */`
-      mutation($id: Int) {
-        ToggleFavourite(animeId: $id) { anime { nodes { id } } }
-      }`
     const cachedMedia = cache.getMedia(variables.id)
     if (cachedMedia) cachedMedia.isFavourite = variables.isFavourite
     if (status.value.match(/offline/i) && settings.value.offlineSync) {
@@ -951,8 +959,18 @@ class AnilistClient {
       this.mutationQueue.enqueue('favourite', variables.id, variables, null, null, false)
       return variables.isFavourite
     }
-    this.alRequest(query, variables).then(() => this.mutationQueue.enqueue('favourite', variables.id, variables, variables.isFavourite))
+    this.#toggleFavourite(variables).catch(error => debug('Failed to toggle favourite:', error))
     return variables.isFavourite
+  }
+
+  async #toggleFavourite(variables) {
+    const query = /* js */`
+      mutation($id: Int) {
+        ToggleFavourite(animeId: $id) { anime { nodes { id } } }
+      }`
+    const res = await this.alRequest(query, variables)
+    if (res?.errors?.length || !res?.data?.ToggleFavourite) throw new Error('AniList favourite update failed')
+    this.mutationQueue.enqueue('favourite', variables.id, variables, variables.isFavourite)
   }
 
   /** @param {import('./al.d.ts').Media} media */
@@ -976,21 +994,35 @@ class AnilistClient {
    * Re-applies executed mutations to local cache and executes offline mutations against the API, both validated against the current resolved list.
    */
   async #flushMutationQueue() {
-    if (this.mutationQueue.isFetchingList) return
-    const mediaList = (await this.userLists.value)?.data?.MediaListCollection
-    await this.mutationQueue.flush(
-      mediaList,
-      async (mutation) => {
-        if (mutation.type === 'entry') await this.updateListEntry(mutation.mediaId, mutation.result)
-        else if (mutation.type === 'delete') await this.deleteListEntry(mutation.mediaId)
-        else if (mutation.type === 'favourite') this.favourite({ id: mutation.mediaId })
-      },
-      async (mutation) => {
-        if (mutation.type === 'entry') await this.entry(mutation.variables)
-        else if (mutation.type === 'delete') await this.delete(mutation.variables)
-        else if (mutation.type === 'favourite') this.favourite(mutation.variables)
-      }
-    )
+    if (this.mutationQueue.isFetchingList || this.#isFlushingMutations) return
+    this.#isFlushingMutations = true
+    try {
+      const mediaList = (await this.userLists.value)?.data?.MediaListCollection
+      await this.mutationQueue.flush(
+        mediaList,
+        async (mutation) => {
+          if (mutation.type === 'entry') await this.updateListEntry(mutation.mediaId, mutation.result)
+          else if (mutation.type === 'delete') await this.deleteListEntry(mutation.mediaId)
+          else if (mutation.type === 'favourite') {
+            const media = cache.getMedia(mutation.mediaId)
+            if (media?.id) cache.updateMedia([{ ...media, isFavourite: mutation.result }])
+          }
+        },
+        async (mutation) => {
+          if (status.value.match(/offline/i)) throw new Error('Cannot replay AniList mutations while offline')
+          if (mutation.type === 'entry') {
+            const res = await this.entry(mutation.variables)
+            if (!res?.data?.SaveMediaListEntry) throw new Error('AniList entry update failed')
+            return res.data.SaveMediaListEntry
+          } else if (mutation.type === 'delete') {
+            const res = await this.delete(mutation.variables)
+            if (res?.data?.DeleteMediaListEntry?.deleted !== true) throw new Error('AniList entry deletion failed')
+          } else if (mutation.type === 'favourite') await this.#toggleFavourite(mutation.variables)
+        }
+      )
+    } finally {
+      this.#isFlushingMutations = false
+    }
   }
 
   /**
