@@ -185,10 +185,16 @@ async function handleMalToken (code, state) {
 }
 
 export async function refreshMalToken (token) {
+  const fingerprint = async value => {
+    if (!value) return 'none'
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+    return 'sha256:' + Array.from(new Uint8Array(hash).slice(0, 6), byte => byte.toString(16).padStart(2, '0')).join('')
+  }
   const { clientID } = await import('./providers/myanimelist/myanimelist.js')
   const profile = malToken?.token === token ? malToken : profiles.value.find(profile => profile.token === token)
   const refresh = profile?.refresh
-  debug(`Attempting to refresh authorization token ${token} with the refresh token ${refresh}`)
+  const [tokenId, refreshId] = await Promise.all([fingerprint(token), fingerprint(refresh)])
+  debug(`Attempting to refresh authorization token ${tokenId} with the refresh token ${refreshId}`)
   let response
   if (refresh && refresh.length > 0) {
     response = await fetch('https://myanimelist.net/v1/oauth2/token', {
@@ -236,7 +242,7 @@ export async function refreshMalToken (token) {
         })
     )
   }
-  debug(`Successfully refreshed authorization token, updated to token ${oauth.access_token} with the refresh token ${oauth.refresh_token}`)
+  debug(`Successfully refreshed authorization token ${tokenId} to ${await fingerprint(oauth.access_token)}, refresh token ${refreshId} to ${await fingerprint(oauth.refresh_token)}`)
   return oauth
 }
 

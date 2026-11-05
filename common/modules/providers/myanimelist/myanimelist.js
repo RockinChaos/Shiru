@@ -95,7 +95,7 @@ class MALClient {
       uniqueStore(status).subscribe(value => {
         if (!(previousStatus.value.match(/offline/i) && value === 'online') || !this.mutationQueue.hasPending) return
         debug('Back online with pending mutations, flushing mutation queue...')
-        this.#flushMutationQueue()
+        this.#flushMutationQueue().catch(error => debug('Failed to replay mutations after coming online:', error))
       })
     }
   }
@@ -130,7 +130,7 @@ class MALClient {
    */
   handleRequest = this.limiter.wrap(async (query, options) => {
     await this.rateLimitPromise
-    trace(`[${this.numberOfQueries}] requesting`, `query: ${JSON.stringify({ ...query, token: query.token ? '[redacted]' : undefined })}`, `options: ${JSON.stringify({ ...options, headers: { ...options.headers, Authorization: options.headers?.Authorization ? '[redacted]' : undefined } })}`)
+    trace(`[${this.numberOfQueries}] requesting`, `query: ${JSON.stringify({ ...query, token: query.token ? '[redacted]' : undefined, eToken: query.eToken ? '[redacted]' : undefined })}`, `options: ${JSON.stringify({ ...options, headers: { ...options.headers, Authorization: options.headers?.Authorization ? '[redacted]' : undefined } })}`)
     this.numberOfQueries++
     let res = {}
     if (!query.eToken && (this.failedRefresh.includes(query.token ? query.token : this.userID.token) || (!query.token && this.userID.reauth))) return {}

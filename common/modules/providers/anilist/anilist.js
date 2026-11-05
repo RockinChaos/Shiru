@@ -256,7 +256,7 @@ class AnilistClient {
       uniqueStore(status).subscribe(value => {
         if (!(previousStatus.value.match(/offline/i) && value === 'online') || !this.mutationQueue.hasPending) return
         debug('Back online with pending mutations, flushing mutation queue...')
-        this.#flushMutationQueue()
+        this.#flushMutationQueue().catch(error => debug('Failed to replay mutations after coming online:', error))
       })
     }
   }
@@ -325,6 +325,9 @@ class AnilistClient {
         ...variables
       }
     }
+    delete vars.variables.token
+    delete vars.variables.refresh_in
+    delete vars.variables.tokenUserId
     if (vars?.variables?.sort === 'OMIT') { delete vars.variables.sort }
 
     /** @type {RequestInit} */
