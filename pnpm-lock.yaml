@@ -192,8 +192,8 @@ importers:
         specifier: ^5.6.8
         version: 5.6.8(webpack@5.112.2)
       semver:
-        specifier: ^7.8.5
-        version: 7.8.5
+        specifier: ^7.8.6
+        version: 7.8.6
       webpack:
         specifier: ^5.112.2
         version: 5.112.2(clean-css@5.3.3)(html-minifier-terser@6.1.0)(postcss@8.5.15)(sharp@0.35.5(@types/node@24.13.6))(uglify-js@3.19.3)(webpack-cli@7.3.1)
@@ -220,8 +220,8 @@ importers:
         specifier: ^10.14.0
         version: 10.14.0(jiti@2.7.0)(supports-color@10.2.2)
       eslint-plugin-svelte:
-        specifier: ^3.23.1
-        version: 3.23.1(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3))
+        specifier: ^3.24.0
+        version: 3.24.0(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3))
       globals:
         specifier: ^17.14.0
         version: 17.14.0
@@ -377,8 +377,8 @@ importers:
         specifier: 0.455.0
         version: 0.455.0(patch_hash=0609c957d625c84712d92a612c0fe92d6b06ae161e98c32f1b6b5694e5ff66ed)(svelte@4.2.20)
       marked:
-        specifier: ^18.1.2
-        version: 18.1.2
+        specifier: ^18.1.3
+        version: 18.1.3
       ms:
         specifier: ^2.1.3
         version: 2.1.3
@@ -2492,8 +2492,8 @@ packages:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
     engines: {node: '>=10'}
 
-  eslint-plugin-svelte@3.23.1:
-    resolution: {integrity: sha512-+w86Jlx4IRUuuvtqD6j4njql+akx+81JnpvbN5de3AV5iq2SexvST/Jr51CiTlKeY0i+vhoKjPO/ywFKIP75sA==}
+  eslint-plugin-svelte@3.24.0:
+    resolution: {integrity: sha512-nppLmSSkWFs4JmPfcXJTFXsGILlYQhVSbJiP803kyMF0d9VxEJ5UIF5QjdbVx0U4bV6g8qkuvZUqkhsusrOzXA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     peerDependencies:
       eslint: ^8.57.1 || ^9.0.0 || ^10.0.0
@@ -3385,8 +3385,8 @@ packages:
     resolution: {integrity: sha512-hdN1wVrZbb29eBGiGjJbeP8JbKjq1urkHJ/LIP/NY48MZ1QVXUsQBV1G1zvYFHn1XE06cwjBsOI2K3Ulnj1YXQ==}
     engines: {node: '>=8'}
 
-  marked@18.1.2:
-    resolution: {integrity: sha512-DfOnvLAQ6WYeWxWO1u4RyFOeqyHup6dks5PPqnoFiooU7ipRvidO/2j8plhAHIiZg574E9ZlzSjUiPMLAzFkgg==}
+  marked@18.1.3:
+    resolution: {integrity: sha512-9ChMH8EVVgjgID49nsL6IWxWk5c6GtAsq/xw7U1ggkjkU5AGuv68oLTVlFRtvcUYZtpbNyjyvGo3YDu0fGapiw==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -4333,13 +4333,8 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  semver@7.8.1:
-    resolution: {integrity: sha512-rkVq3IXh+4FDGch+KwzX3aV9W3kO54GyEgpvBzSyctDA6Xtd7RJQV1xmXbeQp5v7+VzLOfVqiutSE6GICgPFvg==}
-    engines: {node: '>=10'}
-    hasBin: true
-
-  semver@7.8.5:
-    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+  semver@7.8.6:
+    resolution: {integrity: sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -4598,9 +4593,9 @@ packages:
   svelte-dev-helper@1.1.9:
     resolution: {integrity: sha512-oU+Xv7Dl4kRU2kdFjsoPLfJfnt5hUhsFUZtuzI3Ku/f2iAFZqBoEuXOqK3N9ngD4dxQOmN4OKWPHVi3NeAeAfQ==}
 
-  svelte-eslint-parser@1.7.1:
-    resolution: {integrity: sha512-mmwwKL9L/MB0QyBKdfyWxGjDuQfEyzxWy5S9Kkd0O/V5XD57MQ33KQtXrO6vKLuP6PIt8CRozvOX1mxpcRTqUg==}
-    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0, pnpm: 10.34.1}
+  svelte-eslint-parser@1.10.1:
+    resolution: {integrity: sha512-owYBhrNRp/m+hDaQCH0S683kc0TMFy2bB+qvsMQQZRsjSFD9xp/3FYgI8FZoOKA3xk62gwkUj1HpVek0p6WgNw==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0, pnpm: 10.34.6}
     peerDependencies:
       svelte: ^3.37.0 || ^4.0.0 || ^5.0.0
     peerDependenciesMeta:
@@ -5302,7 +5297,7 @@ snapshots:
       plist: 3.1.1
       prompts: 2.4.2
       rimraf: 6.1.3
-      semver: 7.8.5
+      semver: 7.8.6
       tar: 7.5.16
       tslib: 2.8.1
       xcode: 4.0.0
@@ -5410,7 +5405,7 @@ snapshots:
       env-paths: 3.0.0
       graceful-fs: 4.2.11
       progress: 2.0.3
-      semver: 7.8.5
+      semver: 7.8.6
       sumchecker: 3.0.1(supports-color@10.2.2)
     optionalDependencies:
       undici: 7.27.0
@@ -5971,7 +5966,7 @@ snapshots:
 
   '@npmcli/fs@3.1.1':
     dependencies:
-      semver: 7.8.5
+      semver: 7.8.6
 
   '@obsidize/rx-console@6.2.1': {}
 
@@ -7657,7 +7652,7 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-plugin-svelte@3.23.1(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3)):
+  eslint-plugin-svelte@3.24.0(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3)):
     dependencies:
       '@eslint-community/eslint-utils': 4.9.1(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -7668,8 +7663,8 @@ snapshots:
       postcss: 8.5.15
       postcss-load-config: 3.1.4(postcss@8.5.15)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3))
       postcss-safe-parser: 7.0.1(postcss@8.5.15)
-      semver: 7.8.5
-      svelte-eslint-parser: 1.7.1(svelte@4.2.20)
+      semver: 7.8.6
+      svelte-eslint-parser: 1.10.1(svelte@4.2.20)
     optionalDependencies:
       svelte: 4.2.20
     transitivePeerDependencies:
@@ -8090,7 +8085,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.8.5
+      semver: 7.8.6
       serialize-error: 7.0.1
     optional: true
 
@@ -8612,7 +8607,7 @@ snapshots:
 
   map-obj@4.3.0: {}
 
-  marked@18.1.2: {}
+  marked@18.1.3: {}
 
   matcher@3.0.0:
     dependencies:
@@ -8846,15 +8841,15 @@ snapshots:
 
   node-abi@3.77.0:
     dependencies:
-      semver: 7.8.5
+      semver: 7.8.6
 
   node-abi@4.36.0:
     dependencies:
-      semver: 7.8.5
+      semver: 7.8.6
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.8.5
+      semver: 7.8.6
 
   node-datachannel@0.32.3:
     dependencies:
@@ -8883,7 +8878,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.1.0
-      semver: 7.8.5
+      semver: 7.8.6
       tar: 7.5.16
       tinyglobby: 0.2.17
       undici: 6.26.0
@@ -8907,7 +8902,7 @@ snapshots:
       make-fetch-happen: 13.0.1(supports-color@10.2.2)
       nopt: 7.2.1
       proc-log: 3.0.0
-      semver: 7.8.1
+      semver: 7.8.6
       tar: 6.2.1
       which: 4.0.0
     transitivePeerDependencies:
@@ -8932,7 +8927,7 @@ snapshots:
     dependencies:
       hosted-git-info: 4.1.0
       is-core-module: 2.16.2
-      semver: 7.8.5
+      semver: 7.8.6
       validate-npm-package-license: 3.0.4
 
   normalize-path@3.0.0: {}
@@ -9550,9 +9545,7 @@ snapshots:
 
   semver@7.7.4: {}
 
-  semver@7.8.1: {}
-
-  semver@7.8.5: {}
+  semver@7.8.6: {}
 
   send@1.2.1(supports-color@10.2.2):
     dependencies:
@@ -9610,7 +9603,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
-      semver: 7.8.5
+      semver: 7.8.6
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.35.5
       '@img/sharp-darwin-x64': 0.35.5
@@ -9697,7 +9690,7 @@ snapshots:
 
   simple-update-notifier@2.0.0:
     dependencies:
-      semver: 7.8.5
+      semver: 7.8.6
 
   sisteransi@1.0.5: {}
 
@@ -9882,7 +9875,7 @@ snapshots:
 
   svelte-dev-helper@1.1.9: {}
 
-  svelte-eslint-parser@1.7.1(svelte@4.2.20):
+  svelte-eslint-parser@1.10.1(svelte@4.2.20):
     dependencies:
       eslint-scope: 8.4.0
       eslint-visitor-keys: 4.2.1
@@ -9890,7 +9883,7 @@ snapshots:
       postcss: 8.5.15
       postcss-scss: 4.0.9(postcss@8.5.15)
       postcss-selector-parser: 7.1.1
-      semver: 7.8.5
+      semver: 7.8.6
     optionalDependencies:
       svelte: 4.2.20
 
