@@ -43,6 +43,7 @@ export type Media = {
   bannerImage?: string
   synonyms?: string[]
   popularity: number
+  trending?: number
   stats: {
     scoreDistribution: {
       score: number

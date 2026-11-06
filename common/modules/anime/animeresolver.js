@@ -1,7 +1,8 @@
 import { anilistClient, getDistanceFromTitle } from '@/modules/providers/anilist/anilist.js'
-import { cache, mediaCache } from '@/modules/cache.js'
 import { anitomyscript, hasZeroEpisode } from '@/modules/anime/anime.js'
 import { chunks, matchKeys, isValidNumber } from '@/modules/util.js'
+import { cache, mediaCache } from '@/modules/cache.js'
+import { settings } from '@/modules/settings.js'
 import { status } from '@/modules/networking.js'
 //import levenshtein from 'js-levenshtein'
 import Debug from 'debug'
@@ -164,6 +165,7 @@ export default new class AnimeResolver {
       debug('Detected that AniList API is down or network is offline, attempting to resolve titles from cache.')
       missingTitles = []
       for (const titleObj of titleObjects) {
+        if (this.animeNameCache[titleObj.key]) continue
         let foundInCache = false
         const candidates = []
         for (const media of Object.values(mediaCache.value)) {
@@ -203,7 +205,7 @@ export default new class AnimeResolver {
         debug('Failed to compound search and the network is online, forcing a search using cache...')
         return this.findAnimesByTitle(parseObjects, true, true)
       }
-      if (!search || search?.errors) return
+      if (!search || search?.errors) continue
       for (const [key, media] of search) {
         if (!this.animeNameCache[key]) {
           debug(`Found ${key} as ${media?.id}: ${media?.title?.userPreferred}`)
@@ -212,6 +214,26 @@ export default new class AnimeResolver {
           debug(`Duplicate key found ${key} as ${this.animeNameCache[key]?.id}: ${this.animeNameCache[key]?.title?.userPreferred}, skipping new value [${media?.id}: ${media?.title?.userPreferred}]`)
         }
       }
+    }
+    // Recover missing compound mappings after every API title variant has been tried.
+    for (const titleObj of titleObjects) {
+      if (this.animeNameCache[titleObj.key] || titleObj.title.trim().length < 3 || (titleObj.isAdult && settings.value.adult === 'none')) continue
+      const res = await anilistClient.fallbackSearch({
+        search: titleObj.title,
+        year: titleObj.year,
+        isAdult: titleObj.isAdult,
+        status_not: 'CANCELLED',
+        genre_not: settings.value.adult !== 'hentai' ? ['Hentai'] : [],
+        sort: 'SEARCH_MATCH',
+        perPage: Math.max(Object.keys(mediaCache.value || {}).length, 1)
+      })
+      const candidates = res.data.Page.media.map(media => getDistanceFromTitle(media, titleObj.title)).sort((a, b) => a.lavenshtein - b.lavenshtein)
+      const parseObj = parseObjects.find(obj => this.getCacheKeyForTitle(obj) === titleObj.key)
+      const threshold = titleObj.title.length > 15 ? 0.2 : titleObj.title.length > 9 ? 0.15 : 0.1
+      const media = candidates.find(media => this.isVerified(media, { ...parseObj, anime_title: titleObj.title }, ['title.userPreferred', 'title.english', 'title.romaji', 'title.native', 'synonyms'], threshold))
+      if (!media) continue
+      this.animeNameCache[titleObj.key] = media
+      debug(`Cache hit after compound search: ${titleObj.title} -> ${media.id}: ${media.title?.userPreferred}`)
     }
   }
 
@@ -253,46 +275,49 @@ export default new class AnimeResolver {
     const cleanName = (name) => {
       // Preserve specific patterns
       name = name
-          .replace(/\b([A-Za-z]{3,4}\d)\.(\d)\b/g, '<<AUDIO-$1-$2>>')   // For AAC2.0, DDP2.0, etc.
-          .replace(/\b(H|X)\.(\d{3})\b/g, '<<RES-$1-$2>>')              // For H.264, H.265, X.265, etc.
-          .replace(/\b5\.1\b/g, '<<CHANNEL-5-1>>')                      // For 5.1 channels
-          .replace(/\bFLAC5\.1\b/g, '<<AUDIO-FLAC-5-1>>')               // For FLAC5.1
-          .replace(/\bVol\.(\d+)\b/g, '<<VOL-$1>>')                     // For Vol. followed by any digits
+        .replace(/\b([A-Za-z]{3,4}\d)\.(\d)\b/g, '<<AUDIO-$1-$2>>')   // For AAC2.0, DDP2.0, etc.
+        .replace(/\b(H|X)\.(\d{3})\b/g, '<<RES-$1-$2>>')              // For H.264, H.265, X.265, etc.
+        .replace(/\b5\.1\b/g, '<<CHANNEL-5-1>>')                      // For 5.1 channels
+        .replace(/\bFLAC5\.1\b/g, '<<AUDIO-FLAC-5-1>>')               // For FLAC5.1
+        .replace(/\bVol\.(\d+)\b/g, '<<VOL-$1>>')                     // For Vol. followed by any digits
 
       // Remove file extensions and replace all remaining periods with spaces
       name = name.replace(/\.(mkv|mp4|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp|ogg|ogv)$/i, '').replace(/[._]/g, ' ')
 
       // Fix common naming issues, the unfortunate depression of horribly named releases. Please don't be like them, do better.
       name = name
-          .replace('1-2', '1/2').replace('1_2', '1/2').replace('1 2', '1/2').replace('½', '1/2') // Ranma 1/2 fix.
-          .replace(/\s*part\s*1\+2/i, '') // Primary Misfit of Demon King fix.
-          .replace(/PANTY AND STOCKING/i, 'PANTY & STOCKING') // PANTY & STOCKING fix.
-          .replace(/Link Click (Season\s*3|S\s*3|\s*03)/i, 'Link Click: Bridon Arc') // Link Click S3 fix.
-          .replace(/Symphogear G (Season\s*2|S\s*2|\s*02)/i, 'Symphogear G') // Symphogear S2 fix. No you are not playing Season 2 of Symphogear G, why would you name it S2EXX but include the actual title.. that just makes it Season 1, aka "Symphogear G".
-          .replace(/Symphogear GX (Season\s*3|S\s*3|\s*03)/i, 'Symphogear GX') // Symphogear S3 fix.... see above.
-          .replace(/Symphogear AXZ (Season\s*4|S\s*4|\s*04)/i, 'Symphogear AXZ') // Symphogear S4 fix.... see above.
-          .replace(/Symphogear XV (Season\s*5|S\s*5|\s*05)/i, 'Symphogear XV') // Symphogear S5 fix.... see above.
-          .replace(/Kiss X Sis|KissXSis/i, 'Kiss×Sis') // Kiss X Sis fix, Anilist is weird using Unicode characters, not a release groups fault.
-          .replace(/Steins_Gate|Steins Gate/i, 'Steins;Gate') // Fix for certain Steins;Gate series being strict about the semicolon.
-          .replace(/Code Geass Movie 01|Code Geass Movie 1/i, 'Code Geass: Lelouch of the Rebellion I - Initiation') // Fix for bad Code Geass releases labeling Movie 1 as Rebellion I.
-          .replace(/Code Geass Movie 02|Code Geass Movie 2/i, 'Code Geass: Lelouch of the Rebellion II - Transgression') // Fix for bad Code Geass releases labeling Movie 2 as Rebellion II.
-          .replace(/Code Geass Movie 03|Code Geass Movie 3/i, 'Code Geass: Lelouch of the Rebellion III - Glorification') // Fix for bad Code Geass releases labeling Movie 3 as Rebellion III.
+        .replace(/\s*part\s*1\+2/i, '') // Primary Misfit of Demon King fix.
+        .replace(/Link Click (Season\s*3|S\s*3|\s*03)/i, 'Link Click: Bridon Arc') // Link Click S3 fix.
+        .replace(/Symphogear G (Season\s*2|S\s*2|\s*02)/i, 'Symphogear G') // Symphogear S2 fix. No you are not playing Season 2 of Symphogear G, why would you name it S2EXX but include the actual title.. that just makes it Season 1, aka "Symphogear G".
+        .replace(/Symphogear GX (Season\s*3|S\s*3|\s*03)/i, 'Symphogear GX') // Symphogear S3 fix.... see above.
+        .replace(/Symphogear AXZ (Season\s*4|S\s*4|\s*04)/i, 'Symphogear AXZ') // Symphogear S4 fix.... see above.
+        .replace(/Symphogear XV (Season\s*5|S\s*5|\s*05)/i, 'Symphogear XV') // Symphogear S5 fix.... see above.
+        .replace(/Kiss X Sis|KissXSis/i, 'Kiss×Sis') // Kiss X Sis fix, Anilist is weird using Unicode characters, not a release groups fault.
+        .replace(/Steins_Gate|Steins Gate/i, 'Steins;Gate') // Fix for certain Steins;Gate series being strict about the semicolon.
+        .replace(/Code Geass Movie 01|Code Geass Movie 1/i, 'Code Geass: Lelouch of the Rebellion I - Initiation') // Fix for bad Code Geass releases labeling Movie 1 as Rebellion I.
+        .replace(/Code Geass Movie 02|Code Geass Movie 2/i, 'Code Geass: Lelouch of the Rebellion II - Transgression') // Fix for bad Code Geass releases labeling Movie 2 as Rebellion II.
+        .replace(/Code Geass Movie 03|Code Geass Movie 3/i, 'Code Geass: Lelouch of the Rebellion III - Glorification') // Fix for bad Code Geass releases labeling Movie 3 as Rebellion III.
       if (name.match(/Steins;Gate/i) && name.match(/Movie/i)) name = (/Steins;Gate 0/i.test(name) ? name.replace(/Steins;Gate 0/i, 'Steins;Gate 0:') : name.replace(/Steins;Gate/i, 'Steins;Gate:')).replace(/The Movie/i, '').replace(/Movie/i, '') // Steins;Gate movies are very sensitive when resolving.
       if (name.match(/Steins;Gate/i) && name.match(/Divide|β|Beta/i)) name = name.replace(/23β|23 β|23\(β\)|23 \(β\)|β|23Beta|23 Beta|Open the Missing Link|Divide By Zero/i, 'Kyoukaimenjou No Missing Link - Divide By Zero').replace(/Episode 23|23|Episode/i, '') // Steins;Gate 23β incorrectly detects as Episode 23 of the main series, we need to use the full Romaji name.
       if (name.match(/Code Geass /i) && !name.match(/Lelouch|Dakkan|Dakken|Rozé|Roze|Rose|Movie|Akito|Recapture/i)) name = name.replace(/Code Geass/i, 'Code Geass: Hangyaku No Lelouch') // fixes the main series being detected as the Spin-off (alternative) series.
-      if (name.match(/Yami Healer/i) && !name.match(/Isshun|Shiteita|Yakutatazu|Tsuihou|Sareta|Toshite|Tanoshiku/i)) name = name.replace(/Yami Healer/i, 'Isshun de Chiryou Shiteita no ni Yakutatazu to Tsuihou Sareta Tensai Chiyushi, Yami Healer Toshite Tanoshiku Ikiru') // stupid fix for a synonym that doesn't exist with The Brilliant Healer's New Life in the Shadows...
       if (name.match(/Kanchigai no Atelier Meister/i) && !name.match(/Mini|Short|Eiyuu|Party/i)) name = name.replace(/Kanchigai no Atelier Meister/i, 'The Unaware Atelier Meister') // stupid fix to prevent the Mini Anime from being fetched due to egregiously long romaji name in the TV series.
       if (name.match(/Prince/i) && name.match(/Tennis/i)) name = name.replace(/new /i, '') // Prince of Tennis fix.
-      if (name.match(/Mugen Gacha/i) && !name.match(/Shinjiteita|Nakamatachi|Korosarekaketa|Fukushuu|Unlimited|Backstabbed|Backwater|Dungeon|Revenge/i)) name = name.replace(/Mugen Gacha/i, `My Gift Lvl 9999 Unlimited Gacha: Backstabbed in a Backwater Dungeon, I'm Out for Revenge!`) // My Gift Lvl 9999 Unlimited Gacha fix.
-      if (name.match(/Gintama[: ]/i) && name.match(/3-nen|Z-gumi|Ginpachi/i) && !name.match(/Tuuuunnn/i)) name = name.replace(/Gintama[: ]?/i, '') // Mr. Ginpachi's Zany Class fix.
       if (name.match(/Mobile Suit Z /i)) name = name.replace(/ Z /i, ' Zeta ') // Mobile Suit Zeta Gundam fix.
       if (name.match(/Kaijuu 8-gou/i) && name.match(/Mission Recon/i)) name = name.replace(/- Mission Recon| -Mission Recon|Mission Recon/i, '').replace(/Kaijuu 8-gou/i, 'Kaiju No. 8: Mission Recon') // Kaiju No. 8: Mission Recon fix...
-      if (name.match(/Living/i) && name.match(/Otaku/i) && name.match(/NEET Kunoichi/i)) name = name.replace(/ an /i, ' a ') // I'm Living With a Otaku NEET Kunoichi?! fix for release groups like ToonsHub using Engrish...
       if (name.match(/Seishun Buta Yarou wa Bunny Girl Senpai no Yume wo Minai|Rascal Does Not Dream of Bunny Girl Senpai|AoButa /i) && name.match(/Season\s*2|S\s*0?2/i)) name = name.replace(/Seishun Buta Yarou wa Bunny Girl Senpai no Yume wo Minai|Rascal Does Not Dream of Bunny Girl Senpai|AoButa /i, 'Rascal Does Not Dream of Santa Claus').replace(/Season\s*2|S\s*0?2/gi, '') // Stupid fix for primarily stupid English release groups, you should use the actual name of the series here not the parent name... this is technically not a season 2, it's a sequel to a movie.
       if (name.match(/Hero/i) && name.match(/Academia/i) && !name.match(/FINAL/i) && name.match(/S8|S08|Season 8|Season 08/i)) name = name.replace(/Academia/i, 'Academia FINAL SEASON').replace(/S8|S08|Season 8|Season 08/i, '') // My Hero Academia FINAL SEASON fix...
       if (name.match(/Intai Shitai (Part|Cour) 2/i)) name = name.replace(/Intai Shitai (Part|Cour) 2/i, 'Intai Shitai 2') // Let This Grieving Soul Retire Cour 2 fix...
       if (name.match(/Soul Retire Part 2/i)) name = name.replace(/Soul Retire Part 2/i, 'Soul Retire Cour 2') // Let This Grieving Soul Retire Cour 2 fix...
       if (name.match(/Hikuidori: Ushuu Boro Tobi-gumi|Hikuidori Ushuu Boro Tobi-gumi|Hikuidori - Ushuu Boro Tobi-gumi|Hikuidori ~Ushuu Boro Tobi-gumi~/i)) name = name.replace(/Hikuidori: Ushuu Boro Tobi-gumi|Hikuidori Ushuu Boro Tobi-gumi|Hikuidori - Ushuu Boro Tobi-gumi|Hikuidori ~Ushuu Boro Tobi-gumi~/i, 'Hikuidori') // Oedo Fire Slayer The Legend of Phoenix fix...
+
+      // TODO: We can likely remove the manual title corrections below. Our fuzzy match appears to cover these issues.
+      name = name
+        .replace('1-2', '1/2').replace('1_2', '1/2').replace('1 2', '1/2').replace('½', '1/2') // Ranma 1/2 fix.
+        .replace(/PANTY AND STOCKING/i, 'PANTY & STOCKING') // PANTY & STOCKING fix.
+      if (name.match(/Yami Healer/i) && !name.match(/Isshun|Shiteita|Yakutatazu|Tsuihou|Sareta|Toshite|Tanoshiku/i)) name = name.replace(/Yami Healer/i, 'Isshun de Chiryou Shiteita no ni Yakutatazu to Tsuihou Sareta Tensai Chiyushi, Yami Healer Toshite Tanoshiku Ikiru') // stupid fix for a synonym that doesn't exist with The Brilliant Healer's New Life in the Shadows...
+      if (name.match(/Mugen Gacha/i) && !name.match(/Shinjiteita|Nakamatachi|Korosarekaketa|Fukushuu|Unlimited|Backstabbed|Backwater|Dungeon|Revenge/i)) name = name.replace(/Mugen Gacha/i, `My Gift Lvl 9999 Unlimited Gacha: Backstabbed in a Backwater Dungeon, I'm Out for Revenge!`) // My Gift Lvl 9999 Unlimited Gacha fix.
+      if (name.match(/Gintama[: ]/i) && name.match(/3-nen|Z-gumi|Ginpachi/i) && !name.match(/Tuuuunnn/i)) name = name.replace(/Gintama[: ]?/i, '') // Mr. Ginpachi's Zany Class fix.
+      if (name.match(/Living/i) && name.match(/Otaku/i) && name.match(/NEET Kunoichi/i)) name = name.replace(/ an /i, ' a ') // I'm Living With a Otaku NEET Kunoichi?! fix for release groups like ToonsHub using Engrish...
       if (name.match(/Toukutsu Ou/i)) name = name.replace(/Toukutsu Ou/i, 'Tomb Raider King') // Tomb Raider King fix...
       if (name.match(/Yoroi Shin Den Samurai Troopers/i)) name = name.replace(/Yoroi Shin Den Samurai Troopers/i, 'Yoroi-Shinden Samurai Troopers') // Yoroi-Shinden Samurai Troopers fix...
       if (name.match(/Tai-Ari deshita. Ojousama wa Kakutou Game nante Shinai/i)) name = name.replace(/Tai-Ari deshita. Ojousama wa Kakutou Game nante Shinai/i, 'Young Ladies Don\'t Play Fighting Games') // Young Ladies Don't Play Fighting Games fix...
@@ -300,25 +325,26 @@ export default new class AnimeResolver {
       if (name.match(/Futsutsuka na Akujo dewa/i)) name = name.replace(/Futsutsuka na Akujo dewa/i, 'Futsutsuka na Akujo de wa') // Though I Am an Inept Villainess fix...
       if (name.match(/wa Tensei shitemo Kenka ga Shitai/i)) name = name.replace(/Hanaorisan/i, 'Hanaori-san').replace(/Hanaori san/i, 'Hanaori-san').replace(/Hanaori-san wa Tensei shitemo Kenka ga Shitai/i, 'Hanaori-san Still Wants to Fight in the Next Life') // Hanaori-san Still Wants to Fight in the Next Life fix...
       if (name.match(/All Works Maid/i) && !name.match(/Heroine/i) && !name.match(/Seijo/i) && !name.match(/Saint/i)) name = name.replace(/All Works Maid/i, 'Heroine? Seijo? Iie, All Works Maid desu (Ko)!') // Heroine? Saint? No, I'm an All-Works Maid fix...
+      // END OF TITLE CORRECTIONS
 
       // fix incorrect marker patterns to prevent them from being detected as episode count...
       name = name
-          .replace(/H 264/i, 'H.264')
-          .replace(/H 265/i, 'H.265')
-          .replace(/MPEG 2/i, 'MPEG-2')
-          .replace(/MPEG 4/i, 'MPEG-4')
-          .replace(/AVC 1/i, 'AVC1')
-          .replace(/\s*2\.0/i, '2.0')
-          .replace(/\s*5\.0/i, '5.0')
-          .replace(/\s*5\.1/i, '5.1')
+        .replace(/H 264/i, 'H.264')
+        .replace(/H 265/i, 'H.265')
+        .replace(/MPEG 2/i, 'MPEG-2')
+        .replace(/MPEG 4/i, 'MPEG-4')
+        .replace(/AVC 1/i, 'AVC1')
+        .replace(/\s*2\.0/i, '2.0')
+        .replace(/\s*5\.0/i, '5.0')
+        .replace(/\s*5\.1/i, '5.1')
 
       // Restore preserved patterns by converting markers back
       name = name
-          .replace(/<<AUDIO-([A-Za-z]{3,4}\d)-(\d)>>/g, '$1.$2')        // For AAC2.0, DDP2.0, etc.
-          .replace(/<<RES-([HX])-(\d{3})>>/g, '$1.$2')                  // For H.264, H.265, X.265, etc.
-          .replace(/<<CHANNEL-5-1>>/g, '5.1')                           // For 5.1 channels
-          .replace(/<<AUDIO-FLAC-5-1>>/g, 'FLAC5.1')                    // For FLAC5.1
-          .replace(/<<VOL-(\d+)>>/g, 'Vol.$1')                          // For Vol. followed by any digits
+        .replace(/<<AUDIO-([A-Za-z]{3,4}\d)-(\d)>>/g, '$1.$2')        // For AAC2.0, DDP2.0, etc.
+        .replace(/<<RES-([HX])-(\d{3})>>/g, '$1.$2')                  // For H.264, H.265, X.265, etc.
+        .replace(/<<CHANNEL-5-1>>/g, '5.1')                           // For 5.1 channels
+        .replace(/<<AUDIO-FLAC-5-1>>/g, 'FLAC5.1')                    // For FLAC5.1
+        .replace(/<<VOL-(\d+)>>/g, 'Vol.$1')                          // For Vol. followed by any digits
 
       // Remove extra spaces (collapse multiple spaces into one)
       return name.replace(/\s+/g, ' ').trim()
