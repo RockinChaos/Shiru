@@ -22,11 +22,12 @@
     "@electron/notarize": "^3.1.2",
     "client": "workspace:*",
     "common": "workspace:*",
+    "concurrently": "^10.0.6",
     "electron": "45.2.2",
     "electron-builder": "^26.18.1",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.12",
-    "concurrently": "^10.0.6"
+    "js-yaml": "^5.5.0"
   },
   "dependencies": {
     "@paymoapp/electron-shutdown-handler": "^1.2.0",

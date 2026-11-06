@@ -1,7 +1,10 @@
 const { join, resolve } = require('path')
+const { readFileSync } = require('node:fs')
+const { load } = require('js-yaml')
 const { spawn } = require('node:child_process')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const commonConfig = require('common/webpack.config.cjs')
+const { electronDownload } = load(readFileSync(join(__dirname, 'electron-builder.yml'), 'utf8'))
 
 const nodeEnv = process.env.NODE_ENV?.trim()
 const mode = nodeEnv === 'production' || nodeEnv === 'none' ? nodeEnv : 'development'
@@ -42,6 +45,9 @@ module.exports = [
     devServer: {
       onListening(server) {
         if (process.env.DEV_ENV !== 'electron') return
+        process.env.ELECTRON_MIRROR ??= electronDownload.mirror
+        process.env.ELECTRON_CUSTOM_DIR ??= electronDownload.customDir
+        process.env.electron_use_remote_checksums ??= '1'
         let electron
         const startElectron = stats => {
           if (electron || stats.hasErrors()) return
