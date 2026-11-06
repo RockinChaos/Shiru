@@ -783,6 +783,7 @@ class AnilistClient {
   searchWithCache(variables) {
     if (status.value.match(/offline/i)) return this.fallbackSearch(variables)
     const { page = 1, perPage = 50, ...filters } = variables
+    const sort = [filters.sort].flat()[0]
     const start = (page - 1) * perPage
     const end = start + perPage
     const key = JSON.stringify([!!Helper.isAniAuth(), Helper.getUser()?.id, settings.value.queryComplexity, perPage, filters])
@@ -812,7 +813,7 @@ class AnilistClient {
       }
       const primaryIDs = new Set(snapshot.media.map(media => media.id))
       const extraIDs = snapshot.candidates.filter(id => !primaryIDs.has(id))
-      if (extraIDs.length && filters.sort !== 'OMIT' && ![filters.sort].flat().includes('SEARCH_MATCH')) {
+      if (extraIDs.length && sort !== 'OMIT' && sort !== 'SEARCH_MATCH') {
         const res = await this.search({ ...filters, search: undefined, id: [...primaryIDs, ...extraIDs], page, perPage }, false)
         if (!Array.isArray(res?.data?.Page?.media)) throw new Error('AniList cache search returned no media page')
         return {

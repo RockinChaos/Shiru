@@ -1,6 +1,6 @@
 import { anilistClient, getDistanceFromTitle } from '@/modules/providers/anilist/anilist.js'
+import { chunks, matchKeys, isValidNumber, sleep } from '@/modules/util.js'
 import { anitomyscript, hasZeroEpisode } from '@/modules/anime/anime.js'
-import { chunks, matchKeys, isValidNumber } from '@/modules/util.js'
 import { cache, mediaCache } from '@/modules/cache.js'
 import { settings } from '@/modules/settings.js'
 import { status } from '@/modules/networking.js'
@@ -218,6 +218,7 @@ export default new class AnimeResolver {
     // Recover missing compound mappings after every API title variant has been tried.
     for (const titleObj of titleObjects) {
       if (this.animeNameCache[titleObj.key] || titleObj.title.trim().length < 3 || (titleObj.isAdult && settings.value.adult === 'none')) continue
+      await sleep(0) // Let input and rendering run between titles in a feed batch.
       const res = await anilistClient.fallbackSearch({
         search: titleObj.title,
         year: titleObj.year,
@@ -227,10 +228,9 @@ export default new class AnimeResolver {
         sort: 'SEARCH_MATCH',
         perPage: Math.max(Object.keys(mediaCache.value || {}).length, 1)
       })
-      const candidates = res.data.Page.media.map(media => getDistanceFromTitle(media, titleObj.title)).sort((a, b) => a.lavenshtein - b.lavenshtein)
       const parseObj = parseObjects.find(obj => this.getCacheKeyForTitle(obj) === titleObj.key)
       const threshold = titleObj.title.length > 15 ? 0.2 : titleObj.title.length > 9 ? 0.15 : 0.1
-      const media = candidates.find(media => this.isVerified(media, { ...parseObj, anime_title: titleObj.title }, ['title.userPreferred', 'title.english', 'title.romaji', 'title.native', 'synonyms'], threshold))
+      const media = res.data.Page.media.find(media => this.isVerified(media, { ...parseObj, anime_title: titleObj.title }, ['title.userPreferred', 'title.english', 'title.romaji', 'title.native', 'synonyms'], threshold))
       if (!media) continue
       this.animeNameCache[titleObj.key] = media
       debug(`Cache hit after compound search: ${titleObj.title} -> ${media.id}: ${media.title?.userPreferred}`)
