@@ -1223,17 +1223,17 @@ class AnilistClient {
 
       const search = variables.search?.trim()
       if (search) {
-        const normalize = text => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f'\u2018\u2019]/g, '').replace(/[\u2010-\u2015]/g, '-')
+        const normalize = text => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f'\u2018\u2019]/g, '').replace(/[\u2010-\u2015]/g, '-').replace(/\band\b/g, '&')
         // Avoid Unicode-property regex requirements on older Android WebViews.
         const tokenize = text => text.split(/[\s\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E]+/).filter(Boolean)
         this.titleSearchCache ||= new WeakMap()
         const candidates = media.map(media => {
           const titles = [...Object.values(media.title || {}), ...(media.synonyms || [])].filter(title => typeof title === 'string')
           let cached = this.titleSearchCache.get(media)
-          if (cached?.compact == null || cached.version !== 2 || titles.length !== cached.titles.length || titles.some((title, index) => title !== cached.titles[index])) {
+          if (!cached || titles.length !== cached.titles.length || titles.some((title, index) => title !== cached.titles[index])) {
             const normalized = [...new Set(titles.map(normalize))]
             // Ignore spacing and letter-joining hyphens within each title, keeping aliases separate.
-            cached = { version: 2, titles, text: normalized.join('\n'), compact: normalized.map(title => title.replace(/\s+/g, '').replace(/([a-z])-+(?=[a-z])/g, '$1')).join('\n'), words: null }
+            cached = { titles, text: normalized.join('\n'), compact: normalized.map(title => title.replace(/\s+/g, '').replace(/([a-z])-+(?=[a-z])/g, '$1')).join('\n'), words: null }
             this.titleSearchCache.set(media, cached)
           }
           return { media, cached }

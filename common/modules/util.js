@@ -404,7 +404,7 @@ const regex = !SUPPORTS.isAndroid ? new RegExp('[^\\p{L}\\p{N}\\p{Zs}\\p{Pd}]', 
   : /[^a-zA-Z0-9\s\-\u00C0-\u024F\u0400-\u04FF\u0370-\u03FF\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF]/g
 function cleanText(text) {
   if (typeof text !== 'string') return ''
-  return replaceSeasonWithWords(text.replace(hyphenRegex, '$1 $2').replace(regex, ''))
+  return replaceSeasonWithWords(text.replace(hyphenRegex, '$1 $2').replace(regex, character => character === '&' ? character : ''))
 }
 
 /**
@@ -427,7 +427,9 @@ export function matchKeys(nest, phrase, keys, threshold = 0.4) {
       if (cleanedArray.length) setNestedValue(cleanedNest, key, cleanedArray)
     }
   }
-  if (new Fuse([cleanedNest], { includeScore: true, threshold, keys: keys }).search(cleanedPhrase).length > 0) return true
+  const phrases = [...new Set([cleanedPhrase, cleanedPhrase.replace(/\band\b/gi, '&'), cleanedPhrase.replace(/&/g, 'and')])]
+  const titleSearch = new Fuse([cleanedNest], { includeScore: true, threshold, keys: keys })
+  if (phrases.some(phrase => titleSearch.search(phrase).length > 0)) return true
   const fuse = new Fuse([cleanedPhrase], { includeScore: true, threshold })
   return keys.some((key) => {
     const valueToMatch = cleanedNest[key]
