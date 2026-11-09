@@ -40,13 +40,12 @@
 
 <script>
   import { getAniMappings, getMappedEpisodeCount, hasZeroEpisode, durationMap } from '@/modules/anime/anime.js'
-  import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
+  import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents, findTorrents } from '@/modules/torrent.js'
   import { since, monthDay, matchPhrase, capitalize } from '@/modules/util.js'
   import { click } from '@/modules/lib/click.js'
   import { onDestroy, tick } from 'svelte'
   import { episodeByAirDate } from '@/modules/extensions/handler.js'
   import { liveAnimeProgress } from '@/modules/anime/animeprogress.js'
-  import { getHash } from '@/modules/anime/animehash.js'
   import { episodesList } from '@/modules/episodes.js'
   import EpisodeListSk from '@/components/skeletons/EpisodeListSk.svelte'
   import TorrentButton from '@/components/TorrentButton.svelte'
@@ -315,7 +314,7 @@
             {@const progress = !watched && ($animeProgress?.[episode] ?? 0)}
             {@const resolvedTitle = (isSpoiler && ['strict', 'hermit'].includes($settings.spoilers)) || episodeList.filter((ep) => ep.episode < episode).some((ep) => matchPhrase(ep.title, title, 0.1, true)) ? null : title}
             {@const largeCard = image}
-            {@const resolvedHash = ($completedTorrents || $seedingTorrents || $stagingTorrents || $loadedTorrent) && getHash(media?.id, { episode, client: true, batchGuess: true }, false, true)}
+            {@const resolvedHash = ($completedTorrents || $seedingTorrents || $stagingTorrents || $loadedTorrent) && findTorrents(media?.id, episode)[0]?.infoHash}
             <div class='w-full content-visibility-auto scale my-20' class:load-in={!loadScroll} class:opacity-half={completed} class:scale-target={target} class:px-20={!target} class:px-10={target} class:h-150={!SUPPORTS.isAndroid && largeCard} class:h-165={SUPPORTS.isAndroid && largeCard}>
               <div role='button' tabindex='0' class='episode-card rounded-2 w-full h-full overflow-hidden d-flex flex-xsm-column flex-row position-relative {unreleased ? `unreleased not-allowed` : `pointer`}' class:not-reactive={!$reactive} class:smallCard={!largeCard} class:android={SUPPORTS.isAndroid}  class:border={target || hasFiller} class:bg-black={completed} class:border-secondary={hasFiller} class:bg-dark-light={!completed} use:click={() => play(media, episode)} on:contextmenu|preventDefault={() => play(media, episode, true)}>
                 <div class='unreleased-overlay position-absolute top-0 left-0 right-0 h-full pointer-events-none rounded-2' class:d-none={!unreleased}/>

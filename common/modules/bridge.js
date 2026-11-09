@@ -19,6 +19,7 @@ const torrentDefaults = {
   debug: noopAsyncVoid,
   /** @returns {Promise<{missingCount: number, removedCount: number}>} */
   rescan: async () => ({ missingCount: 0, removedCount: 0 }),
+  setMedia: async () => { throw new Error('Torrent cache is unavailable') },
   scrape: noopAsyncArray,
   stream: noopAsyncVoid,
   stage: noopAsyncVoid,

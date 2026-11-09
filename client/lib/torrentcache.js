@@ -3,6 +3,40 @@ import { mkdir, readFile, writeFile, unlink, access, readdir } from 'fs/promises
 import parseTorrent from 'parse-torrent'
 import bencode from 'bencode'
 
+/** Converts custom torrent fields between expected values and bencode-safe values. */
+const codecs = {
+  media: {
+    encode(value) {
+      const encodeValue = value => {
+        if (typeof value === 'boolean') return Number(value)
+        if (typeof value === 'number' && !Number.isInteger(value)) return String(value)
+        if (Array.isArray(value)) return value.map(encodeValue)
+        if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, value]) => [key, encodeValue(value)]))
+        return value
+      }
+      return encodeValue(value)
+    },
+    decode(value) {
+      const decodeValue = (value, key = '') => {
+        if (ArrayBuffer.isView(value)) {
+          const text = Buffer.from(value).toString()
+          return ['episode', 'season', 'first', 'last'].includes(key) && Number.isFinite(Number(text)) && !Number.isInteger(Number(text)) ? Number(text) : text
+        }
+        if (Array.isArray(value)) return value.map(item => decodeValue(item))
+        if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, value]) => [key, decodeValue(value, key)]))
+        return value
+      }
+      const media = decodeValue(value)
+      for (const file of [media.default, ...Object.values(media.files || {})]) {
+        if (!file) continue
+        file.failed = !!file.failed
+        file.locked = !!file.locked
+      }
+      return media
+    }
+  }
+}
+
 export default class Cache {
 
   /**
@@ -27,7 +61,7 @@ export default class Cache {
       const parsed = await parseTorrent(data)
       const customFields = {}
       for (const [key, value] of Object.entries(bencode.decode(data))) {
-        if (!(key in parsed)) customFields[key] = value
+        if (!(key in parsed)) customFields[key] = codecs[key]?.decode ? codecs[key].decode(value) : value
       }
       const { announce, urlList, ...safeParsed } = { ...parsed, ...customFields }
       return safeParsed
@@ -44,6 +78,7 @@ export default class Cache {
    * @returns {Promise<void>}
    */
   async set(key, value, bencoded = true) {
+    if (bencoded) value = Object.fromEntries(Object.entries(value).map(([key, value]) => [key, codecs[key]?.encode ? codecs[key].encode(value) : value]))
     const buffer = bencoded ? bencode.encode(value) : Buffer.from(JSON.stringify(value))
     if (!buffer.length) return
     const path = join(await this.cacheFolder, key)

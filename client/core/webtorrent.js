@@ -1,9 +1,10 @@
 import { makeHash, getInfoHash, hasIntegrity, getProgressAndSize, stringifyQuery, errorToString, TMP, isFlatpak, getStats, diskSpace } from '@client/lib/util.js'
-import { sleep, isValidNumber, getRandomInt } from '@/modules/util.js'
+import { sleep, isValidNumber, getRandomInt, stripRootFolder } from '@/modules/util.js'
 import { hex2bin, arr2hex, text2arr } from 'uint8-util'
 import Cache from '@client/lib/torrentcache.js'
 import { SUPPORTS } from '@/modules/support.js'
 import Metadata from '@client/lib/metadata.js'
+import { isDeepStrictEqual } from 'node:util'
 import { spawn } from 'node:child_process'
 import Client from 'bittorrent-tracker'
 import HTTPTracker from 'http-tracker'
@@ -15,6 +16,7 @@ const debug = Debug('torrent:worker')
  * @typedef {import('webtorrent/lib/torrent.js').default & {
  *   _removal?: boolean,
  *   _cacheWrite?: Promise<void>,
+ *   _cacheStore?: Cache,
  *   seeders?: number,
  *   leechers?: number,
  *   trackerUrl?: string,
@@ -24,6 +26,7 @@ const debug = Debug('torrent:worker')
  *   seeding?: boolean,
  *   local?: boolean,
  *   date?: string,
+ *   media?: import('@/types').TorrentMedia,
  *   cachedAt?: number
  * }} Torrent
  */
@@ -60,6 +63,8 @@ export default class TorrentClient {
   tracker = null
   /** @type {Map<string, Promise<void>>} */
   removals = new Map()
+  /** @type {Map<string, Promise<object>>} */
+  mediaWrites = new Map()
   /** @type {ReturnType<typeof getStats>[]} */
   completed = []
   /** @type {(() => void)|null} */
@@ -225,6 +230,7 @@ export default class TorrentClient {
     torrent.staging = !onReady
     torrent.date = new Date(Date.now() - 1_000).toUTCString()
     torrent.cachedAt = cache?.cachedAt ?? Date.now()
+    torrent.media = cache?.media || {}
     const uploadedOffset = cache?._uploaded ?? 0
     Object.defineProperty(torrent, 'ratio', { // reassign torrent.ratio to use our own getter for more accurate ratio tracking.
       configurable: true,
@@ -393,6 +399,7 @@ export default class TorrentClient {
     let torrentUploaded = uploadedOffset
     let torrentProgress = torrent.progress
     const torrentStore = this.torrentCache
+    torrent._cacheStore = torrentStore
     const cacheTorrent = async (force = false) => {
       const uploaded = uploadedOffset + torrent.uploaded
       if (torrent.destroyed) {
@@ -412,7 +419,7 @@ export default class TorrentClient {
       torrentUploaded = uploaded
       torrentProgress = torrent.progress
       const data = dataStored
-      torrent._cacheWrite = (torrent._cacheWrite || Promise.resolve()).then(() => torrentStore.set(torrent.infoHash, data))
+      torrent._cacheWrite = (torrent._cacheWrite || Promise.resolve()).then(() => torrentStore.set(torrent.infoHash, { ...data, media: torrent.media || {} }))
       await torrent._cacheWrite
     }
     const wrapTorrent = async () => {
@@ -433,6 +440,7 @@ export default class TorrentClient {
       }
       await cacheTorrent(true)
       if (closedStats) {
+        closedStats.media = torrent.media
         if (this.client.destroyed || this.destroyed || this.client.torrents.some(active => active.infoHash === torrent.infoHash && !active.destroyed)) return
         this.completed = Array.from(new Map([...(this.completed || []), closedStats].map(item => [item.infoHash, item])).values())
         this.updateTorrent(torrent.infoHash, { completed: closedStats })
@@ -618,6 +626,7 @@ export default class TorrentClient {
    * @returns {Promise<void>} Resolves after removing the torrent and cached files.
    */
   async untrack(id) { // User really doesn't want this, delete from cache and remove the file. (Probably should implement a prompt asking if the user wants to keep the associated files).
+    await this.mediaWrites.get(id)?.catch(() => {})
     await this.removals.get(id)
     const untrack = this.client.torrents.find(torrent => torrent.infoHash === id)
     if (untrack) {
@@ -686,6 +695,80 @@ export default class TorrentClient {
   }
 
   // TODO: addLocalFiles
+
+  /**
+   * Saves one file's media mapping, or default torrent media before individual files have media.
+   * @param {string} hash
+   * @param {import('@/types').FileMedia & {path?: string, fileHash?: string}} data
+   * @param {boolean} [overwrite=true] Replace an existing resolution, false only fills missing entries.
+   * @returns {Promise<import('@/types').TorrentMedia>}
+   */
+  setMedia(hash, data, overwrite = true) {
+    hash = hash.toLowerCase()
+    const torrent = this.client.torrents.find(torrent => torrent.infoHash === hash && !torrent.destroyed && !torrent._removal)
+    const torrentStore = torrent?._cacheStore || this.torrentCache
+    const pending = Promise.allSettled([this.removals.get(hash), torrent?._cacheWrite, this.mediaWrites.get(hash)]).then(async () => {
+      await torrentStore.cacheFolder
+      const cache = await torrentStore.get(hash)
+      if (!cache && !torrent && !overwrite) return {}
+      if (!cache && (!torrent || torrent.ready || torrent.destroyed)) throw new Error('Cannot save media without a cached torrent')
+      const source = torrent || cache
+      if (data.path && !source.files?.some(file => file.path.replaceAll('\\', '/') === data.path.replaceAll('\\', '/'))) throw new Error('Unknown torrent file')
+      const previous = torrent?.media || cache?.media || {}
+      const media = { ...previous, files: { ...previous.files } }
+      const { path, fileHash, ...fileMedia } = data
+      for (const key of Object.keys(fileMedia)) {
+        if (fileMedia[key] == null) delete fileMedia[key]
+      }
+      for (const key of ['episode', 'season']) {
+        if (typeof fileMedia[key] === 'string' && Number.isFinite(Number(fileMedia[key])) && !Number.isInteger(Number(fileMedia[key]))) fileMedia[key] = Number(fileMedia[key])
+      }
+      const paths = fileHash ? (source.files || []).filter(file => makeHash(`${hash}:${file.name}:${file.length}`) === fileHash.toLowerCase()).map(file => file.path) : [path]
+      let changed = false
+      for (const path of paths) {
+        const key = path && stripRootFolder(path)
+        const target = key ? media.files[key] : media.default
+        if ((!overwrite && target) || (!key && Object.values(media.files).some(file => file.anilist_id || file.mal_id))) continue
+        if (target?.locked && !fileMedia.locked) continue
+        if (!fileMedia.mal_id && target?.mal_id && fileMedia.anilist_id === target.anilist_id) fileMedia.mal_id = target.mal_id
+        if (key) media.files[key] = fileMedia
+        else media.default = fileMedia
+        changed = true
+      }
+      if (media.default && Object.values(media.files).some(file => file.anilist_id || file.mal_id)) {
+        delete media.default
+        changed = true
+      }
+      if (!changed) return previous
+      if (cache) {
+        await torrentStore.set(hash, {
+          info: cache.info,
+          'url-list': cache['url-list'] ?? [],
+          'announce-list': cache['announce-list'] ?? [],
+          _bitfield: cache._bitfield,
+          _uploaded: cache._uploaded || 0,
+          media,
+          cachedAt: cache.cachedAt,
+          updatedAt: Date.now()
+        })
+        const saved = await torrentStore.get(hash)
+        if (!isDeepStrictEqual(saved?.media, media)) throw new Error('Could not save torrent media')
+      }
+      source.media = media
+      const completed = this.completed.find(torrent => torrent.infoHash === hash)
+      if (completed) completed.media = media
+      return media
+    }).catch(error => {
+      if (overwrite) throw error
+      debug('Could not migrate torrent media, dropping mapping:', hash, error)
+      return {}
+    })
+    this.mediaWrites.set(hash, pending)
+    if (torrent) torrent._cacheWrite = pending.then(() => {}, () => {})
+    return pending.finally(() => {
+      if (this.mediaWrites.get(hash) === pending) this.mediaWrites.delete(hash)
+    })
+  }
 
   /**
    * Selects a playable file and prepares metadata for internal playback.
@@ -980,6 +1063,7 @@ export default class TorrentClient {
       return {
         infoHash: torrent.infoHash,
         fileHash: makeHash(`${torrent.infoHash}:${file.name}:${file.size}`),
+        mediaData: torrent.media?.files?.[stripRootFolder(file.path)],
         torrent_name: torrent.name,
         name: file.name,
         type: file.type,
@@ -1027,6 +1111,7 @@ export default class TorrentClient {
     this.torrentServer?.close?.()
     this.destroyed = Promise.allSettled([
       ...this.removals.values(),
+      ...this.mediaWrites.values(),
       new Promise((resolve, reject) => {
         if (this.client.destroyed) {
           debug('Ooops! TorrentClient is already destroyed!')

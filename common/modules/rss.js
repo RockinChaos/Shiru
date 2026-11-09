@@ -3,15 +3,14 @@ import { settings } from '@/modules/settings.js'
 import { status } from '@/modules/networking.js'
 import { cache, caches } from '@/modules/cache.js'
 import { toast } from '@/modules/lib/toast.js'
-import { add } from '@/modules/torrent.js'
-import { getEpisodeMetadataForMedia, isSubbedProgress } from '@/modules/anime/anime.js'
+import { add, getTorrentMedia, loadedTorrent, seedingTorrents, stagingTorrents, completedTorrents } from '@/modules/torrent.js'
+import { getEpisodeMetadataForMedia, isSubbedProgress, anitomyscript } from '@/modules/anime/anime.js'
 import AnimeResolver from '@/modules/anime/animeresolver.js'
 import { anilistClient } from '@/modules/providers/anilist/anilist.js'
 import { queueNotification } from '@/modules/notification/manager.js'
 import { hasNextPage } from '@/modules/sections.js'
 import { malDubs } from '@/modules/anime/animedubs.js'
 import { episodesList } from '@/modules/episodes.js'
-import { getId } from '@/modules/anime/animehash.js'
 import Debug from 'debug'
 const debug = Debug('ui:rss')
 
@@ -177,22 +176,28 @@ class RSSMediaManager {
     let resolvedData = []
     const processedItems = items.map(item => {
       if (item.hash) {
-        const idData = getId(item.hash, {})
-        if (idData && idData.files?.length) {
+        const torrent = [loadedTorrent.value, ...seedingTorrents.value, ...stagingTorrents.value, ...completedTorrents.value].find(torrent => torrent.infoHash === item.hash.toLowerCase())
+        const idData = getTorrentMedia(torrent)
+        if (idData?.anilist_id && !idData.failed && idData.files?.length && idData.files.every(file => file.anilist_id === idData.anilist_id)) {
           return {
             fromId: true,
             original: item,
             ...idData,
-            media: cache.getMedia(idData.mediaId),
-            ...(!idData.parseObject && idData.files?.length ? { parseObject: idData.files[0].parseObject } : {}),
-            ...(!idData.episodeRange && idData.files?.length === 1 ? { episodeRange: idData.files[0].episodeRange || idData.files[0].parseObject?.episodeRange } : {}),
-            ...(!idData.episode && idData.files?.length === 1 ? { episode: idData.files[0].episode || idData.files[0].parseObject?.episode_number } : {}),
-            ...(!idData.season && idData.files?.length === 1 ? { season: idData.files[0].season || idData.files[0].parseObject?.anime_season } : {}),
-            ...(!idData.failed && idData.files?.length === 1 ? { failed: idData.files[0].failed || idData.files[0].parseObject?.failed } : {})
+            media: cache.getMedia(idData.anilist_id),
+            parseObject: { file_name: item.title, anime_title: item.title, episode_number: idData.episode, episodeRange: idData.episodeRange, anime_season: idData.files[0].season }
           }
         }
       }
       return { fromId: false, original: item }
+    })
+
+    const savedItems = processedItems.filter(item => item.fromId)
+    const parsedItems = savedItems.length ? await anitomyscript(savedItems.map(item => item.original.title)).catch(error => {
+      debug(error)
+      return []
+    }) : []
+    savedItems.forEach((item, index) => {
+      item.parseObject = { ...parsedItems[index], ...item.parseObject, anime_title: parsedItems[index]?.anime_title ?? item.original.title }
     })
 
     const unresolvedItems = processedItems.filter(item => !item.fromId).map(item => item.original.title)

@@ -9,7 +9,7 @@
   import { statusColorMap, formatMap } from '@/modules/anime/anime.js'
   import { episodesList } from '@/modules/episodes.js'
   import { click } from '@/modules/lib/click.js'
-  import { getHash } from '@/modules/anime/animehash.js'
+  import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents, findTorrents } from '@/modules/torrent.js'
   import { liveAnimeEpisodeProgress } from '@/modules/anime/animeprogress.js'
   import { anilistClient } from '@/modules/providers/anilist/anilist.js'
   import { settings } from '@/modules/settings.js'
@@ -33,7 +33,7 @@
   let hide = true
   let animating = true
 
-  $: resolvedHash = media?.id && !data.failed && getHash(media.id, { episode: data?.episode, client: true, batchGuess: true }, false, true)
+  $: resolvedHash = ($loadedTorrent || $completedTorrents || $seedingTorrents || $stagingTorrents) && media?.id && !data.failed && findTorrents(media.id, data?.episode)[0]?.infoHash
 </script>
 
 <div class='position-absolute w-400 mw-full mh-400 absolute-container top-0 m-auto bg-dark-light z-30 rounded overflow-hidden pointer d-flex flex-column fade-change' use:clampToViewport in:fadeIn out:fadeOut on:introend={() => (animating = false)} on:outrostart={() => (animating = true)} bind:this={element}>

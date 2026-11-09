@@ -2,15 +2,13 @@
   import { settings } from '@/modules/settings.js'
   import { debounce, matchPhrase, equalsIgnoreCase } from '@/modules/util.js'
   import { sanitiseTerms } from '@/modals/torrent/components/TorrentCard.svelte'
-  import { add } from '@/modules/torrent.js'
+  import { add, findTorrents, getTorrentMedia } from '@/modules/torrent.js'
   import { nowPlaying as currentMedia } from '@/components/MediaHandler.svelte'
   import { animeSchedule } from '@/modules/anime/animeschedule.js'
   import { cache, caches } from '@/modules/cache.js'
   import { status } from '@/modules/networking.js'
   import { anitomyscript, getMediaMaxEp, getKitsuMappings, getEpisodeMetadataForMedia } from '@/modules/anime/anime.js'
-  import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
   import { dedupe, getTorrentResults, updatePeerCounts } from '@/modules/extensions/handler.js'
-  import { getId, getHash } from '@/modules/anime/animehash.js'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
   import { anilistClient } from '@/modules/providers/anilist/anilist.js'
   import { click } from '@/modules/lib/click.js'
@@ -214,21 +212,16 @@
     return ''
   }
 
-  async function addCachedHashes(cachedHashes) {
-    if (!cachedHashes?.length) return
+  async function addCachedTorrents(torrents) {
+    if (!torrents?.length) return
     const cachedTorrents = []
-    const torrents = [...completedTorrents.value, ...seedingTorrents.value, ...stagingTorrents.value, loadedTorrent.value].filter(Boolean)
-    for (const cached of cachedHashes) {
-      const torrent = torrents.find(torrent => equalsIgnoreCase(torrent.infoHash, cached.hash))
-      if (!torrent) continue
+    for (const torrent of torrents) {
+      const cached = getTorrentMedia(torrent)
       const title = AnimeResolver.cleanFileName(torrent.name)
       const searchEpisode = search?.episode
-      let isLocked = cached.locked ?? (cached.files?.length === 1 && (cached.files[0].locked || cached.files[0].parseObject?.locked)) ?? false
-      if (!isLocked && Array.isArray(cached.files) && searchEpisode != null) {
-        const normalizedEpisode = Number.isFinite(Number(searchEpisode)) ? Number(searchEpisode) : searchEpisode
-        const matchingFile = cached.files.find(file => file.episode === normalizedEpisode)
-        if (matchingFile) isLocked = matchingFile.locked ?? false
-      }
+      const normalizedEpisode = Number.isFinite(Number(searchEpisode)) ? Number(searchEpisode) : searchEpisode
+      const matchingFiles = cached.files?.filter(file => file.anilist_id === search?.media?.id && (searchEpisode == null || file.episode === normalizedEpisode)) || []
+      const isLocked = matchingFiles.length ? matchingFiles.some(file => file.locked) : cached.locked ?? false
       cachedTorrents.push({
         title,
         link: torrent.magnetURI,
@@ -248,18 +241,7 @@
   async function queryExtensions(request, resolution) {
     scrollTop()
     $results = {}
-    const cachedHashes = []
-    for (const resolvedHash of getHash(search?.media?.id, { episode: search?.episode, client: true, batchGuess: true }, false, true, true) ?? []) {
-      if (resolvedHash) {
-        const cachedFile = getId(resolvedHash, { fileHash: resolvedHash }, true)
-        if (cachedFile) cachedHashes.push(cachedFile)
-        else {
-          const cachedTorrent = getId(resolvedHash, {}, true)
-          if (cachedTorrent) cachedHashes.push(cachedTorrent)
-        }
-      }
-    }
-    await addCachedHashes(cachedHashes)
+    await addCachedTorrents(findTorrents(search?.media?.id, search?.episode))
     debug(`Querying extensions for torrent sources for ${search?.media?.id}`)
     let promises
     try {

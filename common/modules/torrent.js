@@ -1,6 +1,6 @@
 import { files, nowPlaying as media } from '@/components/MediaHandler.svelte'
 import { page } from '@/modules/navigation.js'
-import { capitalize, equalsIgnoreCase } from '@/modules/util.js'
+import { capitalize, stripRootFolder, equalsIgnoreCase, getTorrentSettings } from '@/modules/util.js'
 import { settings, debugStore } from '@/modules/settings.js'
 import { cache, caches } from '@/modules/cache.js'
 import { SUPPORTS } from '@/modules/support.js'
@@ -8,7 +8,6 @@ import { status } from '@/modules/networking.js'
 import { writable } from 'simple-store-svelte'
 import { toast } from '@/modules/lib/toast.js'
 import clipboard from '@/modules/lib/clipboard.js'
-import { setHash } from '@/modules/anime/animehash.js'
 import { TORRENT, ELECTRON } from '@/modules/bridge.js'
 import { get } from 'svelte/store'
 import Debug from 'debug'
@@ -75,12 +74,12 @@ if (!SUPPORTS.isAndroid) {
   })
 }
 
-_settings = { userID: cache.cacheID, dht: !settings.value.torrentDHT, torrentUTP: !settings.value.torrentUTP, torrentPeX: !settings.value.torrentPeX, maxConns: settings.value.maxConns, downloadLimit: (settings.value.torrentSpeed * 1048576) || 0, uploadLimit: (settings.value.torrentSpeed * 1048576) || 0, torrentPort: settings.value.torrentPort || 0, dhtPort: settings.value.dhtPort || 0, torrentPersist: settings.value.torrentPersist, torrentStreamedDownload: settings.value.torrentStreamedDownload, torrentPathNew: settings.value.torrentPathNew, playerPath: settings.value.playerPath, seedingLimit: settings.value.seedingLimit, trackers: settings.value.trackers, debug: get(debugStore) }
+_settings = getTorrentSettings(settings.value, cache.cacheID, get(debugStore))
 TORRENT.portRequest(_settings).then(async () => {
   await setupTorrentClient()
   status.subscribe(value => TORRENT.updateNetwork(value).catch(error => notify('error', error)))
   settings.subscribe(value => {
-    const settingsVal = { userID: cache.cacheID, dht: !value.torrentDHT, torrentUTP: !value.torrentUTP, torrentPeX: !value.torrentPeX, maxConns: value.maxConns, downloadLimit: (value.torrentSpeed * 1048576) || 0, uploadLimit: (value.torrentSpeed * 1048576) || 0, torrentPort: value.torrentPort || 0, dhtPort: value.dhtPort || 0, torrentPersist: value.torrentPersist, torrentStreamedDownload: value.torrentStreamedDownload, torrentPathNew: value.torrentPathNew, playerPath: value.playerPath, seedingLimit: value.seedingLimit, trackers: value.trackers, debug: get(debugStore) }
+    const settingsVal = getTorrentSettings(value, cache.cacheID, get(debugStore))
     if (JSON.stringify(_settings) !== JSON.stringify(settingsVal)) {
       _settings = settingsVal
       TORRENT.updateSettings(_settings).catch(error => notify('error', error))
@@ -123,6 +122,7 @@ function onReady(_files) {
  * @returns {void}
  */
 function updateTorrent(hash, update) {
+  requestTorrentMedia([update.current?.stats || update.staging || update.seeding || update.completed])
   if (update.current) {
     const detail = update.current
     const { stats, ...data } = detail
@@ -174,8 +174,87 @@ function updateTorrent(hash, update) {
  */
 function onCompleted(detail) {
   debug('Got completed stats request')
+  requestTorrentMedia(detail)
   completedTorrents.update(torrents => Array.from(new Map([...detail, ...torrents].map(torrent => [torrent.infoHash, torrent])).values()))
   loadingSession.set(false)
+}
+
+/**
+ * Returns available torrents in playback priority order using their saved file metadata.
+ * @param mediaId
+ * @param episode
+ */
+export function findTorrents(mediaId, episode) {
+  if (!mediaId) return []
+  return [loadedTorrent.value, ...seedingTorrents.value, ...stagingTorrents.value, ...completedTorrents.value].filter(torrent => {
+    if (!torrent?.infoHash) return false
+    const files = Object.values(torrent.media?.files || {}).filter(file => file.anilist_id)
+    return (files.length ? files : [torrent.media?.default]).some(file => {
+      if (!file || file.anilist_id !== Number(mediaId) || file.failed) return false
+      if (episode == null) return true
+      const range = file.episodeRange || (typeof file.episode === 'string' && /^(\d+)\s*[~-]\s*(\d+)$/.exec(file.episode))
+      if (range) return episode >= Number(range.first ?? range[1]) && episode <= Number(range.last ?? range[2])
+      return file.episode != null ? Number(file.episode) === Number(episode) : !files.length
+    })
+  })
+}
+
+/** @param torrent */
+export function getTorrentMedia(torrent) {
+  const files = Object.values(torrent?.media?.files || {}).filter(file => file.anilist_id)
+  if (!files.length) return torrent?.media?.default && { ...torrent.media.default, files: [] }
+  const anilist_id = Math.min(...files.map(file => file.anilist_id))
+  return {
+    ...(files.length === 1 ? files[0] : {}),
+    anilist_id,
+    mal_id: files.find(file => file.anilist_id === anilist_id && file.mal_id)?.mal_id,
+    locked: files.every(file => file.locked),
+    failed: files.every(file => file.failed),
+    files
+  }
+}
+
+/**
+ * @param hash
+ * @param data
+ * @param path
+ */
+export async function setTorrentMedia(hash, data, path) {
+  try {
+    const anilist_id = data.media?.id ?? data.anilist_id
+    const locked = !!(data.locked || data.parseObject?.locked)
+    const media = await TORRENT.setMedia(hash, {
+      ...(path ? { path } : {}),
+      anilist_id,
+      mal_id: data.media?.idMal ?? cache.getMedia(anilist_id)?.idMal ?? (data.anilist_id === anilist_id ? data.mal_id : null),
+      episode: data.episode ?? null,
+      episodeRange: data.episodeRange ?? null,
+      season: data.season ?? null,
+      failed: !locked && !!(data.failed || data.parseObject?.failed),
+      locked,
+    })
+    if (equalsIgnoreCase(loadedTorrent.value?.infoHash, hash)) loadedTorrent.update(torrent => ({ ...torrent, media }))
+    for (const store of [stagingTorrents, seedingTorrents, completedTorrents]) {
+      store.update(torrents => torrents.map(torrent => equalsIgnoreCase(torrent.infoHash, hash) ? { ...torrent, media } : torrent))
+    }
+    for (const file of files.value) {
+      if (equalsIgnoreCase(file.infoHash, hash)) file.mediaData = media.files?.[stripRootFolder(file.path)]
+    }
+    return true
+  } catch (error) {
+    notify('error', error)
+    return false
+  }
+}
+
+function requestTorrentMedia(torrents) {
+  const ids = new Set(torrents.flatMap(torrent => {
+    const files = Object.values(torrent?.media?.files || {}).filter(file => file.anilist_id)
+    return (files.length ? files : [torrent?.media?.default]).map(file => file?.anilist_id).filter(Boolean)
+  }))
+  for (const id of ids) {
+    if (!cache.getMedia(id)?.id) cache.requestMedia(id).catch(error => console.warn('Could not load torrent media', error))
+  }
 }
 
 export async function add(torrentID, search, hash, magnet, base64 = false) {
@@ -184,15 +263,18 @@ export async function add(torrentID, search, hash, magnet, base64 = false) {
     files.set([])
     page.navigateTo(page.PLAYER)
     media.value = search ? { media: (search.media || media.value?.media), episode: (search.episode || media.value?.episode), ...(media.value?.torrent ? { torrent: true } : { feed: true }) } : { torrent: true }
-    if (hash && search) setHash(hash, { mediaId: search.media?.id, episode: search.episode, client: true })
     if (SUPPORTS.isAndroid && !settings.value.enableExternal && settings.value.autoFullscreen) document.querySelector('.content-wrapper').requestFullscreen() // this WILL not work with auto-select torrents due to permissions check.
-    TORRENT.stream(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, magnet, base64, onReady).catch(error => notify('error', error))
+    try {
+      const torrent = await TORRENT.stream(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, magnet, base64, onReady)
+      if (torrent?.infoHash && search) await setTorrentMedia(torrent.infoHash, search)
+    } catch (error) {
+      notify('error', error)
+    }
   }
 }
 export async function stage(torrentID, search, hash, base64 = false) {
   if (torrentID) {
     debug('Pre-Adding torrent', JSON.stringify({ torrentID, search, hash }))
-    if (hash && search) setHash(hash, { mediaId: search.media?.id, episode: search.episode, client: true })
     let torrent
     try {
       torrent = await TORRENT.stage(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, base64)
@@ -200,6 +282,7 @@ export async function stage(torrentID, search, hash, base64 = false) {
       notify('error', error)
       return false
     }
+    if (torrent?.infoHash && search) await setTorrentMedia(torrent.infoHash, search)
     if (hash) {
       const existingTorrent = seedingTorrents.value.find(torrent => torrent.infoHash === hash) || completedTorrents.value.find(torrent => equalsIgnoreCase(torrent.infoHash, hash))
       if (existingTorrent) {

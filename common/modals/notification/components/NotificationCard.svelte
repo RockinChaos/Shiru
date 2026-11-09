@@ -11,7 +11,7 @@
   import { localNotifications } from '@/modules/notification/manager.js'
   import { click, hoverExit, blurExit } from '@/modules/lib/click.js'
   import { getFlags } from '@/modules/notification/util.js'
-  import { getHash } from '@/modules/anime/animehash.js'
+  import { loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents, findTorrents } from '@/modules/torrent.js'
   import { SUPPORTS } from '@/modules/support.js'
 
   /** @type {number} */
@@ -27,7 +27,7 @@
   let prompt = false
 
   $: ({ delayed, announcement, repeating, notWatching, behind, completed } = getFlags(notification, media))
-  $: resolvedHash = getHash(notification.id, { episode: notification.episode, client: true }, false, true)
+  $: resolvedHash = ($loadedTorrent || $completedTorrents || $seedingTorrents || $stagingTorrents) && findTorrents(notification.id, notification.episode)[0]?.infoHash
   $: isUnread = !($localNotifications.find((n) => n.uid === notification.uid)?.read)
 
   /** Handles primary click on notification card, plays content or opens continue prompt */

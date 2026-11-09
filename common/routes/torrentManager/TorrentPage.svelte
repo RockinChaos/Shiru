@@ -1,12 +1,11 @@
 <script>
-  import { watchStats, currentStats, diskSpace, loadingSession, loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents } from '@/modules/torrent.js'
+  import { watchStats, currentStats, diskSpace, loadingSession, loadedTorrent, completedTorrents, seedingTorrents, stagingTorrents, getTorrentMedia } from '@/modules/torrent.js'
   import { Search, RefreshCw, TriangleAlert, Percent, Activity, Gauge, UserSearch, Timer, CloudAlert, CloudUpload, CloudDownload, FolderX, FolderCheck, HardDrive, HardDriveUpload } from 'lucide-svelte'
   import TorrentCard from '@/routes/torrentManager/components/TorrentCard.svelte'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
   import ErrorCard from '@/components/cards/ErrorCard.svelte'
   import { debounce, matchPhrase } from '@/modules/util.js'
   import { anitomyscript } from '@/modules/anime/anime.js'
-  import { getId } from '@/modules/anime/animehash.js'
   import { settings } from '@/modules/settings.js'
   import { status } from '@/modules/networking.js'
   import { mediaCache } from '@/modules/cache.js'
@@ -55,7 +54,7 @@
   const stats = new Map()
   /** @type {{ key: string, direction: string }} */
   const sortOrder = { key: 'status', direction: 'asc' }
-  const resolvedCache = /** @type {Map<string, { name: string, anime_title: string|null, resolvedId: number|null }>} */ (new Map())
+  const mediaInfoCache = /** @type {Map<string, { name: string, anime_title: string|null, mediaId: number|null }>} */ (new Map())
 
   /** @type {HTMLElement} */
   let container
@@ -120,16 +119,19 @@
    * Gets or starts resolving info for a torrent, caching the result by hash.
    *
    * @param {Torrent} torrent
-   * @returns {{ name: string, anime_title: string|null, resolvedId: number|null }}
+   * @returns {{ name: string, anime_title: string|null, mediaId: number|null }}
    */
-  function getResolvedInfo(torrent) {
-    const cached = resolvedCache.get(torrent.infoHash)
+  function getMediaInfo(torrent) {
+    const cached = mediaInfoCache.get(torrent.infoHash)
     const cleanName = torrent.name ? AnimeResolver.cleanFileName(torrent.name) : ''
-    if (cached?.name === cleanName) return cached
-    const resolvedId = getId(torrent.infoHash, { client: true }, true)?.mediaId ?? null
-    /** @type {{ name: string, anime_title: string|null, resolvedId: number|null }} */
-    const info = { name: cleanName, anime_title: null, resolvedId }
-    resolvedCache.set(torrent.infoHash, info)
+    const mediaId = getTorrentMedia(torrent)?.anilist_id ?? null
+    if (cached?.name === cleanName) {
+      cached.mediaId = mediaId
+      return cached
+    }
+    /** @type {{ name: string, anime_title: string|null, mediaId: number|null }} */
+    const info = { name: cleanName, anime_title: null, mediaId }
+    mediaInfoCache.set(torrent.infoHash, info)
     if (cleanName) {
       anitomyscript(cleanName).then(result => {
         info.anime_title = /** @type {AnitomyResult[] | undefined} */ (result)?.[0]?.anime_title ?? null
@@ -156,7 +158,7 @@
       ...(seedingTorrents?.filter(torrent => torrent.infoHash).map(torrent => ({ ...torrent, current: false, completed: false, category: 'seeding' })) ?? []),
       ...(completedTorrents?.filter(torrent => torrent.infoHash).map(torrent => ({ ...torrent, current: false, completed: true, category: (torrent.progress ?? 1) === 1 ? 'completed' : 'incomplete' })) ?? []),
     ]
-    merged.forEach(torrent => getResolvedInfo(torrent))
+    merged.forEach(torrent => getMediaInfo(torrent))
     return merged
   }
 
@@ -215,7 +217,7 @@
   function getSortValue(torrent, key) {
     switch (key) {
       case 'name': {
-        const info = getResolvedInfo(torrent)
+        const info = getMediaInfo(torrent)
         return (info.anime_title || info.name || torrent.name || '').toLowerCase()
       }
       case 'size': return torrent.size ?? 0
@@ -260,7 +262,7 @@
   }
 
   /**
-   * Checks whether a torrent matches search text across its raw name, resolved anime title, and known media titles.
+   * Checks whether a torrent matches search text across its raw name, parsed anime title, and known media titles.
    *
    * @param {Torrent} torrent
    * @param {string} searchText
@@ -268,8 +270,8 @@
    */
   function matchesSearch(torrent, searchText) {
     if (!searchText?.length) return true
-    const info = getResolvedInfo(torrent)
-    const media = info.resolvedId ? $mediaCache[info.resolvedId] : null
+    const info = getMediaInfo(torrent)
+    const media = info.mediaId ? $mediaCache[info.mediaId] : null
     const candidates = [torrent.name, info.anime_title, media?.title?.romaji, media?.title?.english, media?.title?.native].filter(/** @returns {phrase is string} */ (phrase) => Boolean(phrase))
     return candidates.some(text => matchPhrase(searchText, text, .35, false, true))
   }

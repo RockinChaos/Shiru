@@ -54,6 +54,13 @@ contextBridge.exposeInMainWorld('torrent', {
    */
   rescan: async () => (await client).rescan(),
   /**
+   * @param {string} hash
+   * @param {object} data
+   * @param {boolean} [overwrite=true]
+   * @returns {Promise<object>}
+   */
+  setMedia: async (hash, data, overwrite) => (await client).setMedia(hash, data, overwrite),
+  /**
    * Retrieves tracker statistics for torrent hashes.
    * @param {string[]} infoHashes Hashes to scrape.
    * @returns {Promise<object[]>}

@@ -1,16 +1,16 @@
 <script context='module'>
   import { writable } from 'simple-store-svelte'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
-  import { setHash, getHash, getId } from '@/modules/anime/animehash.js'
+  import { setTorrentMedia, findTorrents } from '@/modules/torrent.js'
   import { videoRx, matchPhrase, isValidNumber } from '@/modules/util.js'
   import { tick } from 'svelte'
   import { toast } from '@/modules/lib/toast.js'
   import { anilistClient } from '@/modules/providers/anilist/anilist.js'
   import { files as _files } from '@/modules/navigation.js'
-  import { mediaCache } from '@/modules/cache.js'
+  import { cache, mediaCache } from '@/modules/cache.js'
   import { episodesList } from '@/modules/episodes.js'
   import { settings } from '@/modules/settings.js'
-  import { getAniMappings, hasZeroEpisode } from '@/modules/anime/anime.js'
+  import { getAniMappings, hasZeroEpisode, anitomyscript } from '@/modules/anime/anime.js'
   import Debug from 'debug'
   const debug = Debug('ui:mediahandler')
 
@@ -53,7 +53,7 @@
     let targetFile = fileList.find(file => file.media?.media?.id === obj.media?.id && (Number(file.media?.parseObject?.episode_number || 0) === obj.episode || obj.media?.episodes === 1 || (!obj.media?.episodes && (obj.episode === 1 || !obj.episode) && (oldNowPlaying.episode === 1 || !oldNowPlaying.episode)))) // movie check
     if (!targetFile) targetFile = fileList.find(file => file.media?.media?.id === obj.media.id && (file.media?.episode === obj.episode || obj.media?.episodes === 1 || (!obj.media?.episodes && (obj.episode === 1 || !obj.episode) && (oldNowPlaying.episode === 1 || !oldNowPlaying.episode)))) // movie check
     if (!targetFile) {
-      const resolvedHash = getHash(obj.media?.id, { episode: obj.episode, client: true, batchGuess: true }, false, true)
+      const resolvedHash = findTorrents(obj.media?.id, obj.episode)[0]?.infoHash
       if (resolvedHash) { // We have a cached and active hash with the requested media and episode, its predicted we should use this.
           //add(resolvedHash, { media: obj.media, episode: obj.episode }, resolvedHash)
           window.dispatchEvent(new CustomEvent('add', { detail: { resolvedHash, search: { media: obj.media, episode: obj.episode } } })) // TODO: Circular Dependency (torrent.js)
@@ -124,17 +124,7 @@
             parseObject: nowPlaying.value.parseObject,
             failed: nowPlaying.failed,
           })
-          setTimeout(() => {
-            setHash(current.infoHash, {
-              fileHash: current.fileHash,
-              mediaId: current.media.media.id,
-              episodeRange: current.media.episodeRange,
-              episode: current.media.episode || current.media.parseObject.episode_number,
-              season: current.media.season || current.media.parseObject.anime_season,
-              parseObject: current.media.parseObject,
-              failed: current.media.failed || current.media.parseObject.failed
-            })
-          })
+          setTorrentMedia(current.infoHash, { ...current.media, locked: !!(current.locked || current.media.locked) }, current.path)
         }
       }
     }
@@ -144,7 +134,8 @@
     if (opts?.media || opts?.episode || opts?.parseObject) {
       const { media, episode, episodeRange, parseObject } = opts
       const zeroEpisode = media && await checkForZero(media)
-      const ep = (Number(episode || parseObject?.episode_number) === 0) || (zeroEpisode && !episode) ? 0 : (Number(episode || parseObject?.episode_number) || null)
+      const episodeNumber = episode ?? parseObject?.episode_number
+      const ep = episodeNumber != null && Number.isFinite(Number(episodeNumber)) ? Number(episodeNumber) : null
       const streamingTitle = media?.streamingEpisodes?.find(episode => episodeRx.exec(episode.title) && Number(episodeRx.exec(episode.title)?.[1]) === ep)
       let streamingEpisode
       let streamingArtwork = streamingTitle?.thumbnail
@@ -331,12 +322,19 @@
     }
     videoFiles = cleanFiles(videoFiles)
 
-    // assign any resolved media to their video files that haven't failed to be resolved.
+    // Reuse each file's saved media data.
     let resolved = []
-    for (const file of videoFiles) {
-        const cached = getId(file.infoHash, { fileHash: file.fileHash })
-        if (cached && cached.mediaId && mediaCache.value[cached.mediaId]) file.media = { ...cached, failed: cached.failed || cached.parseObject?.failed, media: mediaCache.value[cached.mediaId] }
-    }
+    const parsedFiles = videoFiles.some(file => file.mediaData?.anilist_id) ? await anitomyscript(videoFiles.map(file => file.name)).catch(error => { debug(error); return [] }) : []
+    await Promise.all(videoFiles.map(async (file, index) => {
+        if (!file.media?.media?.id) delete file.media
+        if (!file.mediaData?.anilist_id) return
+        const saved = file.mediaData
+        file.media = {
+            ...saved,
+            media: await cache.requestMedia(saved.anilist_id).catch(() => null),
+            parseObject: { ...parsedFiles[index], file_name: file.name, episode_number: saved.episode, episodeRange: saved.episodeRange, anime_season: saved.season }
+        }
+    }))
 
     const uncachedMedia = videoFiles.filter(file => !file.media)
     if (uncachedMedia?.length) {
@@ -348,18 +346,11 @@
     }
 
     if (resolved?.length) {
-        videoFiles.forEach((file) => {
+        uncachedMedia.forEach((file) => {
             const parseObject = resolved.find(({parseObject}) => AnimeResolver.cleanFileName(file.name).includes(parseObject.file_name))
             if (parseObject && !parseObject.failed) {
                 file.media = parseObject
-                 setHash(file.infoHash, {
-                     fileHash: file.fileHash,
-                     mediaId: parseObject.media?.id,
-                     episode: parseObject.episode,
-                     season: parseObject.season,
-                     parseObject: parseObject.parseObject,
-                     failed: parseObject.failed
-                 })
+                 setTorrentMedia(file.infoHash, file.media, file.path)
             }
         })
     }
@@ -394,14 +385,7 @@
             if (parseObject?.episode && (String(parseObject?.episode || '') === String(failedEntry?.parseObject?.video_resolution || '').replace('p', ''))) delete parseObject.episode
           }
           file.media = parseObject
-          setHash(file.infoHash, {
-            fileHash: file.fileHash,
-            mediaId: parseObject.media?.id,
-            episode: parseObject.episode,
-            season: parseObject.season,
-            parseObject: parseObject.parseObject,
-            failed: parseObject.failed
-          })
+          setTorrentMedia(file.infoHash, file.media, file.path)
         }
       })
     }
@@ -413,6 +397,9 @@
             const parseObject = resolved.find((parseObject) => AnimeResolver.cleanFileName(file.name).includes(parseObject?.file_name))
             if (parseObject) file.media = { parseObject: { ...parseObject }, ...(parseObject?.episode_number ? { episode: parseObject?.episode_number ? Number(parseObject.episode_number) : 1 } : {}), ...(parseObject?.anime_season ? { season: parseObject?.anime_season ? Number(parseObject.anime_season) : 1 } : {}), failed: true }
         })
+    }
+    for (const file of failedToResolve) {
+        setTorrentMedia(file.infoHash, { ...file.media, failed: true }, file.path)
     }
     videoFiles?.sort((a, b) => a.media?.media?.id - b.media?.media?.id) // group media ids together for easier readability.
     debug(`Resolved ${videoFiles?.length} video files`, fileListToDebug(videoFiles))
@@ -498,7 +485,7 @@
   // map the episode and season by attempting to fetch them from the title, should only occur in when there is a severe error in media resolving.
   const remapByTitle = (arr = []) => {
       return arr.map((el) => {
-          if (!el.media?.episode) {
+          if (!el.mediaData && !el.media?.episode) {
               const matches = el.media?.parseObject?.anime_title?.match(/(\d{2})/g)
               if (matches && matches.length > 0) {
                   const seasonNumber = matches[0]

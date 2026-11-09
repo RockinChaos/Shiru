@@ -4,7 +4,7 @@
     import { SquarePen, SquareCheckBig, Play } from 'lucide-svelte'
     import { SUPPORTS } from '@/modules/support.js'
     import { createListener, isValidNumber } from '@/modules/util.js'
-    import { setHash } from '@/modules/anime/animehash.js'
+    import { setTorrentMedia } from '@/modules/torrent.js'
     import { anilistClient } from '@/modules/providers/anilist/anilist.js'
     import SmartImage from '@/components/visual/SmartImage.svelte'
     import { modal } from '@/modules/navigation.js'
@@ -54,16 +54,9 @@
             }
             if (file.media?.episodeRange ? `${currentEpisodeRange.first}~${currentEpisodeRange.last}` !== episode : currentEpisode !== episode) {
                 file.locked = true
-                setHash(file.infoHash, {
-                    fileHash: file.fileHash,
-                    mediaId: file.media.media?.id,
-                    episodeRange: file.media.episodeRange,
-                    episode: file.media.episode || file.media.parseObject.episode_number,
-                    season: file.media.season || file.media.parseObject.anime_season,
-                    parseObject: file.media.parseObject,
-                    locked: true,
-                    failed: false
-                })
+                file.media.failed = false
+                file.media.parseObject.failed = false
+                setTorrentMedia(file.infoHash, { ...file.media, locked: true, failed: false }, file.path)
             }
             debug(`Updated ${file.media?.media?.id} with Episode ${file.media.episode || file.media.parseObject.episode_number} and file:`, JSON.stringify(file))
             editTimer = setTimeout(() => window.dispatchEvent(new CustomEvent('fileEdit')), 1500)
@@ -72,16 +65,8 @@
     function verifySeries() {
         file.locked = true
         file.media.failed = false
-        setHash(file.infoHash, {
-            fileHash: file.fileHash,
-            mediaId: file.media.media?.id,
-            episodeRange: file.media.episodeRange,
-            episode: file.media.episode || file.media.parseObject.episode_number,
-            season: file.media.season || file.media.parseObject.anime_season,
-            parseObject: file.media.parseObject,
-            locked: true,
-            failed: false
-        })
+        file.media.parseObject.failed = false
+        setTorrentMedia(file.infoHash, { ...file.media, locked: true, failed: false }, file.path)
         debug(`Verified ${file.media?.media?.id} with Episode ${file.media.episode || file.media.parseObject.episode_number} and file:`, JSON.stringify(file))
         editTimer = setTimeout(() => window.dispatchEvent(new CustomEvent('fileEdit')), 1500)
     }

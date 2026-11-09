@@ -32,6 +32,8 @@ export const codes = {
   521: 'Web Server Is Down'
 }
 
+export const stripRootFolder = path => path.replaceAll('\\', '/').replace(/^[^/]+\//, '')
+
 export const equalsIgnoreCase = (a, b) => a != null && b != null && (typeof a === 'string' && typeof b === 'string' ? a.toLowerCase() === b.toLowerCase() : a === b)
 
 /**
@@ -827,6 +829,33 @@ export const defaults = {
 }
 
 /**
+ * @param {typeof defaults} value
+ * @param {string|number} userID
+ * @param {string} debug
+ * @returns {object}
+ */
+export function getTorrentSettings(value, userID, debug) {
+  return {
+    userID,
+    dht: !value.torrentDHT,
+    torrentUTP: !value.torrentUTP,
+    torrentPeX: !value.torrentPeX,
+    maxConns: value.maxConns,
+    downloadLimit: (value.torrentSpeed * 1048576) || 0,
+    uploadLimit: (value.torrentSpeed * 1048576) || 0,
+    torrentPort: value.torrentPort || 0,
+    dhtPort: value.dhtPort || 0,
+    torrentPersist: value.torrentPersist,
+    torrentStreamedDownload: value.torrentStreamedDownload,
+    torrentPathNew: value.torrentPathNew,
+    playerPath: value.playerPath,
+    seedingLimit: value.seedingLimit,
+    trackers: value.trackers,
+    debug
+  }
+}
+
+/**
  * @typedef {Object} GeneralDefaults
  * @property {Array<any>} sync
  * @property {Array<any>} syncQueueAni
@@ -859,7 +888,6 @@ export const generalDefaults = {
  * @property {any} [lastSubtitle]
  * @property {any} [lastSearched]
  * @property {any} [lastSchedule]
- * @property {any} [animeResolvedHash]
  * @property {any} [animeEpisodeProgress]
  */
 export const historyDefaults = {
@@ -868,7 +896,6 @@ export const historyDefaults = {
   lastSubtitle: undefined,
   lastSearched: undefined,
   lastSchedule: undefined,
-  animeResolvedHash: [],
   animeEpisodeProgress: []
 }
 

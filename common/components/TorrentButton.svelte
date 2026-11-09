@@ -1,8 +1,7 @@
 <script context='module'>
     import { Download, CloudUpload, CloudDownload, FolderX, FolderCheck, TvMinimalPlay, Loader2 } from 'lucide-svelte'
     import { settings } from '@/modules/settings.js'
-    import { add, stage, loadedTorrent, stagingTorrents, seedingTorrents, completedTorrents } from '@/modules/torrent.js'
-    import { getHash } from '@/modules/anime/animehash.js'
+    import { add, stage, loadedTorrent, stagingTorrents, seedingTorrents, completedTorrents, findTorrents } from '@/modules/torrent.js'
     import { handlePlay, handleAnime } from '@/modules/anime/anime.js'
     import { equalsIgnoreCase } from '@/modules/util.js'
     import { writable } from 'simple-store-svelte'
@@ -23,7 +22,7 @@
      */
     export function playActive(hash, search, magnet, prompt = true) {
         const autoFile = settings.value.rssAutofile
-        const resolvedHash = getHash(search?.media?.id, { episode: search?.episode, client: true, batchGuess: true }, false, true)
+        const resolvedHash = findTorrents(search?.media?.id, search?.episode)[0]?.infoHash
         const activeHash = autoFile && getActiveHash([...(hash && !equalsIgnoreCase(hash, resolvedHash) ? [hash] : []), ...(resolvedHash ? [resolvedHash] : [])], false)
         if (activeHash && !equalsIgnoreCase(loadedTorrent.value?.infoHash, activeHash) && !equalsIgnoreCase(loadedTorrent.value?.fileHash, activeHash)) { // We have a cached and active hash with the requested media and episode, its predicted we should use this.
             add(activeHash, search, activeHash)

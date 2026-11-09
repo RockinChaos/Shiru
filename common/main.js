@@ -14,15 +14,17 @@ if (!SUPPORTS.isAndroid && await COMMON.isWindowVisible()) {
 }
 
 let migration = null
+let migrationReady
 const unsubscribe = migrationStatus.subscribe(value => {
-  if (value !== null && !migration) {
-    import('./Migration.svelte').then(({ default: Migration }) => {
+  if (value !== null && !migrationReady) {
+    migrationReady = import('./Migration.svelte').then(({ default: Migration }) => {
       migration = new Migration({ target: document.body })
     })
   }
 })
 
 await cacheReady()
+await migrationReady
 ELECTRON.onFlushCache(async () => {
   try {
     await cache.flush()

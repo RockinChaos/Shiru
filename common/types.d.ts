@@ -26,10 +26,27 @@ export interface Torrent {
   ratio: number
   pieces?: number[] | null
   cachedAt: number
+  media?: TorrentMedia
+}
+
+export interface FileMedia {
+  anilist_id?: number
+  mal_id?: number
+  episode?: number | string | null
+  episodeRange?: { first: number; last: number } | null
+  season?: number | string | null
+  failed: boolean
+  locked: boolean
+}
+
+export interface TorrentMedia {
+  default?: FileMedia
+  files?: Record<string, FileMedia>
 }
 
 /** Serializable file description returned when a torrent becomes playable. */
 export interface TorrentFile {
+  mediaData?: FileMedia
   infoHash: string
   fileHash: string
   torrent_name: string
@@ -91,6 +108,7 @@ declare global {
       onRequest: (callback: (request: { magnet: string; base64?: boolean }) => void) => void
       debug: (debug: string) => Promise<void>
       rescan: () => Promise<{ missingCount: number, removedCount: number }>
+      setMedia: (hash: string, data: FileMedia & { path?: string; fileHash?: string }, overwrite?: boolean) => Promise<TorrentMedia>
       scrape: (infoHashes: string[]) => Promise<{ hash: string; complete: number; incomplete: number; downloaded?: number }[]>
       stream: (id: string | Uint8Array, hash?: string | false | null, magnet?: boolean | null, base64?: boolean, onReady?: TorrentReady) => Promise<Partial<Torrent> | void>
       stage: (id: string | Uint8Array, hash?: string | false | null, base64?: boolean) => Promise<Partial<Torrent> | void>

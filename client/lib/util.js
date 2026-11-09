@@ -157,6 +157,7 @@ export function getStats(torrent, completed = false, includePieces = false) {
   const pieces = completed ? getPiecesFromBitfield(torrent?._bitfield, torrent?.info?.pieces ? torrent.info.pieces.length / 20 : 0) : getPieces(torrent)
   return {
     infoHash: torrent?.infoHash,
+    media: torrent?.media,
     name: torrent?.name || torrent?.infoHash,
     size: torrent?.length,
     current: torrent?.current,
