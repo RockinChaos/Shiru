@@ -432,7 +432,7 @@ class AnimeSchedule {
             const res = {
                 ...result,
                 parseObject: {
-                    language: (type === 'Dub' ? 'English' : 'Japanese')
+                    audio_term: (type === 'Dub' ? 'English Audio' : 'Japanese Audio')
                 },
                 episodeData: undefined,
                 onclick: undefined
