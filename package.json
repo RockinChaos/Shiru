@@ -29,7 +29,7 @@
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "24.13.6",
     "eslint": "^10.14.0",
-    "eslint-plugin-svelte": "^3.24.0",
+    "eslint-plugin-svelte": "^3.24.1",
     "globals": "^17.14.0",
     "npm-run-all2": "^9.0.4",
     "svelte-check": "^4.7.8",

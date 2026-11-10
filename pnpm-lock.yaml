@@ -220,8 +220,8 @@ importers:
         specifier: ^10.14.0
         version: 10.14.0(jiti@2.7.0)(supports-color@10.2.2)
       eslint-plugin-svelte:
-        specifier: ^3.24.0
-        version: 3.24.0(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3))
+        specifier: ^3.24.1
+        version: 3.24.1(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3))
       globals:
         specifier: ^17.14.0
         version: 17.14.0
@@ -304,8 +304,8 @@ importers:
         specifier: ^4.2.2
         version: 4.2.2
       fake-indexeddb:
-        specifier: ^6.2.7
-        version: 6.2.7
+        specifier: ^6.2.8
+        version: 6.2.8
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -323,8 +323,8 @@ importers:
   client:
     dependencies:
       '@rockinchaos/matroska-metadata':
-        specifier: github:RockinChaos/matroska-metadata#4c6374cdd2f21aa5fae01be2d36abade32c287f9
-        version: https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9
+        specifier: github:RockinChaos/matroska-metadata#51df7d575b6390fef51def2673acdf44a3fbe251
+        version: https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/51df7d575b6390fef51def2673acdf44a3fbe251
       bencode:
         specifier: ^4.0.1
         version: 4.0.1
@@ -438,8 +438,8 @@ importers:
         specifier: workspace:*
         version: link:../common
       concurrently:
-        specifier: ^10.0.6
-        version: 10.0.6
+        specifier: ^10.0.7
+        version: 10.0.7
       electron:
         specifier: 45.2.3
         version: 45.2.3(supports-color@10.2.2)
@@ -1182,12 +1182,12 @@ packages:
     resolution: {integrity: sha512-WQH9DaN3kGv9+wxeRtxkSykmVQWl44VTX9XsMLmR5jtcsGxin+72U9uGlDjME0gwNNBHDKY3CgUGYI8ZYg8Jdw==}
 
   '@rockinchaos/ebml-iterator@https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67}
+    resolution: {gitHosted: true, integrity: sha512-XhOVrbiPRX8kgbyHffe+SVC/iGIAeR8KkJuO9JsORIb4KIWco1G6jjjCrWZ1DTPj59D2Qnv7NT+uEu3sh7sj0g==, tarball: https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67}
     version: 1.2.1
 
-  '@rockinchaos/matroska-metadata@https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9':
-    resolution: {gitHosted: true, integrity: sha512-jgrgsFkKyesaqCFpPnoA4ks2aV2zLpBBNuUqAVU6uBlryRsK0jwrGKEbPhKFmPoZSthkksJ21WJa9tOz52f1PQ==, tarball: https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9}
-    version: 1.1.1
+  '@rockinchaos/matroska-metadata@https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/51df7d575b6390fef51def2673acdf44a3fbe251':
+    resolution: {gitHosted: true, integrity: sha512-Qw+2HfWp6ruk1NqioCXEe8zvTSCBr8o27SwRWWAfqeV/CKS+L6jwvSAbDiwMRct1ECdbwhWJp1RtPPUHluE41w==, tarball: https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/51df7d575b6390fef51def2673acdf44a3fbe251}
+    version: 1.1.2
 
   '@rockinchaos/private-ip@3.1.1':
     resolution: {integrity: sha512-6FSJlfZzcm+ckz5jg6rtpGUJxSLcT5y1i9bYTGbLivC/sKeqN7oc/b/i/FKuWxlIVvbYIVACwjhjCw7BLXvW0g==}
@@ -2017,8 +2017,8 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
-  concurrently@10.0.6:
-    resolution: {integrity: sha512-qgICXXFp2/3nAebRLmxcINKEXM1mLK3ij/y31P02VTs/KIkddIeC05n73DxOXsXMB9LFSqNU1/na3lDlOhcbIw==}
+  concurrently@10.0.7:
+    resolution: {integrity: sha512-zMCeLhawVIj3SLbpg0/BWCdJl1wcBSpcHKbNrhaM01P3xAlEWcH30Lea2q+F4uGZ7YM0scDK0dgpWyn1uCJj6w==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -2498,8 +2498,8 @@ packages:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
     engines: {node: '>=10'}
 
-  eslint-plugin-svelte@3.24.0:
-    resolution: {integrity: sha512-nppLmSSkWFs4JmPfcXJTFXsGILlYQhVSbJiP803kyMF0d9VxEJ5UIF5QjdbVx0U4bV6g8qkuvZUqkhsusrOzXA==}
+  eslint-plugin-svelte@3.24.1:
+    resolution: {integrity: sha512-XYzp318u8UkDH4ZdRkdSomOYnwMTeJP2Zw9u6DuBj3mViFZD8zS+mhfTYq34plm3SH9eF7ZaiYJfQYq2xMhPHg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     peerDependencies:
       eslint: ^8.57.1 || ^9.0.0 || ^10.0.0
@@ -2595,8 +2595,8 @@ packages:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
     engines: {node: '>= 18'}
 
-  fake-indexeddb@6.2.7:
-    resolution: {integrity: sha512-g0ghQ+BmU3CSZaHup5FigEAAtCmtNyxkrmID7OAeK2qONHghw1aQ2l2T1RxmfhP1H1tEXVRWArUTGVCk5832ww==}
+  fake-indexeddb@6.2.8:
+    resolution: {integrity: sha512-mpVW/HLUqwKXJ6F/s0hMgdK1eQfM4ncTHDioNGHWL0WKV3VcZCoZq1NKgboBbAge07aRCO7L48yziKssL59XEQ==}
     engines: {node: '>=18'}
 
   fast-deep-equal@3.1.3:
@@ -3863,8 +3863,8 @@ packages:
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
 
-  pako@3.0.2:
-    resolution: {integrity: sha512-uBv6IT2aT1A78iU6dpNEbf6+CyhlV/6g9JlJs9kpgjFGFhruIICVRysF/W0SLzXg5+hCl+KroH7e4YUyfEmgLg==}
+  pako@3.0.3:
+    resolution: {integrity: sha512-tmrebBBYI5FOw8QICGwJNqE8fotC8R+gwcxOvoFNv+GKehOI6Lc6YBolNcQNnC4v96l1wt7rh102ifD4kVeZAQ==}
 
   param-case@3.0.4:
     resolution: {integrity: sha512-RXlj7zCYokReqWpOPH9oYivUzLYZ5vAPIfEmCTNViosC78F8F0H9y7T7gG2M39ymgutxF5gcFEsyZQSph9Bp3A==}
@@ -6125,11 +6125,11 @@ snapshots:
 
   '@rockinchaos/ebml-iterator@https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67': {}
 
-  '@rockinchaos/matroska-metadata@https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/4c6374cdd2f21aa5fae01be2d36abade32c287f9':
+  '@rockinchaos/matroska-metadata@https://codeload.github.com/RockinChaos/matroska-metadata/tar.gz/51df7d575b6390fef51def2673acdf44a3fbe251':
     dependencies:
       '@rockinchaos/ebml-iterator': https://codeload.github.com/RockinChaos/ebml-iterator/tar.gz/157dec919d7b02485ede2c6418063b40556dbc67
       fast-readable-async-iterator: 2.0.0
-      pako: 3.0.2
+      pako: 3.0.3
       uint8-util: 2.3.2(patch_hash=3a3d8b54baae3a75396ed47adb7fff8893a0bad663add0224e69e2343c24df57)
 
   '@rockinchaos/private-ip@3.1.1':
@@ -7145,7 +7145,7 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  concurrently@10.0.6:
+  concurrently@10.0.7:
     dependencies:
       chalk: 5.6.2
       rxjs: 7.8.2
@@ -7664,7 +7664,7 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-plugin-svelte@3.24.0(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3)):
+  eslint-plugin-svelte@3.24.1(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(svelte@4.2.20)(ts-node@10.9.2(@types/node@24.13.6)(typescript@6.0.3)):
     dependencies:
       '@eslint-community/eslint-utils': 4.9.1(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -7826,7 +7826,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  fake-indexeddb@6.2.7: {}
+  fake-indexeddb@6.2.8: {}
 
   fast-deep-equal@3.1.3: {}
 
@@ -9065,7 +9065,7 @@ snapshots:
 
   package-json-from-dist@1.0.1: {}
 
-  pako@3.0.2: {}
+  pako@3.0.3: {}
 
   param-case@3.0.4:
     dependencies:

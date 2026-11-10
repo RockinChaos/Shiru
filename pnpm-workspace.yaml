@@ -2,6 +2,7 @@ packages:
   - './*'
 
 shamefullyHoist: true
+blockExoticSubdeps: false
 
 overrides:
   '@electron/universal': '3.0.4'

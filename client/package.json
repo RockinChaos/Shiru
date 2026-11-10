@@ -6,7 +6,7 @@
     "bencode": "^4.0.1",
     "uint8-util": "^2.3.2",
     "bittorrent-tracker": "^11.2.3",
-    "@rockinchaos/matroska-metadata": "github:RockinChaos/matroska-metadata#4c6374cdd2f21aa5fae01be2d36abade32c287f9",
+    "@rockinchaos/matroska-metadata": "github:RockinChaos/matroska-metadata#51df7d575b6390fef51def2673acdf44a3fbe251",
     "parse-torrent": "^11.0.24",
     "webtorrent": "^3.0.21"
   }
