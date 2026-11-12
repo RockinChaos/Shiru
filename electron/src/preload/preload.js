@@ -177,6 +177,9 @@ contextBridge.exposeInMainWorld('torrent', {
    * @returns {Promise<string|void>}
    */
   launchExternal: async (path, externalWatched) => (await client).launchExternal(path, externalWatched),
+  debridRequest: async (options) => (await client).debridRequest(options),
+  streamDebrid: async (payload, onReady, onNeedUrl) => (await client).streamDebrid(payload, onReady, onNeedUrl),
+  setDebridFileUrl: async (payload) => (await client).setDebridFileUrl(payload),
   /**
    * Updates worker network availability.
    * @param {string} status

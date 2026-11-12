@@ -40,7 +40,10 @@ const torrentDefaults = {
   launchExternal: noopAsyncVoid,
   updateNetwork: noopAsyncVoid,
   updateSettings: noopAsyncVoid,
-  portRequest: noopAsyncVoid
+  portRequest: noopAsyncVoid,
+  debridRequest: async () => ({ ok: false, status: 503, statusText: 'Unavailable', headers: {}, data: null }),
+  streamDebrid: async () => null,
+  setDebridFileUrl: noopAsyncVoid
 }
 const commonDefaults = {
   getAppVersion: noopAsyncString,
