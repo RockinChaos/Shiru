@@ -4,6 +4,7 @@ import { hex2bin, arr2hex, text2arr } from 'uint8-util'
 import Cache from '@client/lib/torrentcache.js'
 import { SUPPORTS } from '@/modules/support.js'
 import Metadata from '@client/lib/metadata.js'
+import { DebridManager, executeDebridRequest } from '@client/core/debrid.js'
 import { isDeepStrictEqual } from 'node:util'
 import { spawn } from 'node:child_process'
 import Client from 'bittorrent-tracker'
@@ -104,6 +105,13 @@ export default class TorrentClient {
     this.currentFile = null
 
     this.torrentServer = this.client.createServer({}, 'node').listen(0)
+    this.debrid = new DebridManager()
+    const torrentRequestListeners = this.torrentServer.listeners('request')
+    this.torrentServer.removeAllListeners('request')
+    this.torrentServer.on('request', async (req, res) => {
+      if (await this.debrid.handleHttpRequest(req, res)) return
+      for (const listener of torrentRequestListeners) listener.call(this.torrentServer, req, res)
+    })
     this.tracker = new HTTPTracker({}, atob('aHR0cDovL255YWEudHJhY2tlci53Zjo3Nzc3L2Fubm91bmNl'))
     this.client.on('error', this.handleError.bind(this))
   }
@@ -126,6 +134,7 @@ export default class TorrentClient {
    * @returns {Promise<ReturnType<typeof getStats>|void>} Accepted torrent stats, playable files arrive through onReady.
    */
   async streamTorrent(data, onReady) {
+    this.debrid?.clear()
     const request = onReady ? ++this.playbackRequest : undefined
     const hash = data && data.hash
     const dataID = data && data.id
@@ -652,6 +661,13 @@ export default class TorrentClient {
    */
   async unload(data = null) {
     if (!data) {
+      if (this.debrid?.activeTorrent) {
+        this.metadata?.destroy()
+        this.metadata = null
+        this.currentFile = null
+        this.debrid.clear()
+        this.updateTorrent(null, { current: {} })
+      }
       const request = ++this.playbackRequest
       const current = this.client.torrents.find(torrent => torrent.current)
       if (!current) return
@@ -705,6 +721,10 @@ export default class TorrentClient {
    */
   setMedia(hash, data, overwrite = true) {
     hash = hash.toLowerCase()
+    if (this.debrid?.activeTorrent?.infoHash?.toLowerCase() === hash) {
+      this.debrid.activeTorrent.media = { ...(this.debrid.activeTorrent.media || {}), ...data }
+      return Promise.resolve({ default: this.debrid.activeTorrent.media })
+    }
     const torrent = this.client.torrents.find(torrent => torrent.infoHash === hash && !torrent.destroyed && !torrent._removal)
     const torrentStore = torrent?._cacheStore || this.torrentCache
     const pending = Promise.allSettled([this.removals.get(hash), torrent?._cacheWrite, this.mediaWrites.get(hash)]).then(async () => {
@@ -779,6 +799,45 @@ export default class TorrentClient {
    * @returns {Promise<true|void>} True when using external playback; otherwise no value.
    */
   async setPlayback(id, path, external) {
+    if (this.debrid?.activeTorrent && (!id || this.debrid.activeTorrent.infoHash === id)) {
+      const debridFile = this.debrid.getFile(this.debrid.activeTorrent.infoHash, path)
+      if (debridFile) {
+        if (this.playerProcess) {
+          this.playerProcess.kill()
+          this.playerProcess = null
+        }
+        this.metadata?.destroy?.()
+        this.metadata = null
+        this.currentFile = null
+        this.debrid.currentFile = debridFile
+        await debridFile.ensureRemoteUrl().catch(() => null)
+        const isExternal = Boolean(external && (SUPPORTS.isAndroid || this.settings.playerPath))
+        if (!isExternal) {
+          this.metadata = new Metadata(/** @type {any} */ (debridFile), /** @type {any} */ (this.debrid.activeTorrent.files))
+        }
+        this.updateTorrent(this.debrid.activeTorrent.infoHash, {
+          current: {
+            id: this.debrid.activeTorrent.infoHash,
+            infoHash: this.debrid.activeTorrent.infoHash,
+            debrid: true,
+            stats: {
+              infoHash: this.debrid.activeTorrent.infoHash,
+              name: this.debrid.activeTorrent.name,
+              progress: 1,
+              fileProgress: 1,
+              downloadSpeed: 0,
+              uploadSpeed: 0,
+              numPeers: 0,
+              ratio: 0,
+              debrid: true,
+              debridProvider: this.debrid.activeTorrent.providerName
+            }
+          }
+        })
+        if (isExternal) return true
+        return
+      }
+    }
     const request = ++this.playbackRequest
     if (id && path) {
       const torrent = await this.client.get(id)
@@ -847,6 +906,28 @@ export default class TorrentClient {
    * @returns {Promise<string|void>} Android intent URL, or no value for desktop playback or a missing file.
    */
   async launchExternal(path, externalWatched = () => {}) {
+    if (this.debrid?.activeTorrent) {
+      const debridFile = this.debrid.getFile(this.debrid.activeTorrent.infoHash, path)
+      if (debridFile) {
+        if (this.playerProcess) {
+          this.playerProcess.removeAllListeners('close')
+          this.playerProcess.kill()
+          this.playerProcess = null
+        }
+        const streamPath = `/debrid/${encodeURIComponent(this.debrid.activeTorrent.infoHash)}/${encodeURIComponent(debridFile.path)}`
+        if (this.settings.playerPath) {
+          const url = '' + new URL('http://localhost:' + this.torrentServer.address().port + streamPath)
+          this.playerProcess = spawn(this.settings.playerPath, [url])
+          this.playerProcess.stdout.on('data', () => {})
+          this.playerProcess.once('close', () => {
+            if (this.client.destroyed) return
+            this.playerProcess = null
+            externalWatched()
+          })
+          return url
+        } else if (SUPPORTS.isAndroid) return `intent://localhost:${this.torrentServer.address().port}${streamPath}#Intent;type=video/any;scheme=http;end;`
+      }
+    }
     const found = this.client.torrents.find(_torrent => _torrent.current)?.files?.find(file => file.path === path)
     if (!found) return
     if (this.playerProcess) {
@@ -1090,7 +1171,57 @@ export default class TorrentClient {
    * Returns a promise that resolves once the client is fully destroyed.
    * @returns {Promise<void>} Resolves after resources are released; rejects if engine shutdown fails.
    */
+  /**
+   * Executes a CORS-free HTTP request for Debrid providers from the Node worker.
+   *
+   * @param {Parameters<typeof executeDebridRequest>[0]} options
+   */
+  debridRequest(options) {
+    return executeDebridRequest(options)
+  }
+
+  /**
+   * Resolves or updates a lazy remote CDN URL for a file in the active Debrid torrent.
+   *
+   * @param {Parameters<DebridManager['setFileUrl']>[0]} payload
+   */
+  setDebridFileUrl(payload) {
+    this.debrid.setFileUrl(payload)
+  }
+
+  /**
+   * Streams a resolved Debrid torrent through the local HTTP range proxy and publishes Shiru file descriptors.
+   *
+   * @param {Parameters<DebridManager['loadTorrent']>[0] & { magnet?: string }} payload
+   * @param {(files: object[], magnet: { magnet: string, hash: string }) => void} [onReady]
+   * @param {(req: any) => void} [onNeedUrl]
+   */
+  async streamDebrid(payload, onReady, onNeedUrl) {
+    await this.unload()
+    this.debrid.setUrlResolver(onNeedUrl || null)
+    const addr = this.torrentServer.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+    const files = this.debrid.loadTorrent(payload, port)
+    const stats = {
+      infoHash: payload.infoHash,
+      name: payload.torrentName,
+      progress: 1,
+      fileProgress: 1,
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      numPeers: 0,
+      ratio: 0,
+      debrid: true,
+      debridProvider: payload.providerName || payload.providerId
+    }
+    const magnet = payload.magnet || payload.infoHash
+    this.updateTorrent(payload.infoHash, { current: { id: magnet, infoHash: payload.infoHash, debrid: true, stats } })
+    onReady?.(files, { magnet, hash: payload.infoHash })
+    return { infoHash: payload.infoHash, name: payload.torrentName, files }
+  }
+
   destroy() {
+    this.debrid?.clear()
     if (this.destroyed) return this.destroyed
     debug('Destroying TorrentClient')
     const torrents = [...this.client.torrents]

@@ -1,5 +1,5 @@
 <script>
-  import { Users, ArrowDown, ArrowUp } from 'lucide-svelte'
+  import { Users, ArrowDown, ArrowUp, Zap } from 'lucide-svelte'
   import { fastPrettyBytes } from '@/modules/util.js'
   import { currentStats } from '@/modules/torrent.js'
 
@@ -22,12 +22,17 @@
 </script>
 
 {#if visible}
-  <span class='icon'><Users class='pt-5 block-scale-30' strokeWidth={3} /> </span>
-  <span class='stats font-scale-24'>{torrent.peers || 0}</span>
-  <span class='icon'><ArrowDown class='block-scale-30' /></span>
-  <span class='stats font-scale-24'>{fastPrettyBytes(torrent.down)}/s</span>
-  <span class='icon'><ArrowUp class='block-scale-30' /></span>
-  <span class='stats font-scale-24'>{fastPrettyBytes(torrent.up)}/s</span>
+  {#if $currentStats?.debrid}
+    <span class='icon'><Zap class='pt-5 block-scale-30' strokeWidth={2.5} /></span>
+    <span class='stats font-scale-24'>{$currentStats.debridProvider || 'Debrid'} · Instant</span>
+  {:else}
+    <span class='icon'><Users class='pt-5 block-scale-30' strokeWidth={3} /> </span>
+    <span class='stats font-scale-24'>{torrent.peers || 0}</span>
+    <span class='icon'><ArrowDown class='block-scale-30' /></span>
+    <span class='stats font-scale-24'>{fastPrettyBytes(torrent.down)}/s</span>
+    <span class='icon'><ArrowUp class='block-scale-30' /></span>
+    <span class='stats font-scale-24'>{fastPrettyBytes(torrent.up)}/s</span>
+  {/if}
 {/if}
 
 <style>

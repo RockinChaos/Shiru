@@ -27,6 +27,8 @@ export interface Torrent {
   pieces?: number[] | null
   cachedAt: number
   media?: TorrentMedia
+  debrid?: boolean
+  debridProvider?: string
 }
 
 export interface FileMedia {
@@ -53,8 +55,14 @@ export interface TorrentFile {
   name: string
   type: string
   size: number
+  length?: number
   path: string
   url: string
+  debrid?: boolean
+  debridProvider?: string
+  debridProviderName?: string
+  debridTorrentId?: string | number
+  debridFileId?: string | number
 }
 
 /** Identifier persisted for the current or a pending staged torrent. */
@@ -129,6 +137,9 @@ declare global {
       updateNetwork: (status: string) => Promise<void>
       updateSettings: (settings: Record<string, any>) => Promise<void>
       portRequest: (settings: Record<string, any>) => Promise<void>
+      debridRequest: (options: import('./modules/debrid/types.d.ts').DebridRequestOptions) => Promise<import('./modules/debrid/types.d.ts').DebridResponse>
+      streamDebrid: (payload: import('./modules/debrid/types.d.ts').DebridStreamPayload, onReady?: TorrentReady, onNeedUrl?: (req: { requestId: string; infoHash: string; path: string; providerId: string; torrentId: string | number; fileId: string | number; forceRefresh?: boolean }) => void) => Promise<{ infoHash: string; name: string; files: TorrentFile[] } | null>
+      setDebridFileUrl: (payload: { requestId?: string; infoHash?: string; path?: string; url?: string; headers?: Record<string, string>; error?: string }) => Promise<void>
     }
     common: {
       getAppVersion: () => Promise<string>
