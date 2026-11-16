@@ -721,7 +721,8 @@ export default class TorrentClient {
         if (fileMedia[key] == null) delete fileMedia[key]
       }
       for (const key of ['episode', 'season']) {
-        if (typeof fileMedia[key] === 'string' && Number.isFinite(Number(fileMedia[key])) && !Number.isInteger(Number(fileMedia[key]))) fileMedia[key] = Number(fileMedia[key])
+        if (typeof fileMedia[key] === 'boolean') delete fileMedia[key]
+        else if (typeof fileMedia[key] === 'string' && Number.isFinite(Number(fileMedia[key])) && !Number.isInteger(Number(fileMedia[key]))) fileMedia[key] = Number(fileMedia[key])
       }
       const paths = fileHash ? (source.files || []).filter(file => makeHash(`${hash}:${file.name}:${file.length}`) === fileHash.toLowerCase()).map(file => file.path) : [path]
       let changed = false

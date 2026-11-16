@@ -227,9 +227,9 @@ export async function setTorrentMedia(hash, data, path) {
       ...(path ? { path } : {}),
       anilist_id,
       mal_id: data.media?.idMal ?? cache.getMedia(anilist_id)?.idMal ?? (data.anilist_id === anilist_id ? data.mal_id : null),
-      episode: data.episode ?? null,
+      episode: Number.isFinite(data.episode) || typeof data.episode === 'string' ? data.episode : null,
       episodeRange: data.episodeRange ?? null,
-      season: data.season ?? null,
+      season: Number.isFinite(data.season) || typeof data.season === 'string' ? data.season : null,
       failed: !locked && !!(data.failed || data.parseObject?.failed),
       locked,
     })
