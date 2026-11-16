@@ -30,8 +30,15 @@
 
   /** @type {import('@/modules/providers/anilist/al.d.ts').Media | null} */
   let media
-  $: media = fromCache($mediaCache, media ?? mediaCache.value[data.media?.id])
-  let zeroEpisode = checkForZero(media).then(_zeroEpisode => (zeroEpisode = _zeroEpisode))
+  $: media = fromCache($mediaCache, media?.id === data.media?.id ? media : mediaCache.value[data.media?.id])
+  let zeroEpisode = null
+  $: resolveZeroEpisode(media)
+
+  async function resolveZeroEpisode(currentMedia) {
+    zeroEpisode = null
+    const result = currentMedia?.id ? await checkForZero(currentMedia).catch(() => null) : null
+    if (media === currentMedia) zeroEpisode = result
+  }
   $: episodeRange = episodesList.handleArray(data?.episode, data?.parseObject?.file_name)
   $: lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || (isValidNumber(data?.episode) && (data?.episode + (zeroEpisode ? 1 : 0))) || (media?.episodes === 1 && media?.episodes)
   $: hasSpoiler = $settings.spoilerStatus.includes(media?.mediaListEntry?.status ?? 'NOTONLIST')

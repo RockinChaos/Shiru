@@ -23,13 +23,13 @@
   /** @type {import('@/modules/providers/anilist/al.d.ts').Media | null} */
   const media = data.media && mediaCache.value[data.media.id]
   const episodeRange = episodesList.handleArray(data?.episode, data?.parseObject?.file_name)
-  const lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || (isValidNumber(data?.episode) && (data?.episode + (zeroEpisode ? 1 : 0))) || (media?.episodes === 1 && media?.episodes)
+  $: lastEpisode = (data?.episodeRange || data?.parseObject?.episodeRange)?.last || episodeRange?.last || (isValidNumber(data?.episode) && (data?.episode + (zeroEpisode ? 1 : 0))) || (media?.episodes === 1 && media?.episodes)
   const hasSpoiler = $settings.spoilerStatus.includes(media?.mediaListEntry?.status ?? 'NOTONLIST')
-  const isSpoiler = hasSpoiler && (media?.mediaListEntry?.progress ?? 0) < lastEpisode
-  const episodeThumbnail = ((data.similarity || ((!hasSpoiler || (media?.mediaListEntry?.progress >= lastEpisode || !['minimal', 'moderate', 'strict', 'hermit'].includes($settings.spoilers))))) && data.episodeData?.image) || media?.bannerImage || media?.coverImage.extraLarge || ' '
+  $: isSpoiler = hasSpoiler && (media?.mediaListEntry?.progress ?? 0) < lastEpisode
+  $: episodeThumbnail = ((data.similarity || ((!hasSpoiler || (media?.mediaListEntry?.progress >= lastEpisode || !['minimal', 'moderate', 'strict', 'hermit'].includes($settings.spoilers))))) && data.episodeData?.image) || media?.bannerImage || media?.coverImage.extraLarge || ' '
   const watched = media?.mediaListEntry?.status === 'COMPLETED'
-  const completed = !watched && media?.mediaListEntry?.progress >= lastEpisode
-  const progress = liveAnimeEpisodeProgress(media?.id, data?.episode, completed)
+  $: completed = !watched && media?.mediaListEntry?.progress >= lastEpisode
+  $: progress = liveAnimeEpisodeProgress(media?.id, data?.episode, completed)
   let hide = true
   let animating = true
 
