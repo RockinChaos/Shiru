@@ -329,9 +329,12 @@
         if (!file.media?.media?.id) delete file.media
         if (!file.mediaData?.anilist_id) return
         const saved = file.mediaData
+        const media = await cache.requestMedia(saved.anilist_id).catch(() => null)
+        if (!media?.id && file.media?.media?.id === saved.anilist_id) return
         file.media = {
             ...saved,
-            media: await cache.requestMedia(saved.anilist_id).catch(() => null),
+            media,
+            failed: !!saved.failed || !media?.id,
             parseObject: { ...parsedFiles[index], file_name: file.name, episode_number: saved.episode, episodeRange: saved.episodeRange, anime_season: saved.season }
         }
     }))
