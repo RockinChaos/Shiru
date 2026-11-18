@@ -50,7 +50,7 @@ async function markWatchedAsRead() {
  */
 function processNotifications() {
   if (!incomingNotifications.length) return
-  const { localNotifications: local, systemNotifications } = splitLocalAndSystem(dedupe(incomingNotifications))
+  const { localNotifications: local, systemNotifications } = splitLocalAndSystem(dedupe(incomingNotifications), localNotifications.value)
   for (const notification of local) localNotifications.update((n) => upsert(n, notification))
   systemNotifications.forEach((notification, i) => setTimeout(() => COMMON.notify(notification), 5 * (i + 1)).unref?.())
   cache.setEntry(caches.NOTIFICATIONS, 'incomingNotifications', [])

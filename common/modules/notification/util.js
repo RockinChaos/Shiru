@@ -68,6 +68,19 @@ export function dedupe(notifications) {
 }
 
 /**
+ * Checks whether two notifications share the same release.
+ *
+ * @param {Object} a First notification
+ * @param {Object} b Second notification
+ * @returns {boolean}
+ */
+function matchesRelease(a, b) {
+  return a.id === b.id && a.dub === b.dub &&
+    ((a.episode === b.episode && (a.season || 0) === (b.season || 0)) ||
+      (a.format === 'MOVIE' && b.format === 'MOVIE'))
+}
+
+/**
  * Returns a new notifications array with notification merged in according
  * to rules for delayed overrides, torrent deduping, and auto-read handling
  *
@@ -82,15 +95,7 @@ export function upsert(existing, notification) {
     else return !(n.id === notification.id && n.episode === notification.episode && n.delayed === true) // If the new notification is not delayed, remove any existing delayed notifications
   })
   // Skip if a torrent notification already covers this episode (prevents duplicate notifications)
-  const hasTorrent =
-    filterDelayed.findIndex(
-      (n) =>
-        n.id === notification.id &&
-        ((n.episode === notification.episode && (n.season || 0) === (notification.season || 0)) ||
-          (n.format === 'MOVIE' && notification.format === 'MOVIE')) &&
-        n.dub === notification.dub &&
-        n.click_action === 'TORRENT'
-    ) !== -1
+  const hasTorrent = filterDelayed.some((n) => n.click_action === 'TORRENT' && matchesRelease(n, notification))
   if (hasTorrent) return filterDelayed
   const filtered = filterDelayed.filter(
     (n) =>
@@ -128,15 +133,20 @@ export function markAsRead(notifications, media) {
  * Split into local (full) and system (trimmed, max 20 to prevent flooding the system)
  *
  * @param {Object[]} notifications
+ * @param {Object[]} existing
  * @returns {{ localNotifications: Object[], systemNotifications: Object[] }}
  */
-export function splitLocalAndSystem(notifications) {
+export function splitLocalAndSystem(notifications, existing) {
   const localNotifications = []
   const systemNotifications = []
   for (const notification of notifications) {
     const { button, activation, ...localDetails } = notification
     localNotifications.push(localDetails)
     if (settings.value.systemNotify && (button?.length || activation)) {
+      if (notification.click_action !== 'VIEW' && isValidNumber(notification.id) &&
+        (isValidNumber(notification.episode) || notification.format === 'MOVIE') &&
+        existing.some((n) => n.click_action !== 'VIEW' && matchesRelease(n, notification))) continue
+
       const systemDetails = {}
       for (const key of SYSTEM_KEYS) {
         if (key in notification) systemDetails[key] = notification[key]
