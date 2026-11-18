@@ -53,6 +53,7 @@
   import { Tabs, TabLabel, Tab } from '@/components/tabs/Tabination.js'
   import PlayerTab from '@/routes/settings/tabs/PlayerTab.svelte'
   import ClientTab from '@/routes/settings/tabs/ClientTab.svelte'
+  import DebridTab from '@/routes/settings/tabs/DebridTab.svelte'
   import InterfaceTab from '@/routes/settings/tabs/InterfaceTab.svelte'
   import AppTab from '@/routes/settings/tabs/AppTab.svelte'
   import ChangelogTab from '@/routes/settings/tabs/ChangelogTab.svelte'
@@ -60,7 +61,7 @@
   import { status } from '@/modules/networking.js'
   import { modal } from '@/modules/navigation.js'
   import semver from 'semver'
-  import { AppWindow, Puzzle, User, Heart, Logs, Play, Rss, LayoutDashboard } from 'lucide-svelte'
+  import { Cloud, AppWindow, Puzzle, User, Heart, Logs, Play, Rss, LayoutDashboard } from 'lucide-svelte'
 
   export let statusTransition = false
 
@@ -72,6 +73,10 @@
     client: {
       name: 'Client',
       icon: Rss
+    },
+    debrid: {
+      name: 'Debrid',
+      icon: Cloud
     },
     interface: {
       name: 'Interface',
@@ -139,6 +144,13 @@
         <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
           <div class='page pb-100'>
             <ClientTab bind:settings={$settings} {requestFileAccess} />
+          </div>
+        </div>
+      </Tab>
+      <Tab>
+        <div class='root h-full w-full overflow-y-md-auto p-20 pt-5'>
+          <div class='page pb-100'>
+            <DebridTab />
           </div>
         </div>
       </Tab>

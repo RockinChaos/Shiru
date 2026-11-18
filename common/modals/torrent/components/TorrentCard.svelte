@@ -8,6 +8,8 @@
   import { malDubs } from '@/modules/anime/animedubs.js'
   import { settings } from '@/modules/settings.js'
   import { Database, BadgeCheck, HardDrive, FileQuestion, AlertCircle, TriangleAlert } from 'lucide-svelte'
+  import DebridIcon from '@/components/DebridIcon.svelte'
+  import { debrid, normalizeInfoHash } from '@/modules/debrid/index.js'
 
   const { reactive, init } = createListener(['torrent-button', 'torrent-safe-area'])
   init(true)
@@ -362,6 +364,11 @@
   export let type = 'default'
   export let countdown = -1
 
+  const { cacheStore: debridCache, status: debridStatus } = debrid
+  $: normalizedHash = type !== 'error' ? normalizeInfoHash(result?.hash || result?.link) : null
+  $: cachedEntry = normalizedHash ? $debridCache?.[normalizedHash] : null
+  $: isDebridCached = Boolean($debridStatus.enabled && cachedEntry?.cached)
+
   const hasSpoiler = $settings.spoilerStatus.includes(media?.mediaListEntry?.status ?? 'NOTONLIST')
   const isSpoiler = hasSpoiler && (media?.mediaListEntry?.progress ?? 0) < episode
 
@@ -424,10 +431,16 @@
           <div class='ml-10'>[{countdown}]</div>
         {/if}
       </div>
-      {#if type !== 'error' && result.type === 'batch'}
-        <div class='d-flex ml-auto mr-10 z-1' title='Batch'><Database size='2.5rem'/></div>
+      {#if isDebridCached}
+        <span class='debrid-badge d-inline-flex align-items-center ml-auto rounded font-weight-bold z-1' class:mr-10={type !== 'error' || result.type === 'batch'} title={`Instant stream available on ${cachedEntry?.providerName || $debridStatus.providerName || 'Debrid'}`}>
+          <DebridIcon providerId={cachedEntry?.providerId || $debridStatus.providerId} size='1.55rem' />
+          <span>{cachedEntry?.providerName || $debridStatus.providerName || 'Debrid'}</span>
+        </span>
       {/if}
-      <div class='d-flex z-1' class:ml-auto={type === 'error' || result.type !== 'batch'} >
+      {#if type !== 'error' && result.type === 'batch'}
+        <div class='d-flex mr-10 z-1' class:ml-auto={!isDebridCached} title='Batch'><Database size='2.5rem'/></div>
+      {/if}
+      <div class='d-flex z-1' class:ml-auto={!isDebridCached && (type === 'error' || result.type !== 'batch')} >
         {#if result.source?.icon}
           <img class='wh-25' src={(!result.source.icon.startsWith('http') ? 'data:image/png;base64,' : '') + result.source.icon} alt={result.source.name} title={result.source.name}>
         {:else if result.source?.managed}
@@ -460,6 +473,26 @@
           <div class='text-light d-flex align-items-center text-nowrap'>{since(new Date(result.date))}</div>
         </div>
         <div class='secondary-metadata d-flex flex-wrap ml-auto justify-content-end gap-5'>
+          {#if type !== 'error' && $debridStatus.enabled}
+            {#if $settings.debridMode === 'manual'}
+              <button
+                type='button'
+                class='btn debrid-action position-relative z-1 rounded px-12 py-5 text-nowrap font-weight-bold d-inline-flex align-items-center shadow-none'
+                title={`Stream via ${$debridStatus.providerName || 'Debrid'}`}
+                use:click={() => play(result, 'debrid')}>
+                <DebridIcon providerId={$debridStatus.providerId} size='1.5rem' />
+                <span>{$debridStatus.providerName || 'Debrid'}</span>
+              </button>
+            {:else}
+              <button
+                type='button'
+                class='btn debrid-p2p position-relative z-1 rounded px-12 py-5 text-nowrap font-weight-semi-bold d-inline-flex align-items-center shadow-none'
+                title='Stream via P2P Torrent'
+                use:click={() => play(result, 'torrent')}>
+                P2P
+              </button>
+            {/if}
+          {/if}
           {#if result.type === 'best'}
             <div class='rounded px-15 py-5 border text-nowrap font-weight-bold d-flex align-items-center' style='background: var(--success-color-very-dim); border-color: var(--success-color-light) !important; color: var(--success-color-light)'>
               Best Release
@@ -485,6 +518,55 @@
 </div>
 
 <style>
+  .debrid-badge {
+    gap: 0.55rem;
+    padding: 0.38rem 0.9rem;
+    font-size: 1.15rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: #d7fff2;
+    background: linear-gradient(135deg, rgba(12, 79, 85, 0.72) 0%, rgba(43, 182, 144, 0.24) 100%);
+    border: 1px solid rgba(43, 182, 144, 0.45);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+  }
+  .debrid-action {
+    height: auto;
+    gap: 0.6rem;
+    font-size: inherit;
+    line-height: 1;
+    color: #e6fff7;
+    background: linear-gradient(135deg, rgba(12, 79, 85, 0.85) 0%, rgba(43, 182, 144, 0.34) 100%);
+    border: 1px solid rgba(74, 168, 87, 0.55);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  }
+  .debrid-action:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(15, 96, 102, 0.95) 0%, rgba(43, 182, 144, 0.52) 100%);
+    border-color: rgba(74, 168, 87, 0.85);
+    box-shadow: 0 4px 14px rgba(43, 182, 144, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+  }
+  .debrid-action:active {
+    transform: translateY(0);
+  }
+  .debrid-p2p {
+    height: auto;
+    font-size: inherit;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.65);
+    background: var(--dark-color-light);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+    transition: color 0.16s ease, border-color 0.16s ease;
+  }
+  .debrid-p2p:hover {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
   .scale {
     transition: transform 0.2s ease;
   }

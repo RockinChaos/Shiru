@@ -9,6 +9,7 @@ import { writable } from 'simple-store-svelte'
 import { toast } from '@/modules/lib/toast.js'
 import clipboard from '@/modules/lib/clipboard.js'
 import { TORRENT, ELECTRON } from '@/modules/bridge.js'
+import { debrid, normalizeInfoHash } from '@/modules/debrid/index.js'
 import { get } from 'svelte/store'
 import Debug from 'debug'
 const debug = Debug('ui:torrent')
@@ -257,13 +258,99 @@ function requestTorrentMedia(torrents) {
   }
 }
 
-export async function add(torrentID, search, hash, magnet, base64 = false) {
+/** @type {AbortController | null} */
+let activeDebridResolve = null
+
+/**
+ * Determines whether playback should resolve via the active Debrid provider.
+ *
+ * @param {string} torrentID
+ * @param {string | false} hash
+ * @param {'auto' | 'debrid' | 'torrent'} mode
+ * @returns {boolean}
+ */
+function shouldAttemptDebrid(torrentID, hash, mode = 'auto') {
+  if (mode === 'torrent') return false
+  if (mode === 'debrid') return true
+  if (!debrid.isEnabled()) return false
+  const debridMode = debrid.getMode()
+  if (debridMode === 'manual') return false
+  if (debridMode === 'always') return true
+  const cached = debrid.getCachedEntry(hash || torrentID)
+  if (cached && cached.cached === false) return false
+  return true
+}
+
+export async function add(torrentID, search, hash, magnet, base64 = false, debridOpts = {}) {
   if (torrentID) {
-    debug('Adding torrent', JSON.stringify({ torrentID, search, hash, magnet }))
+    debug('Adding torrent', JSON.stringify({ torrentID, search, hash, magnet, debridOpts }))
+    activeDebridResolve?.abort()
+    activeDebridResolve = null
     files.set([])
     page.navigateTo(page.PLAYER)
     media.value = search ? { media: (search.media || media.value?.media), episode: (search.episode || media.value?.episode), ...(media.value?.torrent ? { torrent: true } : { feed: true }) } : { torrent: true }
     if (SUPPORTS.isAndroid && !settings.value.enableExternal && settings.value.autoFullscreen) document.querySelector('.content-wrapper').requestFullscreen() // this WILL not work with auto-select torrents due to permissions check.
+
+    const requestedMode = debridOpts?.mode || 'auto'
+    if (shouldAttemptDebrid(torrentID, hash, requestedMode)) {
+      if (!debrid.isEnabled()) {
+        notify('error', 'Debrid is not enabled or missing an API key.')
+        return
+      }
+      const controller = new AbortController()
+      activeDebridResolve = controller
+      const allowUncached = requestedMode === 'debrid' || debrid.getMode() === 'always'
+      let lastToastProgress = -1
+      try {
+        const resolved = await debrid.resolveTorrent(torrentID, {
+          hash: (equalsIgnoreCase(hash, torrentID) && torrentID) || hash,
+          magnet,
+          base64,
+          name: debridOpts?.name || search?.media?.title?.userPreferred,
+          allowUncached,
+          signal: controller.signal,
+          onProgress: ({ status: dlStatus, progress }) => {
+            if (controller.signal.aborted) return
+            if (progress !== lastToastProgress) {
+              lastToastProgress = progress
+              toast(`Debrid (${debrid.status.value.providerName || 'Cloud'})`, {
+                description: `${dlStatus ? `${dlStatus} · ` : ''}${progress}% cached on server...`,
+                dedupe: true
+              })
+            }
+          }
+        })
+        if (controller.signal.aborted) return
+        activeDebridResolve = null
+        const torrent = await TORRENT.streamDebrid({
+          providerId: resolved.providerId,
+          providerName: resolved.providerName || debrid.status.value.providerName || resolved.providerId,
+          torrentId: resolved.torrentId,
+          infoHash: resolved.infoHash,
+          torrentName: resolved.name,
+          magnet: normalizeInfoHash(resolved.infoHash) ? `magnet:?xt=urn:btih:${resolved.infoHash}` : undefined,
+          files: resolved.files.map(file => ({
+            id: file.id,
+            name: file.name,
+            path: file.path,
+            length: file.length,
+            remoteUrl: file.streamUrl,
+            headers: file.headers
+          }))
+        }, onReady, req => debrid.handleUrlRequest(req))
+        if (torrent?.infoHash && search) await setTorrentMedia(torrent.infoHash, search)
+        return
+      } catch (error) {
+        if (controller.signal.aborted || error?.code === 'ABORTED') return
+        if (activeDebridResolve === controller) activeDebridResolve = null
+        if (requestedMode === 'debrid' || debrid.getMode() === 'always') {
+          notify('error', error)
+          return
+        }
+        debug('Debrid unavailable/uncached, falling back to P2P torrent', error?.code || error?.message)
+      }
+    }
+
     try {
       const torrent = await TORRENT.stream(torrentID, (equalsIgnoreCase(hash, torrentID) && torrentID) || false, magnet, base64, onReady)
       if (torrent?.infoHash && search) await setTorrentMedia(torrent.infoHash, search)
@@ -300,6 +387,8 @@ export async function unload(torrent, hash, force = false) {
     debug('Unloading torrent', JSON.stringify({ torrent, hash }))
     TORRENT.unload({ torrent, hash }).catch(error => notify('error', error))
   } else if (force) {
+    activeDebridResolve?.abort()
+    activeDebridResolve = null
     files.value = []
     media.value = { ...media.value, display: true } // set display to true to allow the 'Last Watched' button to remain on the SideBar.
     TORRENT.unload(null).catch(error => notify('error', error)) // this will not override the cached loadedTorrent, we rely on users to enable disableStartupTorrent if they don't want to load the previous torrent when the app starts.
