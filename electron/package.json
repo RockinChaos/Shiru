@@ -23,7 +23,7 @@
     "client": "workspace:*",
     "common": "workspace:*",
     "concurrently": "^10.0.7",
-    "electron": "45.2.3",
+    "electron": "45.3.2",
     "electron-builder": "^26.18.1",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.12",

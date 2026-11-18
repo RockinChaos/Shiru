@@ -9,7 +9,7 @@ publish:
     repo: shiru
 electronDownload:
   mirror: https://packages.shiru.app/electron/
-  customDir: "45.2.3"
+  customDir: "45.3.2"
 protocols:
   name: shiru
   schemes:
