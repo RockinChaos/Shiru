@@ -18,14 +18,14 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",
-    "@capacitor/cli": "^8.6.0",
+    "@capacitor/cli": "^8.6.2",
     "nodejs-mobile-gyp": "^0.4.0"
   },
   "dependencies": {
-    "@capacitor/android": "^8.6.0",
+    "@capacitor/android": "^8.6.2",
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",
-    "@capacitor/core": "^8.6.0",
+    "@capacitor/core": "^8.6.2",
     "@capacitor/device": "^8.0.3",
     "@capacitor/filesystem": "^8.1.5",
     "@capacitor/keyboard": "^8.0.6",
