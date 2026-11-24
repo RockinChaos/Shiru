@@ -38,6 +38,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
     splits {
         abi {
             enable gradle.startParameter.taskNames.any { it.contains("Release") } // https://stackoverflow.com/a/39950584
