@@ -7,7 +7,7 @@ const debug = Debug('ui:episodes')
 
 /*
  * MAL Episode Information
- * Dub information is fetched from api.jikan.moe.
+ * Information is fetched from api.tenrai.org.
  */
 class Episodes {
     limiter = new Bottleneck({
@@ -146,7 +146,7 @@ class Episodes {
             debug(`Error (API Down): ${error.status || 429} - ${error.message || codes[error.status || 429]}`)
             return
         }
-        if (!silent) printError('Episode Fetching Failed', `Failed to fetch jikan anime episodes!`, error)
+        if (!silent) printError('Episode Fetching Failed', `Failed to fetch tenrai anime episodes!`, error)
     }
 }
 

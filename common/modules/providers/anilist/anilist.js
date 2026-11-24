@@ -182,19 +182,31 @@ class AnilistClient {
 
   userID = alToken
 
-  _status = status.value
-
   constructor() {
     debug('Initializing Anilist Client for ID ' + this.userID?.viewer?.data?.Viewer?.id)
-    this.limiter.on('depleted', async () => {
-      trace('AniList limiter reservoir depleted, jobs will queue until next refresh')
-      if (status.value !== 'online') return
-      status.set('limited_anilist')
-      while ((await this.limiter.currentReservoir()) <= 0) {
-        await sleep(100)
+    let waitingForQuota = false
+    const updateThrottle = () => {
+      if (status.value === 'online' && (waitingForQuota || this.rateLimitUntil - Date.now() > 6_000)) {
+        status.set('limited_anilist')
+      } else if (status.value === 'limited_anilist' && !waitingForQuota && !this.rateLimitPromise) {
+        status.set('online')
       }
-      if (status.value === 'limited_anilist') status.set('online')
-    })
+    }
+    const watchQuota = async () => {
+      if ((await this.limiter.currentReservoir()) !== 0 || waitingForQuota || !this.limiter.queued()) return
+      waitingForQuota = true
+      try {
+        do {
+          updateThrottle()
+          await sleep(100)
+        } while ((await this.limiter.currentReservoir()) === 0 && this.limiter.queued())
+      } finally {
+        waitingForQuota = false
+        updateThrottle()
+      }
+    }
+    this.limiter.on('depleted', watchQuota)
+    this.limiter.on('queued', watchQuota)
     this.limiter.on('failed', async (error, jobInfo) => {
       if (status.value.match(/offline/i)) throw new Error('Failed making request to Anilist, network is offline... not retrying')
       else if (jobInfo.retryCount >= 1 && error.status !== 429) await printError('Search Failed', 'Failed making request to Anilist!', error, 20_000)
@@ -209,15 +221,14 @@ class AnilistClient {
         const retryTime = retryHeader != null && Number.isFinite(retryAfter) && retryAfter >= 0 ? (retryAfter + 1) * 1_000 : 0
         this.rateLimitUntil = Math.max(this.rateLimitUntil, Date.now() + (Math.max(resetTime, retryTime) || 64_000))
         if (!this.rateLimitPromise) {
-          this._status = status.value
           this.rateLimitPromise = (async () => {
             while (this.rateLimitUntil > Date.now()) await sleep(this.rateLimitUntil - Date.now())
             this.rateLimitUntil = 0
             this.rateLimitPromise = null
-            if (status.value === 'limited_anilist') status.set(this._status)
+            updateThrottle()
           })()
         }
-        if (!status.value.match(/offline/i) && status.value !== 'limited_anilist' && (this.rateLimitUntil - Date.now()) > 6_000) status.set('limited_anilist')
+        updateThrottle()
         return
       }
 
@@ -671,75 +682,52 @@ class AnilistClient {
   /** @param {{key: string, title: string, year?: string, isAdult: boolean}[]} flattenedTitles */
   async alSearchCompound(flattenedTitles) {
     debug(`Searching for ${flattenedTitles?.length} titles via compound search`)
-    const cachedEntry = cache.cachedEntry(caches.QUERY_COMPOUND, JSON.stringify(flattenedTitles),  status.value.match(/offline/i))
+    const cacheKey = JSON.stringify(flattenedTitles)
+    const cachedEntry = cache.cachedEntry(caches.QUERY_COMPOUND, cacheKey, status.value.match(/offline/i))
     if (cachedEntry) return cachedEntry
 
     if (!flattenedTitles.length) return []
-    // isAdult doesn't need an extra variable, as the title is the same regardless of type, so we re-use the same variable for adult and non-adult requests
-    /** @type {Record<`v${number}`, string>} */
-    const requestVariables = flattenedTitles.reduce((obj, { title, isAdult }, i) => {
-      if (isAdult && i !== 0) return obj
-      obj[`v${i}`] = normalizeASCII(title) // stupid fix because AniList search sucks.
-      return obj
-    }, {})
-
-    const queryVariables = flattenedTitles.reduce((arr, { isAdult }, i) => {
-      if (isAdult && i !== 0) return arr
-      arr.push(`$v${i}: String`)
-      return arr
-    }, []).join(', ')
-    const fragmentQueries = flattenedTitles.map(({ year, isAdult }, i) => /* js */`
-    v${i}: Page(perPage: 10) {
-      media(type: ANIME, search: $v${(isAdult && i !== 0) ? i - 1 : i}, status_not: CANCELLED, isAdult: ${!!isAdult} ${year ? `, seasonYear: ${year}` : ''}) {
-        ...med
-      }
-    }`)
-
     const query = /* js */`
-    query(${queryVariables}) {
-      ${fragmentQueries}
-    }
-
-    fragment&nbsp;med&nbsp;on&nbsp;Media {
-      id,
-      title {
-        romaji,
-        english,
-        native,
-        userPreferred
-      },
-      synonyms
+    query($search: String, $year: Int, $isAdult: Boolean) {
+      Page(perPage: 10) {
+        media(type: ANIME, search: $search, status_not: CANCELLED, isAdult: $isAdult, seasonYear: $year) {
+          id,
+          title {
+            romaji,
+            english,
+            native,
+            userPreferred
+          },
+          synonyms
+        }
+      }
     }`
 
-    /**
-     * @type {import('./al.d.ts').Query<Record<string, {media: import('./al.d.ts').Media[]}>>}
-     * @returns {Promise<[string, import('./al.d.ts').Media][]>}
-     */
-    const res = await this.alRequest(query, requestVariables)
-    if (!res?.data || Object.values(res.data).every(({ media }) => !media.length)) return cache.cachedEntry(caches.QUERY_COMPOUND, JSON.stringify(flattenedTitles), true) // if the query failed just return the potential cache... better to have something than nothing.
-
-    /** @type {Record<string, number>} */
-    const searchResults = {}
-    for (const [variableName, { media }] of Object.entries(res.data)) {
-      if (!media.length) continue
-      const titleObject = flattenedTitles[Number(variableName.slice(1))]
-      if (searchResults[titleObject.key]) continue
-      searchResults[titleObject.key] = media.map(media => getDistanceFromTitle(media, titleObject.title)).reduce((prev, curr) => prev.lavenshtein <= curr.lavenshtein ? prev : curr).id
-      // Convoluted and not as good as distance matching, better to return more than less.
-      //   if (searchResults[titleObject.key]) continue
-      //   for (const mediaItem of media) {
-      //     if (matchKeys(mediaItem, titleObject.title, ['title.userPreferred', 'title.english', 'title.romaji', 'title.native', 'synonyms'], titleObject.title.length > 15 ? 0.2 : titleObject.title.length > 9 ? 0.15 : 0.1)) {
-      //       searchResults[titleObject.key] = mediaItem.id
-      //       break
-      //     }
-      //   }
-      //   searchResults[titleObject.key] = !searchResults[titleObject.key] ? media.map(media => getDistanceFromTitle(media, titleObject.title)).reduce((prev, curr) => prev.lavenshtein <= curr.lavenshtein ? prev : curr).id : searchResults[titleObject.key]
+    /** @type {Map<string, number>} */
+    const searchResults = new Map()
+    let incomplete = false
+    // Submit one title at a time so other AniList requests can use the shared queue.
+    for (const { key, title, year, isAdult } of flattenedTitles) {
+      if (searchResults.has(key)) continue
+      /** @type {import('./al.d.ts').PagedQuery<{media: import('./al.d.ts').Media[]}>} */
+      const res = await this.alRequest(query, { search: normalizeASCII(title), year: year ? Number(year) : undefined, isAdult: !!isAdult })
+      incomplete ||= !res?.data || !!res.errors?.length
+      const media = res?.data?.Page?.media
+      if (!media?.length) continue
+      searchResults.set(key, media.map(media => getDistanceFromTitle(media, title)).reduce((prev, curr) => prev.lavenshtein <= curr.lavenshtein ? prev : curr).id)
     }
+    if (!searchResults.size) return cache.cachedEntry(caches.QUERY_COMPOUND, cacheKey, true)
 
-    const ids = Object.values(searchResults)
-    const search = await this.searchIDS({ id: ids, perPage: 50, sort: 'OMIT' })
-    const mappedResults = Object.entries(searchResults)?.map(([filename, id]) => [filename, search?.data?.Page?.media?.find(media => media.id === id)])
-    return mappedResults ? cache.cacheEntry(caches.QUERY_COMPOUND, JSON.stringify(flattenedTitles), { mappings: true, ...(malClient.userID ? { fillLists: malClient.userLists.value } : {}) }, mappedResults, Date.now() + getRandomInt(60, 90) * 60 * 1_000) : cache.cachedEntry(caches.COMPOUND, JSON.stringify(flattenedTitles), true)
+    const variables = { id: [...new Set(searchResults.values())], perPage: 50, sort: 'OMIT' }
+    const search = await (variables.id.length > variables.perPage ? this.searchAllIDS(variables) : this.searchIDS(variables))
+    const media = search?.data?.Page?.media
+    if (!media?.length) return cache.cachedEntry(caches.QUERY_COMPOUND, cacheKey, true)
+    const mappedResults = Array.from(searchResults, ([key, id]) => [key, media.find(entry => entry?.id === id)]).filter(([, match]) => match)
+    if (incomplete || search?.errors?.length) {
+      const cached = await cache.cachedEntry(caches.QUERY_COMPOUND, cacheKey, true)
+      return [...new Map([...(cached || []), ...mappedResults])]
+    }
+    return cache.cacheEntry(caches.QUERY_COMPOUND, cacheKey, { mappings: true, ...(malClient.userID ? { fillLists: malClient.userLists.value } : {}) }, mappedResults, Date.now() + getRandomInt(60, 90) * 60 * 1_000)
   }
 
   search(variables = {}, searchCache = true) {

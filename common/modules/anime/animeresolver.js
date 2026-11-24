@@ -188,9 +188,11 @@ export default new class AnimeResolver {
     if (missingTitles?.length > 0) debug(`Missing ${missingTitles?.length} titles as they were not found in the media cache, titles: ${missingTitles?.map(obj => `${obj.title} (year: ${obj.year ?? 'N/A'}, isAdult: ${obj.isAdult})`).join(', ')}`)
     if (errorRetry) return
     for (const chunk of chunks(missingTitles, 55)) {
-      // single title has a complexity of 8.1, al limits complexity to 500, so this can be at most 62, undercut it to ~~60~~ 55, al pagination is 50, but at most we'll do 30 titles since isAdult duplicates each title
+      // The old compound query used about 8.1 complexity points per candidate under AniList's 500-point cap. We capped the group at 55, including adult variants, to leave room under that limit.
+      // Each title search now uses one request and one quota unit. The group shares a cached result, and metadata for matched IDs is fetched in pages of up to 50.
       let search
       try {
+        // TODO: Less pain and suffering...
         search = await anilistClient.alSearchCompound(chunk)
       } catch (error) {
         if (status.value.match(/offline/i)) {
