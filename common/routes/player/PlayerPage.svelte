@@ -144,22 +144,28 @@
     cache.setEntry(caches.HISTORY, 'lastSubtitle', { ...(cache.getEntry(caches.HISTORY, 'lastSubtitle') || {}), [media?.media?.id || media?.title || media?.parseObject?.title || media?.parseObject?.file_name]: label })
   }
   function checkSubtitle() {
-    const lastSubtitle = cache.getEntry(caches.HISTORY, 'lastSubtitle')?.[`${media?.media?.id || media?.title || media?.parseObject?.title || media?.parseObject?.file_name}`]
-    if (subHeaders?.length && lastSubtitle) {
-      if (lastSubtitle === 'OFF') {
-        subs.selectCaptions(-1)
-        updateSubs()
-      } else {
-        for (const track of subHeaders) {
-          if (!track) continue
-          const trackName = trackLabel(track, subHeaders)
-          if (matchPhrase(lastSubtitle, trackName, trackName?.length > 10 ? 3 : 2, true) && track?.number) {
-            subs.selectCaptions(track.number)
-            updateSubs()
-            break
-          }
+    if (!subs?.tracksReady || !subHeaders?.length) return
+    const lastSubtitle = cache.getEntry(caches.HISTORY, 'lastSubtitle')?.[media?.media?.id || media?.title || media?.parseObject?.title || media?.parseObject?.file_name]
+    if (!lastSubtitle) return
+    let trackNumber = -1
+    if (lastSubtitle !== 'OFF') {
+      trackNumber = undefined
+      for (const track of subHeaders) {
+        if (!track) continue
+        const label = trackLabel(track, subHeaders)
+        if (label === lastSubtitle) {
+          trackNumber = track.number
+          break
+        }
+        if (trackNumber === undefined && matchPhrase(lastSubtitle, label, label.length > 10 ? 3 : 2, true)) {
+          trackNumber = track.number
         }
       }
+      if (trackNumber === undefined) return
+    }
+    if (subs.current !== trackNumber) {
+      subs.selectCaptions(trackNumber)
+      updateSubs()
     }
   }
 
@@ -179,8 +185,10 @@
     }
   })
 
-  function handleHeaders () {
+  function handleHeaders (tracksChanged = false) {
     subHeaders = subs?.headers
+    if (subHeaders && subs?.renderer) subs.renderer.timeOffset = Number(subDelay)
+    if (tracksChanged) checkSubtitle()
   }
 
   function updateFiles (files) {

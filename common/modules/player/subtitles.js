@@ -1,9 +1,9 @@
-import JASSUB from 'jassub'
-import { toTS, subRx, videoRx } from '@/modules/util.js'
-import { settings } from '@/modules/settings.js'
+import { toTS, subRx } from '@/modules/util.js'
 import clipboard from '@/modules/lib/clipboard.js'
+import { settings } from '@/modules/settings.js'
 import { SUPPORTS } from '@/modules/support.js'
 import { TORRENT } from '@/modules/bridge.js'
+import JASSUB from 'jassub'
 
 const defaultHeader = `[Script Info]
 Title: English (US)
@@ -19,37 +19,64 @@ Style: Default, ${settings.value.font?.name.toLowerCase() || 'Roboto Medium'},52
 [Events]
 
 `
-const stylesRx = /^Style:[^,]*/gm
+const cueEntities = { amp: '&', lt: '<', gt: '>', nbsp: '\\h' }
+
+const isAssType = type => type === 'ass' || type === 'ssa'
+
+function getStyleIndexes(header) {
+  const styles = new Map([['Default', 0]])
+  let inStyles = false
+  let nameColumn = 0
+  let index = 1
+  for (const line of header.split(/[\r\n]+/)) {
+    const value = line.trimStart()
+    if (value.startsWith('[')) inStyles = /^\[V4\+? Styles]/i.test(value)
+    if (!inStyles) continue
+    if (value.startsWith('Format:')) {
+      nameColumn = value.slice(7).split(',').findIndex(field => field.trim().toLowerCase() === 'name')
+    } else if (value.startsWith('Style:')) {
+      const name = value.slice(6).split(',')[nameColumn]?.trimStart().replace(/^\*+/, '') || 'Default'
+      styles.set(name, index++)
+    }
+  }
+  return styles
+}
+
+function formatCueText(text) {
+  return text.replace(/<(\/?)([^\s>][^>]*)>/g, (tag, closing, name) =>
+    /^[bius]$/i.test(name) ? '{\\' + name.toLowerCase() + (closing ? '0' : '1') + '}' : ''
+  ).replace(/&(amp|lt|gt|nbsp);/g, (entity, name) => cueEntities[name]).replace(/\r?\n/g, '\\N')
+}
+
 export default class Subtitles {
+
   /**
    * Initializes subtitle delivery and loads tracks after playback is selected.
    * @param {HTMLVideoElement} video Video element used for subtitle rendering.
    * @param {object[]} files Available torrent files.
    * @param {object|null} selected Selected video file.
-   * @param {() => void} onHeader Refreshes subtitle choices when headers arrive.
+   * @param {(tracksChanged?: boolean) => void} onHeader Refreshes subtitle choices.
    */
-  constructor (video, files, selected, onHeader) {
+  constructor(video, files, selected, onHeader) {
     this.video = video
     this.selected = selected || null
     this.files = files || []
     this.headers = []
-    this.tracks = []
+    this.embeddedTracks = new Map()
     /** @type {{subtitle: any, trackNumber: number}[]} */
     this.pendingSubtitles = []
     /** @type {boolean} */
     this.tracksReady = false
-    this._tracksString = []
-    this._stylesMap = []
     this.fonts = ['/Roboto.ttf', './NotoSansCJK.otf']
+    this.useLocalFonts = settings.value.missingFont && typeof globalThis.queryLocalFonts === 'function'
+    this.dropAllBlur = settings.value.disableSubtitleBlur
     this.renderer = null
-    this.parsed = false
     this.stream = null
     this.parser = null
     this.current = 0
     this.onHeader = onHeader
-    this.videoFiles = files.filter(file => videoRx.test(file.name))
-    this.subtitleFiles = []
     this.timeout = null
+
     /** Registers a remotely exposed font file.
      * @param {{url: string}} detail Font attachment URL.
      * @returns {void}
@@ -59,23 +86,24 @@ export default class Subtitles {
       this.fonts.push(detail.url)
       this.renderer?.addFont(detail.url)
     }
+
     /** Buffers or renders a subtitle packet for its track.
      * @param {{subtitle: any, trackNumber: number}} packet Subtitle packet and track identifier.
      * @returns {void}
      */
     this.handleSubtitle = ({ subtitle, trackNumber }) => {
       if (!this.selected) return
-      const seen = this._tracksString[trackNumber]
-      if (!seen) {
+      const track = this.embeddedTracks.get(trackNumber)
+      if (!track) {
         if (!this.tracksReady) this.pendingSubtitles.push({ subtitle, trackNumber })
         return
       }
       const string = JSON.stringify(subtitle)
-      if (seen.has(string)) return
-      const assSub = this.constructSub({ ...subtitle }, this.headers[trackNumber].type !== 'ass', this.tracks[trackNumber].length, trackNumber)
-      seen.add(string)
-      this.tracks[trackNumber].push(assSub)
-      if (this.current === trackNumber) this.renderer?.createEvent(assSub)
+      if (track.seen.has(string)) return
+      const event = this.constructSub(subtitle, track)
+      track.seen.add(string)
+      track.events.push(event)
+      if (this.current === track.number) this.renderSubtitle(event)
     }
 
     /** Initializes track headers, drains queued packets, and selects a subtitle language.
@@ -83,68 +111,51 @@ export default class Subtitles {
      * @returns {void}
      */
     this.handleTracks = (detail) => {
-      if (this.selected) {
-        for (const track of detail) {
-          if (!this.tracks[track.number]) {
-            // overwrite webvtt or other header with custom one
-            if (track.type !== 'ass') track.header = defaultHeader
-            this.tracks[track.number] = []
-            this._tracksString[track.number] = new Set()
-            this.headers[track.number] = track
-            this._stylesMap[track.number] = {
-              Default: 0
-            }
-            const styleMatches = track.header.match(stylesRx) ?? []
-            for (let i = 0; i < styleMatches.length; ++i) {
-              const style = styleMatches[i].replace('Style:', '').trim()
-              this._stylesMap[track.number][style] = i + 1
-            }
-
-            this.onHeader()
-          }
-        }
-        this.tracksReady = true
-        for (const subtitle of this.pendingSubtitles.splice(0)) {
-          if (this._tracksString[subtitle.trackNumber]) this.handleSubtitle(subtitle)
-        }
-        this.initSubtitleRenderer()
-        const tracks = this.headers?.filter(t => t)
-        if (tracks?.length && settings.value.subtitleLanguage) {
-          if (tracks.length === 1) {
-            this.selectCaptions(tracks[0].number)
-          } else {
-            let wantedTrack = tracks.find(({ language }) => {
-              if (language == null) language = 'eng'
-              return language === settings.value.subtitleLanguage
-            })
-            if (!wantedTrack) wantedTrack = tracks.find(track => (track.name?.toLowerCase() ?? '').includes(settings.value.subtitleLanguage.toLowerCase()))
-            if (wantedTrack) return this.selectCaptions(wantedTrack.number)
-
-            const englishTrack = tracks.find(({ language }) => language == null || language === 'eng')
-            if (englishTrack) return this.selectCaptions(englishTrack.number)
-
-            this.selectCaptions(tracks[0].number)
-          }
-        }
+      if (!this.selected) return
+      for (const track of detail) {
+        if (this.embeddedTracks.has(track.number)) continue
+        const header = isAssType(track.type) ? track.header : defaultHeader
+        if (!header?.trim()) continue
+        // A sidecar can arrive before the MKV track numbers are known.
+        const number = this.headers[track.number] ? this.headers.length : track.number
+        const entry = { ...track, number, header, styles: getStyleIndexes(header), events: [], seen: new Set() }
+        this.embeddedTracks.set(track.number, entry)
+        this.headers[number] = entry
+      }
+      this.tracksReady = true
+      for (const packet of this.pendingSubtitles.splice(0)) this.handleSubtitle(packet)
+      if (this.headers.length) this.initSubtitleRenderer()
+      this.onHeader(true)
+      const tracks = this.headers.filter(Boolean)
+      const language = settings.value.subtitleLanguage
+      if (!this.current && tracks.length && language) {
+        const wantedTrack = tracks.find(track => (track.language ?? 'eng') === language)
+          || tracks.find(track => track.name?.toLowerCase().includes(language.toLowerCase()))
+          || tracks.find(track => (track.language ?? 'eng') === 'eng')
+          || tracks[0]
+        this.selectCaptions(wantedTrack.number)
       }
     }
+
     this.handleClipboardText = ({ detail }) => {
       for (const { text, type } of detail) {
-        if (text.startsWith('[Script Info]')) this.addSingleSubtitleFile(new File([text], 'Subtitle', { type }))
+        if (text.startsWith('[Script Info]')) this.addSingleSubtitleFile(new File([text], 'Subtitle.ass', { type }))
       }
     }
+
     this.handleClipboardFiles = ({ detail }) => {
       for (const file of detail) {
         if (subRx.test(file.name)) this.addSingleSubtitleFile(file)
       }
     }
+
     this.handleSubtitleFile = async (detail) => {
       if (!this.selected) return
       try {
         const response = await fetch(detail.url)
         if (!response.ok) throw new Error('Subtitle attachment request failed: ' + response.status)
         const data = await response.arrayBuffer()
-        if (this.selected) await this.addSingleSubtitleFile(new File([data], detail.name))
+        await this.addSingleSubtitleFile(new File([data], detail.name), true)
       } catch (error) {
         if (this.selected) console.warn('Failed to load subtitle file', error)
       }
@@ -152,47 +163,48 @@ export default class Subtitles {
 
     TORRENT.onSubtitles(this.handleSubtitle, this.handleFile, this.handleSubtitleFile)
       .catch(error => console.warn('Failed to subscribe to subtitles', error))
-    TORRENT.getTracks().then(tracks => {
-      if (tracks && this.selected) this.handleTracks(tracks)
-    }).catch(error => console.warn('Failed to read tracks', error))
+    TORRENT.getTracks().catch(error => {
+      console.warn('Failed to read tracks', error)
+      return []
+    }).then(tracks => this.handleTracks(tracks ?? []))
+      .catch(error => console.warn('Failed to initialize subtitle tracks', error))
 
     clipboard.addEventListener('text', this.handleClipboardText)
     clipboard.addEventListener('files', this.handleClipboardFiles)
   }
 
-  async addSingleSubtitleFile (file) {
-    // lets hope there's no more than 100 subtitle tracks in a file
-    const index = 100 + this.headers.length
-    this.subtitleFiles[index] = file
-    const type = file.name.substring(file.name.lastIndexOf('.') + 1).toLowerCase()
-    const subname = file.name.slice(0, file.name.lastIndexOf('.'))
+  async addSingleSubtitleFile(file, automatic = false) {
+    if (!this.selected) return
+    const dot = file.name.lastIndexOf('.')
+    const type = dot < 0 ? '' : file.name.slice(dot + 1).toLowerCase()
+    let subtitles
+    try {
+      subtitles = Subtitles.convertSubText(await file.text(), type)
+    } catch (error) {
+      if (this.selected) console.warn('Failed to load subtitle file', error)
+      return
+    }
+    if (!this.selected || !subtitles?.length) return
+
+    const index = Math.max(100, this.headers.length)
+    const subname = dot < 0 ? file.name : file.name.slice(0, dot)
     // sub name could contain video name with or without extension, possibly followed by lang, or not.
     const name = subname.includes(this.selected.name)
       ? subname.replace(this.selected.name, '')
       : subname.replace(this.selected.name.slice(0, this.selected.name.lastIndexOf('.')), '')
     this.headers[index] = {
-      header: defaultHeader,
+      header: typeof subtitles === 'string' ? subtitles : defaultHeader + subtitles.join('\n'),
       language: name.replace(/[,._-]/g, ' ').trim() || 'Track ' + index,
       number: index,
       type
     }
-    this.onHeader()
-    this.tracks[index] = []
-    const subtitles = Subtitles.convertSubText(await file.text(), type)
-    if (!this.selected) return
-    if (subtitles) {
-      if (type === 'ass') this.headers[index].header = subtitles
-      else this.headers[index].header += subtitles.join('\n')
-      if (!this.current) {
-        this.current = index
-        this.initSubtitleRenderer()
-        this.selectCaptions(this.current)
-        this.onHeader()
-      }
-    } else console.debug(`Failed to load the file ${file.name} as it is not a subtitle file.`)
+    this.onHeader(true)
+    if (!this.current && (!automatic || (this.tracksReady && settings.value.subtitleLanguage))) {
+      this.selectCaptions(index)
+    }
   }
 
-  initSubtitleRenderer () {
+  initSubtitleRenderer() {
     if (!this.renderer) {
       const options = {
         video: this.video,
@@ -211,129 +223,96 @@ export default class Subtitles {
         wasmUrl: new URL('jassub/dist/jassub-worker.wasm', import.meta.url).toString(),
         legacyWasmUrl: SUPPORTS.isAndroid ? new URL('jassub/dist/jassub-worker.wasm.js', import.meta.url).toString() : undefined,
         modernWasmUrl: new URL('jassub/dist/jassub-worker-modern.wasm', import.meta.url).toString(),
-        useLocalFonts: settings.value.missingFont,
-        dropAllBlur: settings.value.disableSubtitleBlur
+        useLocalFonts: this.useLocalFonts,
+        dropAllBlur: this.dropAllBlur
       }
       if (SUPPORTS.isAndroid) JASSUB._hasBitmapBug = true
+      this.requestedFonts = new Set(Object.keys(options.availableFonts))
       this.renderer = new JASSUB(options)
-      this.renderer?.setDefaultFont('noto sans cjk regular')
+      this.renderer.setDefaultFont('noto sans cjk regular')
     }
   }
 
-  static convertSubText (text, type) {
-    const srtRx = /(?:\d+\r?\n)?(\S{9,12})\s?-->\s?(\S{9,12})(.*)\r?\n([\s\S]*)$/i
-    const srt = text => {
+  static convertSubText(text, type) {
+    if (isAssType(type)) return text.trim() ? text : undefined
+
+    const normalized = text.replace(/\r\n?/g, '\n')
+    const srtRx = /^((?:\d+:)?\d{2}:\d{2}[.,]\d{2,3})[ \t]*-->[ \t]*((?:\d+:)?\d{2}:\d{2}[.,]\d{2,3})[^\n]*\n([\s\S]*)$/m
+    const subRx = /^[{[](\d+)[}\]][{[](\d+)[}\]](.+)$/
+    if (type === 'srt' || type === 'vtt' || (type !== 'sub' && srtRx.test(normalized))) {
+      const assTime = value => {
+        const [clock, fraction] = value.split(/[.,]/)
+        const timestamp = clock + '.' + fraction.slice(0, 2)
+        return timestamp.split(':').length === 2 ? '0:' + timestamp : timestamp
+      }
       const subtitles = []
-      const replaced = text.replace(/\r/g, '')
-      for (const split of replaced.split(/\r?\n\r?\n/)) {
-        const match = split.match(srtRx)
-        if (match) {
-          // timestamps
-          match[1] = match[1].match(/.*[.,]\d{2}/)[0]
-          match[2] = match[2].match(/.*[.,]\d{2}/)[0]
-          if (match[1].length === 9) {
-            match[1] = '0:' + match[1]
-          } else {
-            if (match[1][0] === '0') {
-              match[1] = match[1].substring(1)
-            }
-          }
-          match[1].replace(',', '.')
-          if (match[2].length === 9) {
-            match[2] = '0:' + match[2]
-          } else {
-            if (match[2][0] === '0') {
-              match[2] = match[2].substring(1)
-            }
-          }
-          match[2].replace(',', '.')
-          // create array of all tags
-          const matches = match[4].match(/<[^>]+>/g)
-          if (matches) {
-            matches.forEach(matched => {
-              if (/<\//.test(matched)) { // check if its a closing tag
-                match[4] = match[4].replace(matched, matched.replace('</', '{\\').replace('>', '0}'))
-              } else {
-                match[4] = match[4].replace(matched, matched.replace('<', '{\\').replace('>', '1}'))
-              }
-            })
-          }
-          subtitles.push('Dialogue: 0,' + match[1].replace(',', '.') + ',' + match[2].replace(',', '.') + ',Default,,0,0,0,,' + match[4].replace(/\r?\n/g, '\\N'))
-        }
+      for (const block of normalized.split(/\n[ \t]*\n/)) {
+        const match = block.match(srtRx)
+        if (!match) continue
+        const [, start, end, text] = match
+        subtitles.push('Dialogue: 0,' + assTime(start) + ',' + assTime(end) + ',Default,,0,0,0,,' + formatCueText(text.replace(/\n+$/, '')))
       }
       return subtitles
     }
-    const subRx = /[{[](\d+)[}\]][{[](\d+)[}\]](.+)/i
-    const sub = text => {
-      const subtitles = []
-      const replaced = text.replace(/\r/g, '')
-      let frames = 1000 / Number(replaced.match(subRx)[3])
-      if (!frames || isNaN(frames)) frames = 41.708
-      for (const split of replaced.split('\r?\n')) {
-        const match = split.match(subRx)
-        if (match) subtitles.push('Dialogue: 0,' + toTS((match[1] * frames) / 1000, 1) + ',' + toTS((match[2] * frames) / 1000, 1) + ',Default,,0,0,0,,' + match[3].replace('|', '\\N'))
-      }
-      return subtitles
-    }
-    const subtitles = type === 'ass' ? text : []
-    if (type === 'ass') {
-      return subtitles
-    } else if (type === 'srt' || type === 'vtt') {
-      return srt(text)
-    } else if (type === 'sub') {
-      return sub(text)
-    } else {
-      // subbers have a tendency to not set the extensions properly
-      if (srtRx.test(text)) return srt(text)
-      if (subRx.test(text)) return sub(text)
-    }
+
+    const cues = normalized.split('\n').map(line => line.match(subRx)).filter(Boolean)
+    const first = cues[0]
+    const fps = Number(first?.[3])
+    const hasFps = first && first[1] === first[2] && Number(first[1]) <= 1 && Number.isFinite(fps) && fps > 0
+    const secondsPerFrame = hasFps ? 1 / fps : 0.041708
+    return cues.slice(hasFps ? 1 : 0).map(([, start, end, text]) =>
+      'Dialogue: 0,' + toTS(Number(start) * secondsPerFrame, 1) + ',' + toTS(Number(end) * secondsPerFrame, 1) + ',Default,,0,0,0,,' + text.replaceAll('|', '\\N')
+    )
   }
 
-  constructSub (subtitle, isNotAss, subtitleIndex, trackNumber) {
-    if (isNotAss === true) { // converts VTT or other to SSA
-      const matches = subtitle.text.match(/<[^>]+>/g) // create array of all tags
-      if (matches) {
-        matches.forEach(match => {
-          if (/<\//.test(match)) { // check if its a closing tag
-            subtitle.text = subtitle.text.replace(match, match.replace('</', '{\\').replace('>', '0}'))
-          } else {
-            subtitle.text = subtitle.text.replace(match, match.replace('<', '{\\').replace('>', '1}'))
-          }
-        })
-      }
-      // replace all html special tags with normal ones
-      subtitle.text = subtitle.text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, '\\h').replace(/\r?\n/g, '\\N')
-    }
+  constructSub(subtitle, track) {
+    const style = (subtitle.style || '').trimStart().replace(/^\*+/, '').replace(/^default$/i, 'Default')
+    const text = subtitle.text || ''
+    const cue = isAssType(track.type) ? text : formatCueText(text)
+    const readOrder = Number(subtitle.readOrder ?? 1)
     return {
       Start: subtitle.time,
       Duration: subtitle.duration,
-      Style: this._stylesMap[trackNumber][subtitle.style || 'Default'] || 0,
+      Style: track.styles.get(style) ?? track.styles.get('Default'),
       Name: subtitle.name || '',
       MarginL: Number(subtitle.marginL) || 0,
       MarginR: Number(subtitle.marginR) || 0,
       MarginV: Number(subtitle.marginV) || 0,
-      Effect: subtitle.effect || '',
-      Text: subtitle.text || '',
-      ReadOrder: 1,
-      Layer: Number(subtitle.layer) || 0,
-      _index: subtitleIndex
+      Effect: subtitle.effect?.trimStart() || '',
+      Text: this.dropAllBlur ? cue.replace(/\\blur(?:[0-9]+\.)?[0-9]+/g, '') : cue,
+      ReadOrder: Number.isInteger(readOrder) ? readOrder : 1,
+      Layer: Number(subtitle.layer) || 0
     }
   }
 
-  selectCaptions (trackNumber) {
-    if (trackNumber != null) {
-      this.current = Number(trackNumber)
-      this.onHeader()
-      if (this.headers) {
-        this.renderer?.setTrack(this.current !== -1 ? this.headers[this.current].header.slice(0, -1) : defaultHeader)
-        if (this.tracks[this.current]) {
-          if (this.renderer) for (const subtitle of this.tracks[this.current]) this.renderer.createEvent(subtitle)
-        }
+  renderSubtitle(subtitle) {
+    if (!this.renderer) return
+    // JASSUB only discovers inline fonts automatically when loading a whole script.
+    if (this.useLocalFonts && subtitle.Text.includes('\\fn')) {
+      for (const [, name] of subtitle.Text.matchAll(/\\fn([^\\}]+)/g)) {
+        const font = name.trim().toLowerCase().replace(/^@/, '')
+        if (!font || this.requestedFonts.has(font)) continue
+        this.requestedFonts.add(font)
+        this.renderer._getLocalFont({ font })
       }
     }
+    this.renderer.createEvent(subtitle)
   }
 
-  destroy () {
+  selectCaptions(trackNumber) {
+    if (trackNumber == null || !this.headers) return
+    const current = Number(trackNumber)
+    if (current === this.current) return
+    const track = this.headers[current]
+    if (current !== -1 && !track) return
+    this.current = current
+    if (track) this.initSubtitleRenderer()
+    this.renderer?.setTrack(track?.header || defaultHeader)
+    for (const subtitle of track?.events ?? []) this.renderSubtitle(subtitle)
+    this.onHeader()
+  }
+
+  destroy() {
     TORRENT.offSubtitles().catch(error => console.warn('Failed to stop subtitles', error))
     clipboard.removeEventListener('text', this.handleClipboardText)
     clipboard.removeEventListener('files', this.handleClipboardFiles)
@@ -344,7 +323,7 @@ export default class Subtitles {
     this.video = null
     this.selected = null
     this.pendingSubtitles = []
-    this.tracks = null
+    this.embeddedTracks.clear()
     this.headers = null
     this.onHeader()
   }
