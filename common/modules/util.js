@@ -774,6 +774,17 @@ export const defaults = {
   subtitleLanguage: 'eng',
   audioLanguage: 'jpn',
   torrentProvider: [],
+  debridEnabled: false,
+  debridProvider: 'torbox',
+  debridMode: 'cached',
+  debridCheckCache: true,
+  debridPrioritizeCached: true,
+  debridConfigs: {
+    torbox: {
+      apiKey: '',
+      seedPreference: 1
+    }
+  },
   enableDoH: false,
   doHURL: 'https://cloudflare-dns.com/dns-query',
   disableSubtitleBlur: SUPPORTS.isAndroid,

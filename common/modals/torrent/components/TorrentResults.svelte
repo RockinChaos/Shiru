@@ -9,6 +9,7 @@
   import { status } from '@/modules/networking.js'
   import { anitomyscript, getMediaMaxEp, getKitsuMappings, getEpisodeMetadataForMedia } from '@/modules/anime/anime.js'
   import { dedupe, getTorrentResults, updatePeerCounts } from '@/modules/extensions/handler.js'
+  import { debrid, normalizeInfoHash } from '@/modules/debrid/index.js'
   import AnimeResolver from '@/modules/anime/animeresolver.js'
   import { anilistClient } from '@/modules/providers/anilist/anilist.js'
   import { click } from '@/modules/lib/click.js'
@@ -17,6 +18,7 @@
   import { X, Search, EllipsisVertical, Timer, Clapperboard, MonitorCog, ArrowDownWideNarrow, Paintbrush, ListMusic, ChevronUp, ChevronDown, Radio, RefreshCw } from 'lucide-svelte'
   import Debug from 'debug'
   const debug = Debug('ui:torrents')
+  const { cacheStore: debridCache } = debrid
 
   /** @typedef {import('@/modules/providers/anilist/al.d.ts').Media} Media */
   /** @typedef {import('anitomyscript').AnitomyResult} AnitomyResult */
@@ -47,26 +49,46 @@
   }
 
   /**
-   * @param {Object} search
+   * Checks whether a torrent entry is cached on the active Debrid provider.
+   *
+   * @param {Result} entry
+   * @param {Record<string, any>} [cachedMap]
+   */
+  function isEntryCached(entry, cachedMap = {}) {
+    const h = normalizeInfoHash(entry?.hash || entry?.link)
+    return Boolean(h && cachedMap?.[h]?.cached)
+  }
+
+  /**
+   * @param {any} search
    * @param {Result[]} results
    * @param {string} audioLang
    * @param {string[]} torrentProvider
    */
   async function getBest(search, results, audioLang, torrentProvider = []) {
     if (!results || !results.length) return null
+    const prioritizeCached = Boolean(debrid.isEnabled() && settings.value.debridPrioritizeCached)
+    const cachedMap = prioritizeCached && settings.value.debridCheckCache
+      ? await debrid.checkCachedHashes(results.map(r => r.hash || r.link))
+      : {}
     const candidates = []
     const checks = await Promise.all(
       results.map(async result => ({
         result,
-        exactBest: (await getRequestedAudio(search, result.parseObject, audioLang)) && result.seeders > 9,
-        exactAlt: (await getRequestedAudio(search, result.parseObject, audioLang)) && result.seeders > 1,
-        dualBest: audioLang !== 'jpn' && (await getRequestedAudio(search, result.parseObject, audioLang, false)) && result.seeders > 9,
-        dualAlt: audioLang !== 'jpn' && (await getRequestedAudio(search, result.parseObject, audioLang, false)) && result.seeders > 1
+        cached: prioritizeCached && isEntryCached(result, cachedMap),
+        exactBest: (await getRequestedAudio(search, result.parseObject, audioLang)) && (result.seeders > 9 || (prioritizeCached && isEntryCached(result, cachedMap))),
+        exactAlt: (await getRequestedAudio(search, result.parseObject, audioLang)) && (result.seeders > 1 || (prioritizeCached && isEntryCached(result, cachedMap))),
+        dualBest: audioLang !== 'jpn' && (await getRequestedAudio(search, result.parseObject, audioLang, false)) && (result.seeders > 9 || (prioritizeCached && isEntryCached(result, cachedMap))),
+        dualAlt: audioLang !== 'jpn' && (await getRequestedAudio(search, result.parseObject, audioLang, false)) && (result.seeders > 1 || (prioritizeCached && isEntryCached(result, cachedMap)))
       })))
     candidates.push(...checks.filter(check => check.exactBest).map(check => check.result), ...checks.filter(check => check.exactAlt).map(check => check.result), ...checks.filter(check => check.dualBest).map(check => check.result), ...checks.filter(check => check.dualAlt).map(check => check.result))
-    candidates.push(...results.filter(result => (result.type === 'best' || result.type === 'alt') && result.seeders > 9))
+    candidates.push(...results.filter(result => (result.type === 'best' || result.type === 'alt') && (result.seeders > 9 || (prioritizeCached && isEntryCached(result, cachedMap)))))
     const uniqueCandidates = Array.from(new Set(candidates))
-    const toConsider = uniqueCandidates.length ? uniqueCandidates : results
+    let toConsider = uniqueCandidates.length ? uniqueCandidates : results
+    if (prioritizeCached) {
+      const cachedOnly = toConsider.filter(r => isEntryCached(r, cachedMap))
+      if (cachedOnly.length) toConsider = cachedOnly
+    }
     if (torrentProvider?.length) {
       const filteredByProvider = toConsider.filter(result => result.parseObject?.release_group && torrentProvider.some(provider => result.parseObject.release_group.toLowerCase().includes(provider.toLowerCase())))
       if (filteredByProvider.length) return filteredByProvider[0]
@@ -83,15 +105,22 @@
    * @param {Result[]} results
    * @param {string} sort
    * @param {boolean} batch
+   * @param {Record<string, any>} [cachedMap]
+   * @param {boolean} [prioritizeCached]
    */
-  function sortResults(results, sort, batch) {
+  function sortResults(results, sort, batch, cachedMap = {}, prioritizeCached = false) {
     if (!results) return { results: [], hiddenResults: [] }
     const deduped = Array.from(dedupe(results)).map(result => {
       if (!(result.parseObject?.release_group && result.parseObject.release_group.length < 20)) result.parseObject = { ...result.parseObject, release_group: 'No Group' }
       return result
     })
+    const isPlayable = entry => entry.seeders > 0 || entry.source?.managed || isEntryCached(entry, cachedMap)
     return {
-      results: deduped.filter(entry => entry.seeders > 0 || entry.source?.managed).sort((a, b) => {
+      results: deduped.filter(isPlayable).sort((a, b) => {
+        if (prioritizeCached) {
+          const cachedDiff = Number(isEntryCached(b, cachedMap)) - Number(isEntryCached(a, cachedMap))
+          if (cachedDiff !== 0) return cachedDiff
+        }
         switch (sort) {
           case 'smallest': return a.size - b.size
           case 'best': return ((b.type === 'best') - (a.type === 'best') || (b.type === 'alt') - (a.type === 'alt')) || b.seeders - a.seeders
@@ -105,7 +134,7 @@
           default: return b.seeders - a.seeders
         }
       }),
-      hiddenResults: deduped.filter(entry => !entry.seeders && !entry.source?.managed)
+      hiddenResults: deduped.filter(entry => !isPlayable(entry))
     }
   }
 
@@ -313,7 +342,10 @@
   const errors = writable(null)
   $: $queries = queryExtensions({...search}, resolution)
   $: $errors = getErrors({...search}, $queries)
-  $: queryResults = sortResults($results?.torrents, $settings.torrentSort, batch)
+  $: if ($results?.torrents?.length && $settings.debridEnabled && $settings.debridCheckCache) {
+    debrid.checkCachedHashes($results.torrents.map(r => r.hash || r.link))
+  }
+  $: queryResults = sortResults($results?.torrents, $settings.torrentSort, batch, $debridCache, $settings.debridEnabled && $settings.debridPrioritizeCached)
   $: lookup = queryResults?.results
   $: (episodeSearch || resolution || $settings.torrentSort || $settings.audioLanguage) && scrollTop()
 
@@ -338,13 +370,16 @@
 
   let searchText = ''
 
-  /** @param {import('../../../../extensions').TorrentResult} result */
-  function play (result) {
+  /**
+   * @param {import('../../../../extensions').TorrentResult} result
+   * @param {'auto' | 'debrid' | 'torrent'} [debridMode='auto']
+   */
+  function play (result, debridMode = 'auto') {
     $currentMedia = search
     $currentMedia.accuracy = result.accuracy
     const existingMagnets = cache.getEntry(caches.HISTORY, 'lastMagnet') || {}
     cache.setEntry(caches.HISTORY, 'lastMagnet', { ...existingMagnets, [search?.media?.id]: !result.parseObject?.episode_number || Array.isArray(result.parseObject.episode_number) ? { [`batch`]: result } : { ...(existingMagnets[search?.media?.id] || {}), [`${search.episode}`]: result } })
-    add(result.link, { media: search?.media, episode: search?.episode }, result.hash)
+    add(result.link, { media: search?.media, episode: search?.episode }, result.hash, undefined, false, { mode: debridMode, name: result.title })
     close()
   }
 
